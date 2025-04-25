@@ -1,0 +1,35 @@
+<html>
+  <body>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage.js"></script>
+    <script>
+      // Your Firebase configuration with storageBucket
+      const firebaseConfig = {
+        // ...
+        storageBucket: 'gs://fyp---2200560.appspot.com'
+      };
+
+      // Initialize Firebase
+      const app = firebase.initializeApp(firebaseConfig);
+
+      // Get a reference to the Firebase Storage service
+      const storage = firebase.storage(app);
+
+      // Create a new Blob with some sample data
+      const fileContent = new Blob(['This is a test file'], { type: 'text/plain' });
+
+      // Create a reference to the file you want to upload
+      const fileRef = storage.ref('test-file.txt');
+
+      // Upload the file to Firebase Storage
+      fileRef.put(fileContent)
+        .then((snapshot) => {
+          console.log('File uploaded successfully!');
+          console.log('Download URL:', snapshot.metadata.fullPath);
+        })
+        .catch((error) => {
+          console.error('Error uploading file:', error);
+        });
+    </script>
+  </body>
+</html>
