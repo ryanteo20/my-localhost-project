@@ -1,8 +1,6 @@
 <?php
 require('database.php');
 require('session.php');
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -147,15 +145,24 @@ ini_set('display_errors', 1);
       </li><!-- End Recruiment Process Nav -->
 
       <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#attendance-nav" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
+        <a class="nav-link collapsed" data-bs-target="#tables-nav" data-bs-toggle="collapse" href="attendance_employer.php">
+          <i class="bi bi-layout-text-window-reverse"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
         </a>
-        <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <ul id="tables-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <ul id="tables-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
         <li>
             <a href="attendance_employer.php">
               <i class="bi bi-circle"></i><span>Clock in & out</span>
             </a>
           </li>
+          <li>
+            <a href="v_all_attendance.php">
+              <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
+            </a>
+          </li>
+        </ul>
+        </ul>
+        <ul id="tables-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
             <a href="v_all_attendance.php">
               <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
@@ -219,108 +226,116 @@ ini_set('display_errors', 1);
       </li><!-- End Claim Management Nav -->
     </ul>
 
-  </aside><!-- End Sidebar-->
+  </aside>
 
   <main id="main" class="main">
 
     <div class="pagetitle">
-      <h1>Add Employee</h1>
-      <nav>
-        <ol class="breadcrumb">
-          <li class="breadcrumb-item"><a href="index.php">Home</a></li>
-          <li class="breadcrumb-item">Employee Management</li>
-          <li class="breadcrumb-item active"><a href="add_ed.php">Employee Documentation</a></li>
-          <li class="breadcrumb-item active"><a href="add_l.php">Leave Information</a></li>
-        </ol>
-      </nav>
+      <h1>Home</h1>
     </div><!-- End Page Title -->
 
-    <div id="form-container">
-    <div class="card" id="leave_info">
-        <div class="card-body">
-            <h5 class="card-title">6. Insert Leave Information</h5>
-<form id="leave_info" class="row g-3" method="POST" enctype="multipart/form-data" action="handle_leave.php">
-    <div class="col-md-4">
-        <label for="inputAnnual" class="form-label">Annual Leave</label>
-        <input type="text" class="form-control" id="inputAnnual" name="inputAnnual" placeholder="Minimum Annual Leave is 8 days">                
-    </div>
-    <div class="col-md-4">
-        <label for="inputSick" class="form-label">Sick Leave</label>
-        <input type="text" class="form-control" id="inputSick" name="inputSick" placeholder="Minimum Sick Leave is 14 days">                
-    </div>
-    <div class="col-md-4">
-        <label for="inputHospitalization" class="form-label">Hospitalization Leave</label>
-        <input type="text" class="form-control" id="inputHospitalization" name="inputHospitalization" placeholder="Minimum Hospitalization Leave is 60 days">                
-    </div>
-    <div class="text-center">
-        <button type="reset" class="btn btn-secondary">Reset</button>
-        <button type="submit" class="btn btn-primary" id="leave-button">Submit</button>
-        <button type="button" class="btn btn-secondary" id="done-button">Done</button>
-    </div>
-</form><!-- End Employee Documentation Form -->
+    <section class="section dashboard">
+      <div class="row">
+      <h3>Employee Management</h3>                      
+        <!-- Left side columns -->
+        <div class="col-lg-12">
+          <div class="row">
 
-        </div>
-    </div>
-</div>
+            <!-- Sales Card -->
+            <div class="col-xxl-4 col-md-6">
+              <div class="card info-card sales-card">
 
-<div class="card">
-        <div class="card-body">
-            <h5 class="card-title">Latest Leave Information</h5>
+                <div class="filter">
+                  <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+                </div>
+                <div class="card-body">
+                  <h5 class="card-title">Total Employee</h5>
 
-            <!-- Default Table -->
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th scope="col">ID</th>
-                        <th scope="col">Annual Leave</th>
-                        <th scope="col">Sick Leave</th>
-                        <th scope="col">Hospitalization Leave</th>
-                    </tr>
-                </thead>
-                <tbody id="latest-leave_info">
-                  <?php
-                    // Include your database connection
-                    require('database.php');
+                  <div class="d-flex align-items-center">
+                      <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                          <i class="ri-group-line"></i>
+                      </div>
+                      <div class="ps-3">
+                          <?php
+                          // Include your database connection
+                          require('database.php');
+                          
+                          // Prepare the SQL query to count the number of rows in the employeelogin table
+                          $query = "SELECT COUNT(*) AS total_employees FROM employeelogin";
+                          
+                          // Execute the query
+                          $result = mysqli_query($con, $query);
+                          
+                          // Check if the query executed successfully
+                          if ($result) {
+                              // Fetch the result as an associative array
+                              $row = mysqli_fetch_assoc($result);
+                              
+                              // Get the total number of employees
+                              $totalEmployees = $row['total_employees'];
+                              
+                          } 
+                          
+                          // Output the total number of employees within the card
+                          echo "<h6>$totalEmployees</h6>";
+                          ?>
+                      </div>
+                  </div>
+              </div>
+              </div>
+            </div><!-- End Sales Card -->
+                        <!-- Sales Card -->
+                        <div class="col-xxl-4 col-md-6">
+              <div class="card info-card sales-card">
 
-                    // Prepare the SQL query to select data from the employeelogin table
-                    $query = "SELECT * FROM leave_info ORDER BY leaveinfo_id DESC LIMIT 1";
+                <div class="filter">
+                  <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+                </div>
+                <div class="card-body">
+                  <h5 class="card-title">Total Leave pending</h5>
 
-                    // Execute the query
-                    $result = mysqli_query($con, $query);
+                  <div class="d-flex align-items-center">
+                      <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                          <i class="ri-group-line"></i>
+                      </div>
+                      <div class="ps-3">
+                      <?php
+                          // Include your database connection
+                          require('database.php');
 
-                    // Check if there are any rows returned
-                    if (mysqli_num_rows($result) > 0) {
-                        // Fetch each row of data and display it in the table
-                        while ($row = mysqli_fetch_assoc($result)) {
-                            echo "<tr>";
-                            echo "<td>{$row['leaveinfo_id']}</td>";
-                            echo "<td>{$row['annual_leave']}</td>";
-                            echo "<td>{$row['sick_leave']}</td>";
-                            echo "<td>{$row['hospitalization_leave']}</td>";
-                            echo "</tr>";
-                        }
-                    } else {
-                        // If no data is found, display a message
-                        echo "<tr><td colspan='4'>No data found</td></tr>";
-                    }
+                          // Query pending leave applications for review
+                          $query_pending_review = "SELECT COUNT(*) AS pending_review FROM leave_apply WHERE leave_review = 'Pending for review'";
 
-                    // Close the connection
-                    mysqli_close($con);
-                    ?>
-                </tbody>
-            </table>
-            <!-- End Default Table -->
-        </div>
-    </div>
+                          // Execute the query
+                          $result_pending_review = mysqli_query($con, $query_pending_review);
 
+                          // Check if the query executed successfully
+                          if ($result_pending_review) {
+                              // Fetch the result as an associative array
+                              $row_pending_review = mysqli_fetch_assoc($result_pending_review);
+                              
+                              // Get the total number of pending leave applications for review
+                              $pendingReview = $row_pending_review['pending_review'];
+                              
+                          } else {
+                              // Error handling if the query fails
+                              $pendingReview = "Error fetching pending leave for review";
+                          }
+
+                          // Output the total number of pending leave applications for review within the card
+                          echo "<h6>$pendingReview</h6>";
+                          ?>
+                      </div>
+                  </div>
+              </div>
+              </div>
+            </div><!-- End Sales Card -->
+
+      </div>
+    </section>
 
   </main><!-- End #main -->
-  <?php
-  if (isset($success_message)) {
-      // If a success message is set, output JavaScript to display an alert
-      echo "<script>alert('$success_message');</script>";
-  }
-  ?>
+
   <!-- ======= Footer ======= -->
   <footer id="footer" class="footer">
     <div class="copyright">
@@ -342,24 +357,6 @@ ini_set('display_errors', 1);
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-        const employeeForm = document.getElementById('leave_info');
-        let formSubmitted = false;
-
-        employeeForm.addEventListener('submit', function(event) {
-            if (formSubmitted) {
-                event.preventDefault();
-                return;
-            }
-
-            formSubmitted = true;
-        });
-    });
-        document.getElementById('done-button').addEventListener('click', function() {
-        window.location.href = 'view_all.php';
-        });
-  </script>
 
 </body>
 

@@ -145,12 +145,17 @@ require('session.php');
       </li><!-- End Recruiment Process Nav -->
 
       <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#tables-nav" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-layout-text-window-reverse"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
+        <a class="nav-link collapsed" data-bs-target="#attendance-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
         </a>
-        <ul id="tables-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <li>
+            <a href="attendance_employer.php">
+              <i class="bi bi-circle"></i><span>Clock in & out</span>
+            </a>
+          </li>
           <li>
-            <a href="v_all_attandance.php">
+            <a href="v_all_attendance.php">
               <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
             </a>
           </li>
