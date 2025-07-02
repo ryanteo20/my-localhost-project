@@ -730,7 +730,7 @@ require('session.php');
                                 echo "<tr>";
                                 echo "<td>{$row['document_id']}</td>";
                                 echo "<td>{$row['education_level']}</td>";
-                                echo "<td><a href='file://{$row['ic_picture']}' target='_blank'>View Picture</a></td>";                            
+                                echo "<td><a href='download.php?id={$row['document_id']}'>Download File</a></td>";
                                 echo "</tr>";
                             }
                         } else {

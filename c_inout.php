@@ -1,73 +1,10 @@
 <?php
 require('database.php');
 require('session.php');
+date_default_timezone_set("Asia/Kuala_Lumpur");
 
-date_default_timezone_set('Asia/Kuala_Lumpur');
-$date = date('Y-m-d');
-$time_now = date('Y-m-d H:i:s');
-
-
-$employee_id = $_SESSION['ID'] ?? null;
-
-$date = date('Y-m-d');
-$time_now = date('Y-m-d H:i:s');
-$status = 'present';
-$ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
-$location_coordinates = null;
-
-// Handle Clock In
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_in'])) {
-  $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
-
-  $stmt = $con->prepare($query);
-  $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
-  
-  if (!$stmt->execute()) {
-      die("Error clocking in: " . $stmt->error);
-  }
-}
-
-// Handle Clock Out
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_out'])) {
-  // Step 1: Check if user already clocked out
-  $checkQuery = "SELECT clock_out FROM attendance WHERE employee_id = ? AND date = ?";
-  $checkStmt = $con->prepare($checkQuery);
-  $checkStmt->bind_param("is", $employee_id, $date);
-  $checkStmt->execute();
-  $result = $checkStmt->get_result();
-
-  if ($result && $row = $result->fetch_assoc()) {
-      if (empty($row['clock_out'])) {
-          // Step 2: Only update if not already clocked out
-          $updateQuery = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
-          $updateStmt = $con->prepare($updateQuery);
-          $updateStmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
-          $updateStmt->execute();
-      } else {
-          // Optional: log or ignore duplicate attempt
-          // echo "Already clocked out!";
-      }
-  }
-}
-// ✅ Fetch today's attendance
-$query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
-$stmt = $con->prepare($query);
-$stmt->bind_param("is", $employee_id, $date);
-$stmt->execute();
-$result = $stmt->get_result();
-$attendance = $result->fetch_assoc();
-
-// ✅ Define flags to control UI logic
-$hasClockedIn = false;
-$hasClockedOut = false;
-
-if ($attendance) {
-    $hasClockedIn = !empty($attendance['clock_in']);
-    $hasClockedOut = !empty($attendance['clock_out']);
-}
-
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -212,10 +149,10 @@ if ($attendance) {
       </li><!-- End Recruiment Process Nav -->
 
       <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#tables-nav" data-bs-toggle="collapse" href="attendance_employer.php">
-          <i class="bi bi-layout-text-window-reverse"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
+        <a class="nav-link collapsed" data-bs-target="#attendance-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
         </a>
-        <ul id="tables-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
         <li>
             <a href="attendance_employer.php">
               <i class="bi bi-circle"></i><span>Clock in & out</span>
@@ -240,7 +177,7 @@ if ($attendance) {
             </a>
           </li>
           <li>
-            <a href="AL.php">
+          <a href="AL.php">
               <i class="bi bi-circle"></i><span>Apply Leave</span>
             </a>
           </li>
@@ -288,47 +225,16 @@ if ($attendance) {
 
   <main id="main" class="main">
 
-    <div class="pagetitle">
-      <h1>Attendance</h1>
-    </div><!-- End Page Title -->
-
-      <section class="section">
-        <div class="card p-4" style="max-width: 500px; margin: auto;">
-          <h4 class="mb-3">Clock In / Clock Out</h4>
-
-          <div class="d-flex align-items-center justify-content-between border rounded p-3">
-            <div class="d-flex align-items-center">
-              <span class="me-2" style="font-size: 20px; color: <?= $hasClockedIn ? 'green' : 'red' ?>">●</span>
-              <div>
-                <?php if ($hasClockedIn): ?>
-                  <p class="mb-0">Since <?= date('g:i A', strtotime($attendance['clock_in'])) ?></p>
-                  <strong 
-                      id="duration" 
-                      data-clockin="<?= $attendance['clock_in'] ?>"
-                      <?php if ($hasClockedOut): ?>data-clockout="<?= $attendance['clock_out'] ?>"<?php endif; ?>
-                    >
-                      00:00:00
-                    </strong>
-                    <?php else: ?>
-                  <p class="mb-0">Not yet checked in</p>
-                  <small>Click to start your shift</small>
-                <?php endif; ?>
-              </div>
-            </div>
-
-            <form method="post">
-            <?php if (!$hasClockedIn): ?>
-                <button type="submit" name="check_in" class="btn btn-success">Check In</button>
-            <?php elseif (!$hasClockedOut): ?>
-                <button type="submit" name="check_out" class="btn btn-warning">Check Out</button>
-            <?php else: ?>
-                <span class="badge bg-secondary">Checked Out</span>
-            <?php endif; ?>
-          </form>
-          </div>
-        </div>
-      </section>
-  </main><!-- End #main -->
+  <div class="pagetitle">
+    <h1>Add Employee</h1>
+    <nav>
+      <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="index.php">Home</a></li>
+        <li class="breadcrumb-item">Employee Management</li>
+        <li class="breadcrumb-item active"><a href="add.php">Clock in & out</a></li>
+      </ol>
+    </nav>
+  </div>
 
   <!-- ======= Footer ======= -->
   <footer id="footer" class="footer">
@@ -351,32 +257,27 @@ if ($attendance) {
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
+
   <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const durationElement = document.getElementById("duration");
-      if (!durationElement) return;
+    document.addEventListener('DOMContentLoaded', function() {
+      const registerForm = document.getElementById('registerForm');
+      let formSubmitted = false;
 
-      const clockIn = new Date(durationElement.dataset.clockin).getTime();
-      const clockOutAttr = durationElement.dataset.clockout;
-      const clockOut = clockOutAttr ? new Date(clockOutAttr).getTime() : null;
+      registerForm.addEventListener('submit', function(event) {
+          if (formSubmitted) {
+              event.preventDefault();
+              return;
+          }
 
-      function updateDuration() {
-        const now = clockOut || new Date().getTime();
-        const diff = now - clockIn;
+          formSubmitted = true;
+      });
 
-        const hours = String(Math.floor(diff / (1000 * 60 * 60))).padStart(2, '0');
-        const minutes = String(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
-        const seconds = String(Math.floor((diff % (1000 * 60)) / 1000)).padStart(2, '0');
-
-        durationElement.textContent = `${hours}:${minutes}:${seconds}`;
-
-        if (clockOut) clearInterval(timer); // stop if already clocked out
-      }
-
-      updateDuration();
-      const timer = setInterval(updateDuration, 1000);
+    document.getElementById('next-button').addEventListener('click', function() {
+      window.location.href = 'add_p.php';
     });
+});
 </script>
+
 </body>
 
 </html>

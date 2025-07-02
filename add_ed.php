@@ -5,38 +5,25 @@ require('session.php');
 function handleEmployeeDocument($con) {
   if (isset($_REQUEST['inputEducation']) && isset($_FILES['inputIC']) && $_FILES['inputIC']['error'] === UPLOAD_ERR_OK) {
       
-      // Retrieve form data
       $inputEducation = mysqli_real_escape_string($con, $_REQUEST['inputEducation']);
-
-      // Handle file upload
       $file = $_FILES['inputIC'];
-      $fileName = $file['name'];
       $fileTmpName = $file['tmp_name'];
+      $fileName = $file['name'];
+      $fileType = mime_content_type($fileTmpName);
+      $fileContent = file_get_contents($fileTmpName);
 
-      // Set the upload directory
-      $uploadDir = '/Applications/XAMPP/xamppfiles/htdocs/Image/';
+      $query = "INSERT INTO employee_document (education_level, ic_picture, filename, mime_type) VALUES (?, ?, ?, ?)";
+      $stmt = mysqli_prepare($con, $query);
+      mysqli_stmt_bind_param($stmt, "ssss", $inputEducation, $fileContent, $fileName, $fileType);
 
-      // Create the target file path
-      $targetFilePath = $uploadDir . basename($fileName);
-
-      // Move the uploaded file to the target directory
-      if (move_uploaded_file($fileTmpName, $targetFilePath)) {
-          // SQL statement (use prepared statement)
-          $query = "INSERT INTO `employee_document` (education_level, ic_picture) VALUES (?, ?)";
-          $stmt = mysqli_prepare($con, $query);
-          mysqli_stmt_bind_param($stmt, "ss", $inputEducation, $targetFilePath);
-          
-          // Execute the statement
-          if (mysqli_stmt_execute($stmt)) {
-              return "Employee document inserted successfully.";
-          } else {
-              return "Error: " . mysqli_stmt_error($stmt);
-          }
+      if (mysqli_stmt_execute($stmt)) {
+          return "Employee document uploaded successfully.";
       } else {
-          return "Error uploading file.";
+          return "Error: " . mysqli_stmt_error($stmt);
       }
   }
 }
+
 
 $success_message = handleEmployeeDocument($con);
 
@@ -344,7 +331,7 @@ $success_message = handleEmployeeDocument($con);
                             echo "<tr>";
                             echo "<td>{$row['document_id']}</td>";
                             echo "<td>{$row['education_level']}</td>";
-                            echo "<td><a href='file://{$row['ic_picture']}' target='_blank'>View Picture</a></td>";                            
+                            echo "<td><a href='download.php?id={$row['document_id']}'>Download File</a></td>";
                             echo "</tr>";
                         }
                     } else {

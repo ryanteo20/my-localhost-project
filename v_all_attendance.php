@@ -2,11 +2,6 @@
 require('database.php');
 require('session.php');
 
-date_default_timezone_set('Asia/Kuala_Lumpur');
-$date = date('Y-m-d');
-$time_now = date('Y-m-d H:i:s');
-
-
 $employee_id = $_SESSION['ID'] ?? null;
 
 $date = date('Y-m-d');
@@ -15,43 +10,22 @@ $status = 'present';
 $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
 $location_coordinates = null;
 
-// Handle Clock In
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_in'])) {
-  $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
-
-  $stmt = $con->prepare($query);
-  $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
-  
-  if (!$stmt->execute()) {
-      die("Error clocking in: " . $stmt->error);
-  }
+if (isset($_POST['check_in'])) {
+    $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
+    $stmt = $con->prepare($query);
+    $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
+    $stmt->execute();
 }
 
-// Handle Clock Out
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_out'])) {
-  // Step 1: Check if user already clocked out
-  $checkQuery = "SELECT clock_out FROM attendance WHERE employee_id = ? AND date = ?";
-  $checkStmt = $con->prepare($checkQuery);
-  $checkStmt->bind_param("is", $employee_id, $date);
-  $checkStmt->execute();
-  $result = $checkStmt->get_result();
-
-  if ($result && $row = $result->fetch_assoc()) {
-      if (empty($row['clock_out'])) {
-          // Step 2: Only update if not already clocked out
-          $updateQuery = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
-          $updateStmt = $con->prepare($updateQuery);
-          $updateStmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
-          $updateStmt->execute();
-      } else {
-          // Optional: log or ignore duplicate attempt
-          // echo "Already clocked out!";
-      }
-  }
+if (isset($_POST['check_out'])) {
+    $query = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
+    $stmt = $con->prepare($query);
+    $stmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
+    $stmt->execute();
 }
-// ✅ Fetch today's attendance
+
 $query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
 $stmt = $con->prepare($query);
 $stmt->bind_param("is", $employee_id, $date);
@@ -59,15 +33,39 @@ $stmt->execute();
 $result = $stmt->get_result();
 $attendance = $result->fetch_assoc();
 
-// ✅ Define flags to control UI logic
-$hasClockedIn = false;
-$hasClockedOut = false;
+$selected_month = $_GET['month'] ?? date('m');
+$selected_year = $_GET['year'] ?? date('Y');
 
-if ($attendance) {
-    $hasClockedIn = !empty($attendance['clock_in']);
-    $hasClockedOut = !empty($attendance['clock_out']);
+$history_query = "SELECT * FROM attendance 
+                  WHERE employee_id = ? 
+                  AND MONTH(date) = ? 
+                  AND YEAR(date) = ? 
+                  ORDER BY date DESC";
+$stmt = $con->prepare($history_query);
+if ($stmt) {
+    $stmt->bind_param("iii", $employee_id, $selected_month, $selected_year);
+    $stmt->execute();
+    $history_result = $stmt->get_result();
+} else {
+    echo "<div class='alert alert-danger'>Query Error: " . $con->error . "</div>";
+    $history_result = false;
 }
 
+// Count totals
+$total_present = $total_absent = $total_leave = $total_halfday = 0;
+if ($history_result) {
+    foreach ($history_result as $row) {
+        switch ($row['status']) {
+            case 'present': $total_present++; break;
+            case 'absent': $total_absent++; break;
+            case 'on-leave': $total_leave++; break;
+            case 'half-day': $total_halfday++; break;
+        }
+    }
+    // Re-execute to use again below
+    $stmt->execute();
+    $history_result = $stmt->get_result();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -292,42 +290,70 @@ if ($attendance) {
       <h1>Attendance</h1>
     </div><!-- End Page Title -->
 
-      <section class="section">
-        <div class="card p-4" style="max-width: 500px; margin: auto;">
-          <h4 class="mb-3">Clock In / Clock Out</h4>
-
-          <div class="d-flex align-items-center justify-content-between border rounded p-3">
-            <div class="d-flex align-items-center">
-              <span class="me-2" style="font-size: 20px; color: <?= $hasClockedIn ? 'green' : 'red' ?>">●</span>
-              <div>
-                <?php if ($hasClockedIn): ?>
-                  <p class="mb-0">Since <?= date('g:i A', strtotime($attendance['clock_in'])) ?></p>
-                  <strong 
-                      id="duration" 
-                      data-clockin="<?= $attendance['clock_in'] ?>"
-                      <?php if ($hasClockedOut): ?>data-clockout="<?= $attendance['clock_out'] ?>"<?php endif; ?>
-                    >
-                      00:00:00
-                    </strong>
-                    <?php else: ?>
-                  <p class="mb-0">Not yet checked in</p>
-                  <small>Click to start your shift</small>
-                <?php endif; ?>
-              </div>
-            </div>
-
-            <form method="post">
-            <?php if (!$hasClockedIn): ?>
-                <button type="submit" name="check_in" class="btn btn-success">Check In</button>
-            <?php elseif (!$hasClockedOut): ?>
-                <button type="submit" name="check_out" class="btn btn-warning">Check Out</button>
-            <?php else: ?>
-                <span class="badge bg-secondary">Checked Out</span>
-            <?php endif; ?>
-          </form>
+    <section class="section dashboard">
+      <h5>Employer Attendance</h5>                      
+        <div class="card p-4 mb-5">
+        <h4 class="mb-3">Clock In / Out</h4>
+        <form method="get" class="row g-3 mb-4">
+          <div class="col-auto">
+            <select name="month" class="form-select">
+              <?php for ($m = 1; $m <= 12; $m++): ?>
+                <option value="<?= $m ?>" <?= ($m == $selected_month) ? 'selected' : '' ?>><?= date('F', mktime(0, 0, 0, $m, 10)) ?></option>
+              <?php endfor; ?>
+            </select>
           </div>
+          <div class="col-auto">
+            <select name="year" class="form-select">
+              <?php for ($y = date('Y') - 3; $y <= date('Y'); $y++): ?>
+                <option value="<?= $y ?>" <?= ($y == $selected_year) ? 'selected' : '' ?>><?= $y ?></option>
+              <?php endfor; ?>
+            </select>
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Filter</button>
+            <a href="export_attendance.php?month=<?= $selected_month ?>&year=<?= $selected_year ?>" class="btn btn-success">Export</a>
+          </div>
+        </form>
+
+        <div class="mb-3">
+          <strong>Totals for <?= date('F Y', mktime(0, 0, 0, $selected_month, 1, $selected_year)) ?>:</strong><br>
+          Present: <?= $total_present ?>, Absent: <?= $total_absent ?>, On Leave: <?= $total_leave ?>, Half Day: <?= $total_halfday ?>
         </div>
-      </section>
+      </div>
+
+      <div class="card p-4">
+        <h4 class="mb-3">Attendance History (Last 30 Days)</h4>
+        <div class="table-responsive">
+          <table class="table table-bordered">
+            <thead class="table-light">
+              <tr>
+                <th>Date</th>
+                <th>Clock In</th>
+                <th>Clock Out</th>
+                <th>Status</th>
+                <th>IP Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if ($history_result): ?>
+                <?php while ($row = $history_result->fetch_assoc()): ?>
+                  <tr>
+                    <td><?php echo htmlspecialchars($row['date']); ?></td>
+                    <td><?php echo htmlspecialchars($row['clock_in']); ?></td>
+                    <td><?php echo htmlspecialchars($row['clock_out']); ?></td>
+                    <td><?php echo htmlspecialchars($row['status']); ?></td>
+                    <td><?php echo htmlspecialchars($row['ip_address']); ?></td>
+                  </tr>
+                <?php endwhile; ?>
+              <?php else: ?>
+                <tr><td colspan="5">No attendance records found.</td></tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
   </main><!-- End #main -->
 
   <!-- ======= Footer ======= -->
@@ -351,32 +377,7 @@ if ($attendance) {
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const durationElement = document.getElementById("duration");
-      if (!durationElement) return;
 
-      const clockIn = new Date(durationElement.dataset.clockin).getTime();
-      const clockOutAttr = durationElement.dataset.clockout;
-      const clockOut = clockOutAttr ? new Date(clockOutAttr).getTime() : null;
-
-      function updateDuration() {
-        const now = clockOut || new Date().getTime();
-        const diff = now - clockIn;
-
-        const hours = String(Math.floor(diff / (1000 * 60 * 60))).padStart(2, '0');
-        const minutes = String(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
-        const seconds = String(Math.floor((diff % (1000 * 60)) / 1000)).padStart(2, '0');
-
-        durationElement.textContent = `${hours}:${minutes}:${seconds}`;
-
-        if (clockOut) clearInterval(timer); // stop if already clocked out
-      }
-
-      updateDuration();
-      const timer = setInterval(updateDuration, 1000);
-    });
-</script>
 </body>
 
 </html>
