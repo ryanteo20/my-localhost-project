@@ -239,6 +239,11 @@ $success_message = handleEmploymentDetails($con);
         </a>
         <ul id="claim-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
+            <a href="R_claim.php">
+              <i class="bi bi-circle"></i><span>Request Claim</span>
+            </a>
+          </li>
+          <li>
             <a href="AR_claim.php">
               <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
             </a>

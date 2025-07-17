@@ -1,71 +1,6 @@
 <?php
 require('database.php');
 require('session.php');
-
-$employee_id = $_SESSION['ID'] ?? null;
-
-$date = date('Y-m-d');
-$time_now = date('Y-m-d H:i:s');
-$status = 'present';
-$ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
-$location_coordinates = null;
-
-if (isset($_POST['check_in'])) {
-    $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
-              VALUES (?, ?, ?, ?, ?, ?)
-              ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
-    $stmt->execute();
-}
-
-if (isset($_POST['check_out'])) {
-    $query = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
-    $stmt = $con->prepare($query);
-    $stmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
-    $stmt->execute();
-}
-
-$query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
-$stmt = $con->prepare($query);
-$stmt->bind_param("is", $employee_id, $date);
-$stmt->execute();
-$result = $stmt->get_result();
-$attendance = $result->fetch_assoc();
-
-$selected_month = $_GET['month'] ?? date('m');
-$selected_year = $_GET['year'] ?? date('Y');
-
-$history_query = "SELECT * FROM attendance 
-                  WHERE employee_id = ? 
-                  AND MONTH(date) = ? 
-                  AND YEAR(date) = ? 
-                  ORDER BY date DESC";
-$stmt = $con->prepare($history_query);
-if ($stmt) {
-    $stmt->bind_param("iii", $employee_id, $selected_month, $selected_year);
-    $stmt->execute();
-    $history_result = $stmt->get_result();
-} else {
-    echo "<div class='alert alert-danger'>Query Error: " . $con->error . "</div>";
-    $history_result = false;
-}
-
-// Count totals
-$total_present = $total_absent = $total_leave = $total_halfday = 0;
-if ($history_result) {
-    foreach ($history_result as $row) {
-        switch ($row['status']) {
-            case 'present': $total_present++; break;
-            case 'absent': $total_absent++; break;
-            case 'on-leave': $total_leave++; break;
-            case 'half-day': $total_halfday++; break;
-        }
-    }
-    // Re-execute to use again below
-    $stmt->execute();
-    $history_result = $stmt->get_result();
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -210,10 +145,10 @@ if ($history_result) {
       </li><!-- End Recruiment Process Nav -->
 
       <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#tables-nav" data-bs-toggle="collapse" href="attendance_employer.php">
-          <i class="bi bi-layout-text-window-reverse"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
+        <a class="nav-link collapsed" data-bs-target="#attendance-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
         </a>
-        <ul id="tables-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
         <li>
             <a href="attendance_employer.php">
               <i class="bi bi-circle"></i><span>Clock in & out</span>
@@ -292,74 +227,147 @@ if ($history_result) {
   <main id="main" class="main">
 
     <div class="pagetitle">
-      <h1>Attendance</h1>
+      <h1>Request Claim</h1>
     </div><!-- End Page Title -->
 
-    <section class="section dashboard">
-      <h5>Employer Attendance</h5>                      
-        <div class="card p-4 mb-5">
-        <h4 class="mb-3">Clock In / Out</h4>
-        <form method="get" class="row g-3 mb-4">
-          <div class="col-auto">
-            <select name="month" class="form-select">
-              <?php for ($m = 1; $m <= 12; $m++): ?>
-                <option value="<?= $m ?>" <?= ($m == $selected_month) ? 'selected' : '' ?>><?= date('F', mktime(0, 0, 0, $m, 10)) ?></option>
-              <?php endfor; ?>
-            </select>
-          </div>
-          <div class="col-auto">
-            <select name="year" class="form-select">
-              <?php for ($y = date('Y') - 3; $y <= date('Y'); $y++): ?>
-                <option value="<?= $y ?>" <?= ($y == $selected_year) ? 'selected' : '' ?>><?= $y ?></option>
-              <?php endfor; ?>
-            </select>
-          </div>
-          <div class="col-auto">
-            <button type="submit" class="btn btn-primary">Filter</button>
-            <a href="export_attendance.php?month=<?= $selected_month ?>&year=<?= $selected_year ?>" class="btn btn-success">Export</a>
-          </div>
-        </form>
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">All Claims</h5>
 
-        <div class="mb-3">
-          <strong>Totals for <?= date('F Y', mktime(0, 0, 0, $selected_month, 1, $selected_year)) ?>:</strong><br>
-          Present: <?= $total_present ?>, Absent: <?= $total_absent ?>, On Leave: <?= $total_leave ?>, Half Day: <?= $total_halfday ?>
+              <!-- Bordered Tabs -->
+              <ul class="nav nav-tabs nav-tabs-bordered" id="borderedTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#bordered-home" type="button" role="tab" aria-controls="home" aria-selected="true">Claims List</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                  <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#bordered-profile" type="button" role="tab" aria-controls="profile" aria-selected="false">Summary Report</button>
+              </ul>
+              <div class="tab-content pt-2" id="borderedTabContent">
+                <div class="tab-pane fade show active" id="bordered-home" role="tabpanel" aria-labelledby="home-tab">
+                <!-- Sales Card -->
+                 <div class="row">
+                    <div class="col-xxl-4 col-md-6">
+                    <div class="card info-card sales-card">
+
+                        <div class="filter">
+                        <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+                        </div>
+                        <div class="card-body">
+                        <h5 class="card-title">Total Claim pending</h5>
+
+                        <div class="d-flex align-items-center">
+                            <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                                <i class="ri-money-dollar-box-line"></i>
+                            </div>
+                            <div class="ps-3">
+                            <?php
+                                // Include your database connection
+                                require('database.php');
+
+                                // Query pending leave applications for review
+                                $query_pending_review = "SELECT COUNT(*) AS pending_review FROM leave_apply WHERE leave_review = 'Pending for review'";
+
+                                // Execute the query
+                                $result_pending_review = mysqli_query($con, $query_pending_review);
+
+                                // Check if the query executed successfully
+                                if ($result_pending_review) {
+                                    // Fetch the result as an associative array
+                                    $row_pending_review = mysqli_fetch_assoc($result_pending_review);
+                                    
+                                    // Get the total number of pending leave applications for review
+                                    $pendingReview = $row_pending_review['pending_review'];
+                                    
+                                } else {
+                                    // Error handling if the query fails
+                                    $pendingReview = "Error fetching pending leave for review";
+                                }
+
+                                // Output the total number of pending leave applications for review within the card
+                                echo "<h6>$pendingReview</h6>";
+                                ?>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                    </div><!-- End Sales Card -->
+
+                    <div class="col-xxl-4 col-md-6">
+                        <div class="card info-card sales-card">
+
+                            <div class="filter">
+                            <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+                            </div>
+                            <div class="card-body">
+                            <h5 class="card-title">Total Claim Settle</h5>
+
+                            <div class="d-flex align-items-center">
+                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                                    <i class="ri-money-dollar-box-line"></i>
+                                </div>
+                                <div class="ps-3">
+                                <?php
+                                    // Include your database connection
+                                    require('database.php');
+
+                                    // Query pending leave applications for review
+                                    $query_pending_review = "SELECT COUNT(*) AS pending_review FROM leave_apply WHERE leave_review = 'Pending for review'";
+
+                                    // Execute the query
+                                    $result_pending_review = mysqli_query($con, $query_pending_review);
+
+                                    // Check if the query executed successfully
+                                    if ($result_pending_review) {
+                                        // Fetch the result as an associative array
+                                        $row_pending_review = mysqli_fetch_assoc($result_pending_review);
+                                        
+                                        // Get the total number of pending leave applications for review
+                                        $pendingReview = $row_pending_review['pending_review'];
+                                        
+                                    } else {
+                                        // Error handling if the query fails
+                                        $pendingReview = "Error fetching pending leave for review";
+                                    }
+
+                                    // Output the total number of pending leave applications for review within the card
+                                    echo "<h6>$pendingReview</h6>";
+                                    ?>
+                                </div>
+                            </div>
+                        </div>
+                        </div>
+                    </div><!-- End Sales Card -->
+                    <div class="col-auto ms-auto">
+                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#verticalycentered">
+                            New Claim
+                        </button>
+                    </div>
+                </div><!-- End Row -->
+                <div class="tab-pane fade" id="bordered-profile" role="tabpanel" aria-labelledby="profile-tab">
+                  Nesciunt totam et. Consequuntur magnam aliquid eos nulla dolor iure eos quia. Accusantium distinctio omnis et atque fugiat. Itaque doloremque aliquid sint quasi quia distinctio similique. Voluptate nihil recusandae mollitia dolores. Ut laboriosam voluptatum dicta.
+                </div>
+              </div><!-- End Bordered Tabs -->
+            </div>
         </div>
-      </div>
-
-      <div class="card p-4">
-        <h4 class="mb-3">Attendance History (Last 30 Days)</h4>
-        <div class="table-responsive">
-          <table class="table table-bordered">
-            <thead class="table-light">
-              <tr>
-                <th>Date</th>
-                <th>Clock In</th>
-                <th>Clock Out</th>
-                <th>Status</th>
-                <th>IP Address</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php if ($history_result): ?>
-                <?php while ($row = $history_result->fetch_assoc()): ?>
-                  <tr>
-                    <td><?php echo htmlspecialchars($row['date']); ?></td>
-                    <td><?php echo htmlspecialchars($row['clock_in']); ?></td>
-                    <td><?php echo htmlspecialchars($row['clock_out']); ?></td>
-                    <td><?php echo htmlspecialchars($row['status']); ?></td>
-                    <td><?php echo htmlspecialchars($row['ip_address']); ?></td>
-                  </tr>
-                <?php endwhile; ?>
-              <?php else: ?>
-                <tr><td colspan="5">No attendance records found.</td></tr>
-              <?php endif; ?>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
   </main><!-- End #main -->
+
+    <div class="modal fade" id="verticalycentered" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="exampleModalLabel">New Claim</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Modal content -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Save changes</button>
+            </div>
+            </div>
+        </div>
+    </div>
 
   <!-- ======= Footer ======= -->
   <footer id="footer" class="footer">
@@ -379,6 +387,7 @@ if ($history_result) {
   <script src="assets/vendor/simple-datatables/simple-datatables.js"></script>
   <script src="assets/vendor/tinymce/tinymce.min.js"></script>
   <script src="assets/vendor/php-email-form/validate.js"></script>
+  
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>

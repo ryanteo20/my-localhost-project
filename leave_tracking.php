@@ -206,6 +206,11 @@ ini_set('display_errors', 1);
         </a>
         <ul id="claim-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
+            <a href="R_claim.php">
+              <i class="bi bi-circle"></i><span>Request Claim</span>
+            </a>
+          </li>
+          <li>
             <a href="AR_claim.php">
               <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
             </a>
@@ -538,6 +543,28 @@ function updateLeaveStatus(leaveId, status, reason) {
         }
     });
 }
+
+function approveReview(leaveId) {
+  if (confirm("Are you sure you want to approve this leave?")) {
+    fetch('process_approve_leave.php', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: 'leave_id=' + encodeURIComponent(leaveId)
+    })
+    .then(response => response.text())
+    .then(data => {
+      alert(data); // Shows success or error message from PHP
+      // Optionally reload the page or update the UI:
+      location.reload();
+    })
+    .catch(error => {
+      console.error('Error:', error);
+    });
+  }
+}
+
 </script>
 
 
