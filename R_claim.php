@@ -1,6 +1,7 @@
 <?php
 require('database.php');
 require('session.php');
+require 'vendor/autoload.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -342,29 +343,103 @@ require('session.php');
                             New Claim
                         </button>
                     </div>
+                    <div class="modal fade" id="verticalycentered" tabindex="-1" data-bs-backdrop="false">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">New Claim</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <form id="newClaimForm">
+                                    <!-- Employee -->
+                                    <div class="mb-3">
+                                        <label for="employeeName" class="form-label">Employee</label>
+                                        <select class="form-select" id="employeeName" name="employee">
+                                        <option value="Ryan Maximillian Teo Tan">Ryan Maximillian Teo Tan</option>
+                                        <!-- Add more options if needed -->
+                                        </select>
+                                    </div>
+
+                                    <!-- Category -->
+                                    <div class="mb-3">
+                                        <label for="category" class="form-label">Category</label>
+                                        <select class="form-select" id="category" name="category">
+                                        <option selected disabled>Choose a category below</option>
+                                        <option value="Travel">Travel</option>
+                                        <option value="Meal">Meal</option>
+                                        <option value="Office Supplies">Office Supplies</option>
+                                        <!-- Add more if needed -->
+                                        </select>
+                                    </div>
+
+                                    <!-- Date of Transaction -->
+                                    <div class="mb-3">
+                                        <label for="transactionDate" class="form-label">Date of Transaction</label>
+                                        <input type="date" class="form-control" id="transactionDate" name="transaction_date">
+                                    </div>
+
+                                    <!-- Total Claim Amount + Tax Invoice -->
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-6">
+                                        <label for="claimAmount" class="form-label">Total Claim Amount</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">MYR</span>
+                                            <input type="number" step="0.01" class="form-control" id="claimAmount" name="claim_amount">
+                                        </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                        <label for="invoiceNumber" class="form-label">Receipt No</label>
+                                        <input type="text" class="form-control" id="invoiceNumber" name="invoice_number">
+                                        </div>
+                                    </div>
+
+                                    <!-- Notes -->
+                                    <div class="mb-3">
+                                        <label for="claimNotes" class="form-label">Notes about this claim</label>
+                                        <textarea class="form-control" id="claimNotes" name="notes" rows="3" placeholder='For e.g. "Met ABC Sdn. Bhd. CEO for dinner"'></textarea>
+                                    </div>
+
+                                    <!-- Attachments -->
+                                    <div class="mb-3">
+                                        <label for="claimAttachment" class="form-label">Attachments</label>
+                                        <input class="form-control" type="file" id="claimAttachment" name="attachment">
+                                        <div class="form-text">Max file size 1MB.</div>
+                                    </div>
+
+                                    <button type="submit" class="btn btn-primary">Submit claim</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div><!-- End Row -->
-                <div class="tab-pane fade" id="bordered-profile" role="tabpanel" aria-labelledby="profile-tab">
-                  Nesciunt totam et. Consequuntur magnam aliquid eos nulla dolor iure eos quia. Accusantium distinctio omnis et atque fugiat. Itaque doloremque aliquid sint quasi quia distinctio similique. Voluptate nihil recusandae mollitia dolores. Ut laboriosam voluptatum dicta.
-                </div>
               </div><!-- End Bordered Tabs -->
+            </div>
+            <div class="tab-pane fade" id="bordered-profile" role="tabpanel" aria-labelledby="profile-tab">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Claim Summary Report</h5>
+                        <p>You can now download a claim summary report in xlsx (an Excel spreadsheet). Choose the start date and end date, a report will be generated immediately.</p>
+                        <form action="download_xlsx.php" method="POST" class="row g-3 align-items-center">                    <div class="col-auto">
+                            <input type="date" name="start_date" class="form-control" placeholder="Start date" required>
+                        </div>
+                        <div class="col-auto">
+                            <span> ~ </span>
+                        </div>
+                        <div class="col-auto">
+                            <input type="date" name="end_date" class="form-control" placeholder="End date" required>
+                        </div>
+                        <div class="col-auto">
+                            <button type="submit" class="btn btn-primary">Download XLSX</button>
+                        </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
   </main><!-- End #main -->
-
-<div class="modal fade" id="verticalycentered" tabindex="-1" data-bs-backdrop="false">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">New Claim</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        Test content here.
-      </div>
-    </div>
-  </div>
-</div>
 
   <!-- ======= Footer ======= -->
   <footer id="footer" class="footer">
