@@ -1,6 +1,18 @@
 <?php
 require('database.php');
 require('session.php');
+
+$user_id = $_SESSION['ID'];  // logged-in user’s ID
+
+// Fetch user’s fullname from personal_information
+$query = "SELECT fullname FROM personal_information WHERE fk_employeeid = ?";
+$stmt = mysqli_prepare($con, $query);
+mysqli_stmt_bind_param($stmt, "i", $user_id);
+mysqli_stmt_execute($stmt);
+mysqli_stmt_bind_result($stmt, $fullname);
+mysqli_stmt_fetch($stmt);
+mysqli_stmt_close($stmt);
+
 require 'vendor/autoload.php';
 ?>
 <!DOCTYPE html>
@@ -351,13 +363,14 @@ require 'vendor/autoload.php';
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <form id="newClaimForm">
+                                <form id="newClaimForm" method="POST" action="insert_claim.php">
                                     <!-- Employee -->
                                     <div class="mb-3">
                                         <label for="employeeName" class="form-label">Employee</label>
                                         <select class="form-select" id="employeeName" name="employee">
-                                        <option value="Ryan Maximillian Teo Tan">Ryan Maximillian Teo Tan</option>
-                                        <!-- Add more options if needed -->
+                                            <option value="<?php echo htmlspecialchars($user_id); ?>" selected>
+                                            <?php echo htmlspecialchars($fullname); ?>
+                                            </option>
                                         </select>
                                     </div>
 
@@ -385,7 +398,7 @@ require 'vendor/autoload.php';
                                         <label for="claimAmount" class="form-label">Total Claim Amount</label>
                                         <div class="input-group">
                                             <span class="input-group-text">MYR</span>
-                                            <input type="number" step="0.01" class="form-control" id="claimAmount" name="claim_amount">
+                                            <input type="number" step="0.01" class="form-control" id="claimAmount" name="amount">
                                         </div>
                                         </div>
                                         <div class="col-md-6">
