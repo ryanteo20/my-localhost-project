@@ -1,20 +1,50 @@
 <?php
+session_start(); // ✅ Must be FIRST
+
 require('database.php');
 require('session.php');
 
-$user_id = $_SESSION['ID'];  // logged-in user’s ID
+// Make sure user ID is set
+if (!isset($_SESSION['ID'])) {
+    die("User not logged in.");
+}
 
-// Fetch user’s fullname from personal_information
-$query = "SELECT fullname FROM personal_information WHERE fk_employeeid = ?";
+$user_id = $_SESSION['ID'];
+
+// Safe: Fetch user's full name from `personal_information`
+$fullname = "Unknown";
+$query = "SELECT full_name FROM personal_information WHERE personal_id = ?";
 $stmt = mysqli_prepare($con, $query);
-mysqli_stmt_bind_param($stmt, "i", $user_id);
-mysqli_stmt_execute($stmt);
-mysqli_stmt_bind_result($stmt, $fullname);
-mysqli_stmt_fetch($stmt);
-mysqli_stmt_close($stmt);
+
+if ($stmt) {
+    mysqli_stmt_bind_param($stmt, "i", $user_id);
+    mysqli_stmt_execute($stmt);
+    mysqli_stmt_bind_result($stmt, $fullname);
+    mysqli_stmt_fetch($stmt);
+    mysqli_stmt_close($stmt);
+} else {
+    $fullname = "Unknown"; // fallback
+}
+
+if (isset($_SESSION['success_message'])) {
+    echo '<div id="autoDismissAlert" class="alert alert-success alert-dismissible fade show text-center" role="alert">'
+        . htmlspecialchars($_SESSION['success_message']) .
+        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>';
+    unset($_SESSION['success_message']);
+}
+
+if (isset($_SESSION['error_message'])) {
+    echo '<div id="autoDismissAlert" class="alert alert-danger alert-dismissible fade show text-center" role="alert">'
+        . htmlspecialchars($_SESSION['error_message']) .
+        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>';
+    unset($_SESSION['error_message']);
+}
 
 require 'vendor/autoload.php';
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -278,7 +308,7 @@ require 'vendor/autoload.php';
                                 require('database.php');
 
                                 // Query pending leave applications for review
-                                $query_pending_review = "SELECT COUNT(*) AS pending_review FROM leave_apply WHERE leave_review = 'Pending for review'";
+                                $query_pending_review = "SELECT COUNT(*) AS pending FROM claims WHERE status = 'Pending'";
 
                                 // Execute the query
                                 $result_pending_review = mysqli_query($con, $query_pending_review);
@@ -289,11 +319,11 @@ require 'vendor/autoload.php';
                                     $row_pending_review = mysqli_fetch_assoc($result_pending_review);
                                     
                                     // Get the total number of pending leave applications for review
-                                    $pendingReview = $row_pending_review['pending_review'];
+                                    $pendingReview = $row_pending_review['pending'];
                                     
                                 } else {
                                     // Error handling if the query fails
-                                    $pendingReview = "Error fetching pending leave for review";
+                                    $pendingReview = "Error fetching pending claim for review";
                                 }
 
                                 // Output the total number of pending leave applications for review within the card
@@ -312,7 +342,7 @@ require 'vendor/autoload.php';
                             <a class="icon" href="#" data-bs-toggle="dropdown"></a>
                             </div>
                             <div class="card-body">
-                            <h5 class="card-title">Total Claim Settle</h5>
+                            <h5 class="card-title">Total Claim Approve</h5>
 
                             <div class="d-flex align-items-center">
                                 <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
@@ -324,7 +354,7 @@ require 'vendor/autoload.php';
                                     require('database.php');
 
                                     // Query pending leave applications for review
-                                    $query_pending_review = "SELECT COUNT(*) AS pending_review FROM leave_apply WHERE leave_review = 'Pending for review'";
+                                    $query_pending_review = "SELECT COUNT(*) AS Approve FROM claims WHERE status = 'Approve'";
 
                                     // Execute the query
                                     $result_pending_review = mysqli_query($con, $query_pending_review);
@@ -335,7 +365,7 @@ require 'vendor/autoload.php';
                                         $row_pending_review = mysqli_fetch_assoc($result_pending_review);
                                         
                                         // Get the total number of pending leave applications for review
-                                        $pendingReview = $row_pending_review['pending_review'];
+                                        $pendingReview = $row_pending_review['Approve'];
                                         
                                     } else {
                                         // Error handling if the query fails
@@ -476,7 +506,22 @@ require 'vendor/autoload.php';
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
-
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const alert = document.getElementById('autoDismissAlert');
+        if (alert) {
+        setTimeout(() => {
+            // Remove `show` to start fade out
+            alert.classList.remove('show');
+            // Wait for fade transition to complete (Bootstrap default is ~150ms)
+            setTimeout(() => {
+            // Remove the element from DOM
+            alert.remove();
+            }, 500); // wait slightly longer than Bootstrap's fade transition
+        }, 10000); // 10 sec before starting fade
+        }
+    });
+    </script>
 </body>
 
 </html>
