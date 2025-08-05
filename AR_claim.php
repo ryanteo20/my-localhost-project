@@ -334,10 +334,11 @@ ini_set('display_errors', 1);
                 <?= $modalsContent ?>
             </table>           
         </div>
-                <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+            <div class="tab-pane fade table-responsive" id="profile" role="tabpanel" aria-labelledby="profile-tab">
                 <table class="table datatable table-striped">
                 <thead>
                     <tr>
+                        <th scope="col">No</th>
                         <th scope="col">Employee</th>
                         <th scope="col">Claim Type</th>
                         <th scope="col">Amount</th>
@@ -401,10 +402,11 @@ ini_set('display_errors', 1);
                         </tbody>
                     </table> 
                 </div>
-                <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">
+                <div class="tab-pane fade table-responsive" id="contact" role="tabpanel" aria-labelledby="contact-tab">
                     <table class="table datatable table-striped">
                         <thead>
                             <tr>
+                                <th scope="col">No</th>
                                 <th scope="col">Employee</th>
                                 <th scope="col">Claim Type</th>
                                 <th scope="col">Amount</th>
