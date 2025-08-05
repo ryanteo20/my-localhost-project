@@ -212,7 +212,7 @@ ini_set('display_errors', 1);
           </li>
           <li>
             <a href="AR_claim.php">
-              <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
+              <i class="bi bi-circle"></i><span>Approved/Rejected Claim</span>
             </a>
           </li>
           <li>
@@ -227,7 +227,7 @@ ini_set('display_errors', 1);
   </aside>
 
   <main id="main" class="main">
-  <div class="card">
+        <div class="card">
             <div class="card-body">
               <h5 class="card-title">View All Claim Request</h5>
 
@@ -243,18 +243,20 @@ ini_set('display_errors', 1);
                   <button class="nav-link" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact" type="button" role="tab" aria-controls="contact" aria-selected="false">Rejected</button>
                 </li>
               </ul>
-              <div class="tab-content pt-2" id="myTabContent">
-                <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+    <div class="tab-content pt-2" id="myTabContent">
+        <div class="tab-pane fade show active table-responsive" id="home" role="tabpanel" aria-labelledby="home-tab">
             <!-- Table with stripped rows -->
             <table class="table datatable table-striped">
                 <thead>
                     <tr>
+                    <th scope="col">ID</th>
                     <th scope="col">Employee</th>
                     <th scope="col">Claim Type</th>
                     <th scope="col">Claim Amount</th>
                     <th scope="col">Reason</th>
                     <th scope="col">Attachment</th>
-                    <th scope="col">Date & Time</th>
+                    <th scope="col">Date of Transaction</th>
+                    <th scope="col">Date of Application</th>
                     <th scope="col">Status</th>
                     </tr>
                 </thead>
@@ -262,7 +264,7 @@ ini_set('display_errors', 1);
                 <?php
                     require('database.php');
 
-                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status
+                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.transaction_date, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status
                     FROM employeelogin el
                     INNER JOIN claims cr ON el.ID = cr.employee_id
                     WHERE cr.status = 'Pending'";
@@ -281,6 +283,7 @@ ini_set('display_errors', 1);
                             while ($row = mysqli_fetch_assoc($data)) {
                                 $rowId = htmlspecialchars($row['claim_id']);
                                 echo "<tr>";
+                                echo "<td>" . htmlspecialchars($row['claim_id']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['username']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['category']) . "</td>";
                                 echo "<td>RM " . htmlspecialchars(number_format($row['amount'], 2)) . "</td>";
@@ -291,6 +294,7 @@ ini_set('display_errors', 1);
                                 } else {
                                     echo "<td>No document uploaded.</td>";
                                 }
+                                echo "<td>" . htmlspecialchars($row['transaction_date']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['created_at']) . "</td>";
                                 echo "<td><button type='button' class='btn btn-primary review-button' onclick='showReviewModal($rowId)'>Review</button></td>";
                                 echo "</tr>";
@@ -309,7 +313,7 @@ ini_set('display_errors', 1);
                                                 <button class="btn btn-success" onclick="approveReview()">Approve</button>
                                                 <button class="btn btn-danger" onclick="showRejectionReason()">Reject</button>
                                                 <textarea id="rejectionReason" style="display: none;" class="form-control mt-2" placeholder="Enter rejection reason"></textarea>
-                                                <button class="btn btn-secondary mt-2" style="display: none;" id="submitRejection" onclick="rejectReview(currentLeaveId)">Submit Rejection</button>
+                                                <button class="btn btn-secondary mt-2" style="display: none;" id="submitRejection" onclick="rejectReview(currentClaimId)">Submit Rejection</button>
                                             </div>
                                         </div>
                                     </div>
@@ -328,8 +332,8 @@ ini_set('display_errors', 1);
                 ?>
                 </tbody>
                 <?= $modalsContent ?>
-                </table>           
-                </div>
+            </table>           
+        </div>
                 <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
                 <table class="table datatable table-striped">
                 <thead>
@@ -364,6 +368,7 @@ ini_set('display_errors', 1);
                                 while ($row = mysqli_fetch_assoc($data)) {
                                 $rowId = htmlspecialchars($row['claim_id']);
                                 echo "<tr>";
+                                echo "<td>" . htmlspecialchars($row['claim_id']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['username']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['category']) . "</td>";
                                 echo "<td>RM " . htmlspecialchars(number_format($row['amount'], 2)) . "</td>";
@@ -375,7 +380,8 @@ ini_set('display_errors', 1);
                                     echo "<td>No document uploaded.</td>";
                                 }
                                 echo "<td>" . htmlspecialchars($row['created_at']) . "</td>";
-                                echo "<td><button type='button' class='btn btn-primary review-button' onclick='showReviewModal($rowId)'>Review</button></td>";
+                                echo "<td>" . htmlspecialchars($row['status']) . "</td>";
+
                                 echo "</tr>";
                                 }
                             } else {
@@ -396,67 +402,70 @@ ini_set('display_errors', 1);
                     </table> 
                 </div>
                 <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">
-                <table class="table datatable table-striped">
-                <thead>
-                    <tr>
-                        <th scope="col">Employee</th>
-                        <th scope="col">Claim Type</th>
-                        <th scope="col">Amount</th>
-                        <th scope="col">Reason</th>
-                        <th scope="col">Attachment</th>
-                        <th scope="col">Applied</th>
-                        <th scope="col">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
-                require('database.php');
+                    <table class="table datatable table-striped">
+                        <thead>
+                            <tr>
+                                <th scope="col">Employee</th>
+                                <th scope="col">Claim Type</th>
+                                <th scope="col">Amount</th>
+                                <th scope="col">Reason</th>
+                                <th scope="col">Attachment</th>
+                                <th scope="col">Applied</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php
+                            require('database.php');
 
-                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status
-                    FROM employeelogin el
-                    INNER JOIN claims cr ON el.ID = cr.employee_id
-                    WHERE cr.status = 'Rejected'";
+                                $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status, cr.rejection_reason
+                                FROM employeelogin el
+                                INNER JOIN claims cr ON el.ID = cr.employee_id
+                                WHERE cr.status = 'Rejected'";
 
-                $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($con, $query);
 
-                if ($stmt) {
-                    $result = mysqli_stmt_execute($stmt);
-                    $modalsContent = '';
+                            if ($stmt) {
+                                $result = mysqli_stmt_execute($stmt);
+                                $modalsContent = '';
 
-                        if ($result) {
-                            $data = mysqli_stmt_get_result($stmt);
-                            if (mysqli_num_rows($data) > 0) {
-                                while ($row = mysqli_fetch_assoc($data)) {
-                                $rowId = htmlspecialchars($row['claim_id']);
-                                echo "<tr>";
-                                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['category']) . "</td>";
-                                echo "<td>RM " . htmlspecialchars(number_format($row['amount'], 2)) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['notes']) . "</td>";
-                                $fullPath = htmlspecialchars($row['attachment']);
-                                if ($fullPath != null) {
-                                    echo "<td><a href='" . $fullPath . "' download>Download</a></td>";
+                                    if ($result) {
+                                        $data = mysqli_stmt_get_result($stmt);
+                                        if (mysqli_num_rows($data) > 0) {
+                                            while ($row = mysqli_fetch_assoc($data)) {
+                                            $rowId = htmlspecialchars($row['claim_id']);
+                                            echo "<tr>";
+                                            echo "<td>" . htmlspecialchars($row['claim_id']) . "</td>";
+                                            echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                                            echo "<td>" . htmlspecialchars($row['category']) . "</td>";
+                                            echo "<td>RM " . htmlspecialchars(number_format($row['amount'], 2)) . "</td>";
+                                            echo "<td>" . htmlspecialchars($row['notes']) . "</td>";
+                                            $fullPath = htmlspecialchars($row['attachment']);
+                                            if ($fullPath != null) {
+                                                echo "<td><a href='" . $fullPath . "' download>Download</a></td>";
+                                            } else {
+                                                echo "<td>No document uploaded.</td>";
+                                            }
+                                            echo "<td>" . htmlspecialchars($row['created_at']) . "</td>";
+                                            echo "<td>" . htmlspecialchars($row['status']) . "</td>";
+                                            echo "<td>" . htmlspecialchars($row['rejection_reason']) . "</td>";
+                                            echo "</tr>";
+                                            }
+                                        } else {
+                                            echo "<tr><td colspan='9'>No Rejected Claim.</td></tr>";
+                                    }
                                 } else {
-                                    echo "<td>No document uploaded.</td>";
+                                    echo "Error executing query: " . mysqli_stmt_error($stmt);
                                 }
-                                echo "<td>" . htmlspecialchars($row['created_at']) . "</td>";
-                                echo "<td><button type='button' class='btn btn-primary review-button' onclick='showReviewModal($rowId)'>Review</button></td>";
-                                echo "</tr>";
-                                }
+
+                                mysqli_stmt_close($stmt);
                             } else {
-                                echo "<tr><td colspan='9'>No Rejected Claim.</td></tr>";
-                        }
-                    } else {
-                        echo "Error executing query: " . mysqli_stmt_error($stmt);
-                    }
+                                echo "Error preparing statement: " . mysqli_error($con);
+                            }
 
-                    mysqli_stmt_close($stmt);
-                } else {
-                    echo "Error preparing statement: " . mysqli_error($con);
-                }
-
-                mysqli_close($con);
-                ?>
+                            mysqli_close($con);
+                            ?>
                         </tbody>
                     </table>                 
                   </div>
@@ -541,24 +550,31 @@ ini_set('display_errors', 1);
         }
 
 
-        function approveReview(claimId) {
-        if (confirm("Are you sure you want to approve this claim?")) {
-            fetch('process_approve_claim.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            },
-            body: 'claim_id=' + encodeURIComponent(claimId) + '&status=Approved&reason='
-            })
-            .then(response => response.text())
-            .then(data => {
-            alert(data);
-            location.reload();
-            })
-            .catch(error => {
-            console.error('Error:', error);
-            });
-        }
+        function approveReview() {
+            if (!currentClaimId) {
+                alert("Claim ID is missing.");
+                return;
+            }
+
+            if (confirm("Are you sure you want to approve this claim?")) {
+                fetch('process_approve_claim.php', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'claim_id=' + encodeURIComponent(currentClaimId) + '&status=Approved&reason='
+                })
+                .then(response => response.text())
+                .then(data => {
+                    console.log("Server response:", data);
+                    alert(data);
+                    location.reload();
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert("Something went wrong while approving.");
+                });
+            }
         }
 </script>
 
