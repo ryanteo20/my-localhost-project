@@ -1,6 +1,7 @@
 <?php
 require('database.php');
 
+
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $claim_id = $_POST['claim_id'] ?? '';
     $status = $_POST['status'] ?? '';
@@ -8,11 +9,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     // Sanity check
     if ($status === 'Approve') {
-        $query = "UPDATE claims SET status = ? WHERE claim_id = ?";
+        $query = "UPDATE claims SET status = ? , approved_at = ? , WHERE claim_id = ?";
         $stmt = mysqli_prepare($con, $query);
         mysqli_stmt_bind_param($stmt, "si", $status, $claim_id);
     } else {
-        $query = "UPDATE claims SET status = ?, rejection_reason = ? WHERE claim_id = ?";
         $stmt = mysqli_prepare($con, $query);
         mysqli_stmt_bind_param($stmt, "ssi", $status, $reason, $claim_id);
     }

@@ -3,7 +3,14 @@ require('database.php');
 require('session.php');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
-?>
+date_default_timezone_set("Asia/Kuala_Lumpur");
+
+// Get filter from query string
+$filter = $_GET['filter'] ?? 'all';
+$isCurrentMonth = $filter === 'current';
+
+// Use this for date filtering
+$dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') AND cr.transaction_date < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)" : "";?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -19,11 +26,9 @@ ini_set('display_errors', 1);
   <link href="assets/img/favicon.png" rel="icon">
   <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon">
 
-  <!-- Google Fonts -->
   <link href="https://fonts.gstatic.com" rel="preconnect">
   <link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700,700i|Nunito:300,300i,400,400i,600,600i,700,700i|Poppins:300,300i,400,400i,500,500i,600,600i,700,700i" rel="stylesheet">
 
-  <!-- Vendor CSS Files -->
   <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
   <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
   <link href="assets/vendor/boxicons/css/boxicons.min.css" rel="stylesheet">
@@ -32,13 +37,11 @@ ini_set('display_errors', 1);
   <link href="assets/vendor/remixicon/remixicon.css" rel="stylesheet">
   <link href="assets/vendor/simple-datatables/style.css" rel="stylesheet">
 
-  <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
 </head>
 
 <body>
 
-  <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
 
     <div class="d-flex align-items-center justify-content-between">
@@ -47,7 +50,7 @@ ini_set('display_errors', 1);
         <span class="d-none d-lg-block">SMEasyHR</span>
       </a>
       <i class="bi bi-list toggle-sidebar-btn"></i>
-    </div><!-- End Logo -->
+    </div>
 
     <div class="search-bar">
       <form class="search-form d-flex align-items-center" method="POST" action="#">
@@ -231,6 +234,15 @@ ini_set('display_errors', 1);
             <div class="card-body">
               <h5 class="card-title">View All Claim Request</h5>
 
+              <!-- Filter Dropdown (Insert Here) -->
+                <form method="get" class="mb-3">
+                <label for="filter" class="me-2">Filter:</label>
+                <select name="filter" id="filter" onchange="this.form.submit()" class="form-select w-auto d-inline-block">
+                    <option value="current" <?= $filter === 'current' ? 'selected' : '' ?>>Current Month Only</option>
+                    <option value="all" <?= $filter === 'all' ? 'selected' : '' ?>>All Claims</option>
+                </select>
+                </form>
+
               <!-- Default Tabs -->
               <ul class="nav nav-tabs" id="myTab" role="tablist">
                 <li class="nav-item" role="presentation">
@@ -243,6 +255,9 @@ ini_set('display_errors', 1);
                   <button class="nav-link" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact" type="button" role="tab" aria-controls="contact" aria-selected="false">Rejected</button>
                 </li>
               </ul>
+              
+
+
     <div class="tab-content pt-2" id="myTabContent">
         <div class="tab-pane fade show active table-responsive" id="home" role="tabpanel" aria-labelledby="home-tab">
             <!-- Table with stripped rows -->
@@ -267,7 +282,7 @@ ini_set('display_errors', 1);
                     $query = "SELECT el.username, cr.claim_id, cr.category, cr.transaction_date, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status
                     FROM employeelogin el
                     INNER JOIN claims cr ON el.ID = cr.employee_id
-                    WHERE cr.status = 'Pending'";
+                    WHERE cr.status = 'Pending'$dateFilterSQL";
 
 
                     $stmt = mysqli_prepare($con, $query);
@@ -344,18 +359,20 @@ ini_set('display_errors', 1);
                         <th scope="col">Amount</th>
                         <th scope="col">Reason</th>
                         <th scope="col">Attachment</th>
-                        <th scope="col">Applied</th>
+                        <th scope="col">Date of Transaction</th>
+                        <th scope="col">Date of Application</th>
                         <th scope="col">Status</th>
+                        <th scope="col">Date of Approval </th>
                     </tr>
                 </thead>
                 <tbody>
                 <?php
                     require('database.php');
 
-                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status
+                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.transaction_date, cr.notes, cr.attachment, cr.created_at, cr.status, cr.approved_at
                     FROM employeelogin el
                     INNER JOIN claims cr ON el.ID = cr.employee_id
-                    WHERE cr.status = 'Approved'";
+                    WHERE cr.status = 'Approved'$dateFilterSQL";
 
                     $stmt = mysqli_prepare($con, $query);
 
@@ -380,9 +397,10 @@ ini_set('display_errors', 1);
                                 } else {
                                     echo "<td>No document uploaded.</td>";
                                 }
+                                echo "<td>" . htmlspecialchars($row['transaction_date']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['created_at']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['status']) . "</td>";
-
+                                echo "<td>" . htmlspecialchars($row['approved_at']) . "</td>";
                                 echo "</tr>";
                                 }
                             } else {
@@ -424,7 +442,7 @@ ini_set('display_errors', 1);
                                 $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status, cr.rejection_reason
                                 FROM employeelogin el
                                 INNER JOIN claims cr ON el.ID = cr.employee_id
-                                WHERE cr.status = 'Rejected'";
+                                WHERE cr.status = 'Rejected'$dateFilterSQL";
 
                             $stmt = mysqli_prepare($con, $query);
 
