@@ -36,10 +36,6 @@ $sql = "INSERT INTO claims (employee_id, claim_type, claim_amount, claim_date, c
 
 $stmt = $conn->prepare($sql);
 
-if (!$stmt) {
-  die("❌ Prepare failed: " . $conn->error);
-}
-
 $stmt->bind_param("isdsss", $employee_id, $claim_type, $claim_amount, $claim_date, $claim_description, $claim_document);
 $stmt->execute();
 

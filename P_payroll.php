@@ -487,7 +487,7 @@ if (!empty($selected_emp)) {
         : (float)($payroll_data['overtime_pay'] ?? 0);
 
     // Calculate gross pay with updated values
-    $gross_pay = $salary + $allowance + $overtime;
+    $gross_pay = $salary + $allowance + $overtime + $total_claim;
 
     // Annual calculations for tax
     $annual_gross = $gross_pay * 12;
@@ -567,10 +567,15 @@ if (!empty($selected_emp)) {
         <!-- Column 4: Pay Summary -->
         <div class="column">
             <h3>Pay Summary</h3>
-            <div class="item"><span>Gross Pay</span><span>RM <?= number_format($gross_pay, 2) ?></span></div>
-            <div class="item"><span>Deductions</span><span>RM <?= number_format($payroll_data['total_deductions'], 2) ?></span></div>
-            <div class="item highlight"><span>Net Pay</span><span>RM <?= number_format($payroll_data['net_salary'], 2) ?></span></div>
-
+            <div class="item"><span>Gross Pay</span><span id="grossPayDisplay">RM <?= number_format($salary, 2) ?></span></div>
+            <div class="item"><span>+ Allowance</span><span id="allowanceSummary">RM <?= number_format($allowance, 2) ?></span></div>
+            <div class="item"><span>+ Overtime</span><span id="overtimeSummary">RM <?= number_format($overtime, 2) ?></span></div>
+            <div class="item"><span>+ Claims</span><span id="claimsDisplay">RM <?= number_format($total_claim, 2) ?></span></div>
+            <div class="item"><span>Deductions</span><span id="deductionsDisplay">RM <?= number_format($payroll_data['total_deductions'], 2) ?></span></div>
+            <div class="item highlight">
+                <span>Net Pay</span>
+                <span id="netPayDisplay">RM <?= number_format($payroll_data['net_salary'], 2) ?></span>
+            </div>
             <h3 style="margin-top:20px;">Company Contribution</h3>
             <div class="item"><span>EPF (13%)</span><span>RM <?= number_format($payroll_data['employee_salary'] * 0.13, 2) ?></span></div>
             <div class="item"><span>SOCSO</span><span>RM <?= number_format($payroll_data['employee_salary'] * 0.017, 2) ?></span></div>
@@ -817,8 +822,45 @@ if (!empty($selected_emp)) {
             }, 300);
         }, 2000);
     }
+
+        function showRecalcButton() {
+            document.getElementById("netPayDisplay").innerHTML = 
+                '<button type="button" class="btn btn-warning btn-sm" onclick="recalculateNetPay()">Recalculate</button>';
+        }
+                // Listen for changes in Allowance & Overtime fields
+        document.addEventListener("DOMContentLoaded", function() {
+            document.getElementById("allowanceInput").addEventListener("input", showRecalcButton);
+            document.getElementById("overtimeInput").addEventListener("input", showRecalcButton);
+        });
+
+        function recalculateNetPay() {
+            let salary = parseFloat("<?= (float)$payroll_data['employee_salary'] ?>") || 0;
+            let allowance = parseFloat(document.getElementById('allowanceInput').value || 0);
+            let overtime  = parseFloat(document.getElementById('overtimeInput').value || 0);
+            let totalClaims = parseFloat("<?= (float)$total_claim ?>") || 0;
+
+            let epf  = salary * 0.11;
+            let socso = salary * 0.005;
+            let eis   = salary * 0.002;
+            let pcb   = parseFloat("<?= (float)$payroll_data['pcb'] ?>") || 0;
+
+            let totalDeductions = epf + socso + eis + pcb;
+            let gross = salary + allowance + overtime + totalClaims;
+            let net   = gross - totalDeductions;
+
+            // Update Pay Summary
+            document.getElementById("grossPayDisplay").textContent   = "RM " + salary.toFixed(2);
+            document.getElementById("allowanceSummary").textContent  = "RM " + allowance.toFixed(2);
+            document.getElementById("overtimeSummary").textContent   = "RM " + overtime.toFixed(2);
+            document.getElementById("claimsDisplay").textContent     = "RM " + totalClaims.toFixed(2);
+            document.getElementById("deductionsDisplay").textContent = "RM " + totalDeductions.toFixed(2);
+            document.getElementById("netPayDisplay").textContent     = "RM " + net.toFixed(2);
+
+            // Also update Employee Info column (optional, so both sides show same)
+            document.getElementById("allowanceEditDisplay").textContent = "RM " + allowance.toFixed(2);
+            document.getElementById("overtimeEditDisplay").textContent  = "RM " + overtime.toFixed(2);
+        }
+
 </script>
-
 </body>
-
 </html>

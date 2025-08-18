@@ -1302,8 +1302,6 @@ h6 {
 }
 
 
-/* Replace your existing <style> section with this complete CSS */
-<style>
     body { 
         font-family: Arial, sans-serif; 
         background: #f9f9f9; 
@@ -1401,4 +1399,3 @@ h6 {
         from { transform: translateX(0); opacity: 1; }
         to { transform: translateX(100%); opacity: 0; }
     }
-</style>
