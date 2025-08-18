@@ -1300,3 +1300,105 @@ h6 {
   display: none;
   z-index: 1050; /* Ensure it floats above most other content */
 }
+
+
+/* Replace your existing <style> section with this complete CSS */
+<style>
+    body { 
+        font-family: Arial, sans-serif; 
+        background: #f9f9f9; 
+        margin: 0; 
+        padding: 20px; 
+    }
+    
+    .payroll-container {
+        display: flex;
+        gap: 20px;
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        max-width: 1200px;
+        margin: auto;
+        box-shadow: 0 0 10px rgba(0,0,0,0.05);
+        transition: opacity 0.3s ease;
+    }
+    
+    .column {
+        flex: 0 0 23%;
+        max-width: 23%;
+        min-width: 220px;
+        padding: 10px;
+    }
+    
+    .column h3 {
+        font-size: 16px;
+        border-bottom: 1px solid #ddd;
+        margin-bottom: 10px;
+        padding-bottom: 5px;
+    }
+    
+    .item {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        transition: background-color 0.2s ease;
+    }
+    
+    .item:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .bold { 
+        font-weight: bold; 
+    }
+    
+    .highlight { 
+        color: teal; 
+        font-size: 18px; 
+        font-weight: bold;
+        background-color: #e8f5e8;
+        padding: 8px;
+        border-radius: 4px;
+        animation: pulse 0.5s ease-in-out;
+    }
+
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+
+    .editable-money {
+        color: #007bff;
+        font-weight: bold;
+        transition: all 0.2s ease;
+    }
+
+    .editable-money:hover {
+        background-color: #e3f2fd;
+        padding: 2px 4px;
+        border-radius: 3px;
+    }
+
+    .updating {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+
+    /* Loading spinner animation */
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    /* Success message animations */
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+</style>

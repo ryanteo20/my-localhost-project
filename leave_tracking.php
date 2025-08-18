@@ -352,7 +352,7 @@ ini_set('display_errors', 1);
                     $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
                                 FROM employeelogin el
                                 INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                                WHERE la.leave_review = 'Approve'";
+                                WHERE la.leave_review = 'Approved'";
 
                     $stmt = mysqli_prepare($con, $query);
 
@@ -417,7 +417,7 @@ ini_set('display_errors', 1);
                 $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
                             FROM employeelogin el
                             INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                            WHERE la.leave_review = 'Reject'";
+                            WHERE la.leave_review = 'Rejected'";
 
                 $stmt = mysqli_prepare($con, $query);
 

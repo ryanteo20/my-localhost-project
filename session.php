@@ -1,5 +1,6 @@
 <?php
 session_start();
+
 function logout() {
     // Unset all session variables
     $_SESSION = [];
@@ -13,7 +14,12 @@ function logout() {
         );
     }
 
-    // Destroy the session
-    session_destroy();
+// Get the current file name
+$current_page = basename($_SERVER['PHP_SELF']);
+
+if (!isset($_SESSION['ID']) && $current_page != 'pages-login.php') {
+    header("Location: pages-login.php");
+    exit();
+}
 }
 ?>
