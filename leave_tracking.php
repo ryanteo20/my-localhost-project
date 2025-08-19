@@ -1,8 +1,17 @@
 <?php
+// At the top after session check
 require('database.php');
 require('session.php');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+
+// Get the current user's ID from session
+$current_user_id = $_SESSION['ID'];
+
+// Debug: Check if user ID is properly set
+if (empty($current_user_id)) {
+    die("Error: User ID not found in session");
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -262,14 +271,19 @@ ini_set('display_errors', 1);
                 </thead>
                 <tbody>
                 <?php
-                    require('database.php');
+                require('database.php');
 
-                    $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-                            FROM employeelogin el
-                            INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                            WHERE la.leave_review = 'Pending for review'";
+                $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
+                        FROM employeelogin el
+                        INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+                        WHERE la.leave_review = 'Pending for review'
+                        AND el.ID = ?";
 
-                    $stmt = mysqli_prepare($con, $query);
+                $stmt = mysqli_prepare($con, $query);
+                if ($stmt) {
+                    // BIND THE PARAMETER - This was missing!
+                    mysqli_stmt_bind_param($stmt, "i", $current_user_id);
+                    
                     $result = mysqli_stmt_execute($stmt);
                     $modalsContent = '';
 
@@ -289,32 +303,11 @@ ini_set('display_errors', 1);
                                 if ($fullPath != null) {
                                     echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
                                 } else {
-                                    echo "<td>No document is uploaded.</td>"; // Leave the cell empty if leave_document is null
+                                    echo "<td>No document is uploaded.</td>";
                                 }
                                 echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
                                 echo "<td><button type='button' class='btn btn-primary review-button' onclick='showReviewModal($rowId)'>Review</button></td>";
                                 echo "</tr>";
-
-                                echo <<<HTML
-                                <!-- Generic Modal for Leave Review -->
-                                <div class="modal fade" id="reviewModal" tabindex="-1" role="dialog" aria-labelledby="reviewModalLabel" aria-hidden="true">
-                                    <div class="modal-dialog" role="document">
-                                        <div class="modal-content">
-                                            <div class="modal-header">
-                                                <h5 class="modal-title" id="reviewModalLabel">Leave Request Review</h5>
-                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                            </div>
-                                            <div class="modal-body">
-                                                <!-- Buttons to approve or reject -->
-                                                <button class="btn btn-success" onclick="approveReview(currentLeaveId)">Approve</button>
-                                                <button class="btn btn-danger" onclick="showRejectionReason()">Reject</button>
-                                                <textarea id="rejectionReason" style="display: none;" class="form-control mt-2" placeholder="Enter rejection reason"></textarea>
-                                                <button class="btn btn-secondary mt-2" style="display: none;" id="submitRejection" onclick="rejectReview(currentLeaveId)">Submit Rejection</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                HTML;                        
                             }
                         } else {
                             echo "<tr><td colspan='9'>No pending reviews found.</td></tr>";
@@ -322,9 +315,10 @@ ini_set('display_errors', 1);
                     } else {
                         echo "Error executing query: " . mysqli_stmt_error($stmt);
                     }
-
                     mysqli_stmt_close($stmt);
-                    mysqli_close($con);
+                } else {
+                    echo "Error preparing statement: " . mysqli_error($con);
+                }
                 ?>
                 </tbody>
                 <?= $modalsContent ?>
@@ -347,53 +341,57 @@ ini_set('display_errors', 1);
                 </thead>
                 <tbody>
                 <?php
-                    require('database.php');
+                require('database.php');
 
-                    $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-                                FROM employeelogin el
-                                INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                                WHERE la.leave_review = 'Approved'";
+                $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
+                            FROM employeelogin el
+                            INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+                            WHERE la.leave_review = 'Approved'
+                            AND el.ID = ?";
 
-                    $stmt = mysqli_prepare($con, $query);
+                $stmt = mysqli_prepare($con, $query);
+                if ($stmt) {
+                    // BIND THE PARAMETER - This was missing!
+                    mysqli_stmt_bind_param($stmt, "i", $current_user_id);
+                    
+                    $result = mysqli_stmt_execute($stmt);
+                    $modalsContent = '';
 
-                    if ($stmt) {
-                        $result = mysqli_stmt_execute($stmt);
-                        $modalsContent = '';
-
-                        if ($result) {
-                            $data = mysqli_stmt_get_result($stmt);
-                            if (mysqli_num_rows($data) > 0) {
-                                while ($row = mysqli_fetch_assoc($data)) {
-                                    $rowId = htmlspecialchars($row['leave_id']);
-                                    echo "<tr class='clickable-row' data-id='$rowId'>";
-                                    echo "<td>" . htmlspecialchars($row['username']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
-                                    $fullPath = htmlspecialchars($row['leave_document']);
+                    if ($result) {
+                        $data = mysqli_stmt_get_result($stmt);
+                        if (mysqli_num_rows($data) > 0) {
+                            while ($row = mysqli_fetch_assoc($data)) {
+                                $rowId = htmlspecialchars($row['leave_id']);
+                                echo "<tr class='clickable-row' data-id='$rowId'>";
+                                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
+                                $fullPath = htmlspecialchars($row['leave_document']);
+                                if ($fullPath != null) {
                                     echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
-                                    echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
-                                    echo "<td>" . htmlspecialchars($row['leave_review']);
-                                    echo "</tr>";
+                                } else {
+                                    echo "<td>No document uploaded.</td>";
                                 }
-                            } else {
-                                echo "<tr><td colspan='9'>No pending reviews found.</td></tr>";
+                                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
+                                echo "</tr>";
                             }
                         } else {
-                            echo "Error executing query: " . mysqli_stmt_error($stmt);
+                            echo "<tr><td colspan='9'>No approved leave requests found.</td></tr>";
                         }
-
-                        mysqli_stmt_close($stmt);
                     } else {
-                        echo "Error preparing statement: " . mysqli_error($con);
+                        echo "Error executing query: " . mysqli_stmt_error($stmt);
                     }
-
-                    mysqli_close($con);
-                    ?>
-                        </tbody>
-                    </table> 
+                    mysqli_stmt_close($stmt);
+                } else {
+                    echo "Error preparing statement: " . mysqli_error($con);
+                }
+                ?>                        
+                </tbody>
+                </table> 
                 </div>
                 <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">
                 <table class="table datatable table-striped">
@@ -415,13 +413,16 @@ ini_set('display_errors', 1);
                 require('database.php');
 
                 $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-                            FROM employeelogin el
-                            INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                            WHERE la.leave_review = 'Rejected'";
+                        FROM employeelogin el
+                        INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+                        WHERE la.leave_review = 'Rejected'
+                        AND el.ID = ?";
 
                 $stmt = mysqli_prepare($con, $query);
-
                 if ($stmt) {
+                    // BIND THE PARAMETER - This was missing!
+                    mysqli_stmt_bind_param($stmt, "i", $current_user_id);
+                    
                     $result = mysqli_stmt_execute($stmt);
                     $modalsContent = '';
 
@@ -438,24 +439,25 @@ ini_set('display_errors', 1);
                                 echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
                                 $fullPath = htmlspecialchars($row['leave_document']);
-                                echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
+                                if ($fullPath != null) {
+                                    echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
+                                } else {
+                                    echo "<td>No document uploaded.</td>";
+                                }
                                 echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_review']);
+                                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
                                 echo "</tr>";
                             }
                         } else {
-                            echo "<tr><td colspan='9'>No approved leave requests found.</td></tr>";
+                            echo "<tr><td colspan='9'>No rejected leave requests found.</td></tr>";
                         }
                     } else {
                         echo "Error executing query: " . mysqli_stmt_error($stmt);
                     }
-
                     mysqli_stmt_close($stmt);
                 } else {
                     echo "Error preparing statement: " . mysqli_error($con);
                 }
-
-                mysqli_close($con);
                 ?>
                         </tbody>
                     </table>                 

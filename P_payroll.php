@@ -1,6 +1,17 @@
 <?php
 require('database.php');
 require('session.php');
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+$_SESSION['ID'] = $row['personal_id'];   // already in your code
+$_SESSION['username'] = $row['full_name']; // or whatever field
+$_SESSION['role'] = ucfirst(strtolower($row['role'])); // normalize role
+
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Employer') {
+    header("Location: index.php");
+    exit("Access Denied: Employers only.");
+}
 
 // Default to current month/year
 $selected_month = $_POST['month'] ?? date('m');
@@ -85,12 +96,77 @@ if (!empty($selected_emp)) {
         echo "<div class='alert alert-danger'>Error in present query: " . mysqli_error($con) . "</div>";
     }
 
-    $q = "SELECT SUM(amount) as total FROM claims WHERE employee_id = $emp_id AND MONTH(transaction_date) = $month AND YEAR(transaction_date) = $year";
+    $q = "SELECT SUM(amount) as total FROM claims WHERE employee_id = $emp_id AND MONTH(transaction_date) = $month AND YEAR(transaction_date) = $year AND status ='Approved'";
     $res = mysqli_query($con, $q);
     if ($res) {
         $total_claim = mysqli_fetch_assoc($res)['total'] ?? 0.00;
     } else {
         echo "<div class='alert alert-danger'>Error in claim query: " . mysqli_error($con) . "</div>";
+    }
+}
+
+// Handle saving payroll data
+if (isset($_POST['save_current']) && !empty($_POST['employee_id'])) {
+    $employee_id = (int)$_POST['employee_id'];
+    $month = $_POST['month'];
+    $year = $_POST['year'];
+    
+    // Calculate period dates (first and last day of selected month)
+    $pay_period_start = date('Y-m-01', strtotime("$year-$month-01"));
+    $pay_period_end = date('Y-m-t', strtotime("$year-$month-01"));
+    
+    // Prepare data for insertion
+    $data = [
+        'employee_id' => $employee_id,
+        'pay_period_start' => $pay_period_start,
+        'pay_period_end' => $pay_period_end,
+        'payment_date' => date('Y-m-d'), // Today's date
+        'basic_salary' => (float)$_POST['basic_salary'],
+        'allowances' => (float)$_POST['allowance'],
+        'overtime_pay' => (float)$_POST['overtime'],
+        'epf_amount' => (float)$_POST['epf'],
+        'socso_amount' => (float)$_POST['socso'],
+        'eis_amount' => (float)$_POST['eis'],
+        'tax_amount' => (float)$_POST['pcb'],
+        'net_pay' => (float)$_POST['net_pay'],
+        'status' => 'processed'
+    ];
+    
+    // Check if record already exists for this employee/period
+    $check_query = "SELECT transaction_id FROM payroll_transactions 
+                   WHERE employee_id = $employee_id 
+                   AND pay_period_start = '$pay_period_start'";
+    $check_result = mysqli_query($con, $check_query);
+    
+    if (mysqli_num_rows($check_result) > 0) {
+        // Update existing record
+        $update_query = "UPDATE payroll_transactions SET 
+                        basic_salary = {$data['basic_salary']},
+                        allowances = {$data['allowances']},
+                        overtime_pay = {$data['overtime_pay']},
+                        epf_amount = {$data['epf_amount']},
+                        socso_amount = {$data['socso_amount']},
+                        eis_amount = {$data['eis_amount']},
+                        tax_amount = {$data['tax_amount']},
+                        net_pay = {$data['net_pay']},
+                        updated_at = NOW()
+                        WHERE employee_id = $employee_id 
+                        AND pay_period_start = '$pay_period_start'";
+        
+        mysqli_query($con, $update_query);
+    } else {
+        // Insert new record
+        $columns = implode(", ", array_keys($data));
+        $values = "'" . implode("', '", array_values($data)) . "'";
+        
+        $insert_query = "INSERT INTO payroll_transactions ($columns) VALUES ($values)";
+        mysqli_query($con, $insert_query);
+    }
+    
+    // If this was from the "Next Employee" form, redirect to process next employee
+    if (isset($_POST['employee_id']) && isset($_POST['month']) && isset($_POST['year'])) {
+        header("Location: P_payroll.php?employee_id={$_POST['employee_id']}&month={$_POST['month']}&year={$_POST['year']}");
+        exit;
     }
 }
 ?>
@@ -316,18 +392,23 @@ if (!empty($selected_emp)) {
           <i class="bi bi-gem"></i><span>Payroll</span><i class="bi bi-chevron-down ms-auto"></i>
         </a>
         <ul id="icons-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-          <li>
-            <a href="P_payroll.php">
-              <i class="bi bi-circle"></i><span>Process Payroll</span>
-            </a>
-          </li>
+          <?php if (isset($_SESSION['role']) && strcasecmp($_SESSION['role'],'Employer') === 0): 
+            echo "<!-- DEBUG ROLE: " . ($_SESSION['role'] ?? 'NOT SET') . " -->";
+?>
+            <li>
+              <a href="P_payroll.php">
+                <i class="bi bi-circle"></i><span>Process Payroll</span>
+              </a>
+            </li>
+          <?php endif; ?>
           <li>
             <a href="C_payslip.php">
               <i class="bi bi-circle"></i><span>Check Payslip</span>
             </a>
           </li>
         </ul>
-      </li><!-- End Payroll Nav -->
+      </li>
+      <!-- End Payroll Nav -->
 
       <li class="nav-item">
         <a class="nav-link collapsed" data-bs-target="#claim-nav" data-bs-toggle="collapse" href="#">
@@ -548,9 +629,9 @@ if (!empty($selected_emp)) {
         <div class="column">
             <h3>Monthly Activity</h3>
             <div class="item"><span>Days Present</span><span><?= $attendance_summary['present'] ?></span></div>
-            <div class="item"><span>Days On Leave</span><span><?= $attendance_summary['on_leave'] ?></span></div>
+            <div class="item"><span>Days On Leave</span><span><?= $attendance_summary['on-leave'] ?></span></div>
             <div class="item"><span>Days Absent</span><span><?= $attendance_summary['absent'] ?></span></div>
-            <div class="item bold"><span>Total Claims</span><span>RM <?= number_format($total_claim, 2) ?></span></div>
+            <div class="item"><span>Total Claims</span><span>RM <?= number_format($total_claim, 2) ?></span></div>
         </div>
         <!-- Column 2: Earnings -->
         <div class="column">
@@ -571,7 +652,7 @@ if (!empty($selected_emp)) {
             <div class="item"><span>+ Allowance</span><span id="allowanceSummary">RM <?= number_format($allowance, 2) ?></span></div>
             <div class="item"><span>+ Overtime</span><span id="overtimeSummary">RM <?= number_format($overtime, 2) ?></span></div>
             <div class="item"><span>+ Claims</span><span id="claimsDisplay">RM <?= number_format($total_claim, 2) ?></span></div>
-            <div class="item"><span>Deductions</span><span id="deductionsDisplay">RM <?= number_format($payroll_data['total_deductions'], 2) ?></span></div>
+            <div class="item"><span>- Deductions</span><span id="deductionsDisplay">RM <?= number_format($payroll_data['total_deductions'], 2) ?></span></div>
             <div class="item highlight">
                 <span>Net Pay</span>
                 <span id="netPayDisplay">RM <?= number_format($payroll_data['net_salary'], 2) ?></span>
@@ -585,6 +666,68 @@ if (!empty($selected_emp)) {
     <?php endif; ?>
 </div>
 <?php endif; ?>
+
+//payroll process
+  <?php if (!empty($selected_emp)): ?>
+      <div class="text-center mt-4">
+          <?php
+          // Get all employees ordered by ID
+          $emp_list = [];
+          $res = mysqli_query($con, "SELECT personal_id, full_name FROM personal_information ORDER BY personal_id ASC");
+          while ($row = mysqli_fetch_assoc($res)) {
+              $emp_list[] = $row;
+          }
+
+          // Find current employee position
+          $currentIndex = array_search($selected_emp, array_column($emp_list, 'personal_id'));
+
+          if ($currentIndex !== false && $currentIndex < count($emp_list) - 1): 
+              // Show "Next Employee" button
+              $nextIndex = $currentIndex + 1;
+              $next_emp = $emp_list[$nextIndex]['personal_id'];
+              $next_name = $emp_list[$nextIndex]['full_name'];
+          ?>
+              <form method="POST" id="nextEmployeeForm">
+                  <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
+                  <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
+                  <input type="hidden" name="employee_id" value="<?= htmlspecialchars($next_emp) ?>">
+                  <input type="hidden" name="save_current" value="1">
+                  
+                  <!-- Add hidden fields for all payroll data -->
+                  <input type="hidden" name="basic_salary" value="<?= htmlspecialchars($payroll_data['employee_salary'] ?? 0) ?>">
+                  <input type="hidden" name="allowance" value="<?= htmlspecialchars($allowance) ?>">
+                  <input type="hidden" name="overtime" value="<?= htmlspecialchars($overtime) ?>">
+                  <input type="hidden" name="total_claims" value="<?= htmlspecialchars($total_claim) ?>">
+                  <input type="hidden" name="epf" value="<?= htmlspecialchars($payroll_data['epf'] ?? 0) ?>">
+                  <input type="hidden" name="socso" value="<?= htmlspecialchars($payroll_data['socso'] ?? 0) ?>">
+                  <input type="hidden" name="eis" value="<?= htmlspecialchars($payroll_data['eis'] ?? 0) ?>">
+                  <input type="hidden" name="pcb" value="<?= htmlspecialchars($payroll_data['pcb'] ?? 0) ?>">
+                  <input type="hidden" name="net_pay" value="<?= htmlspecialchars($payroll_data['net_salary'] ?? 0) ?>">
+                  
+                  <button type="submit" class="btn btn-success">
+                      Process Next Employee (<?= htmlspecialchars($next_name) ?>) &nbsp; ➡️
+                  </button>
+              </form>
+          <?php else: ?>
+              <!-- Last employee: Show Process Payslip -->
+              <form method="POST" action="generate_payslip.php">
+                  <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
+                  <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
+                  <input type="hidden" name="save_current" value="1">
+                  
+                  <!-- Same hidden fields as above -->
+                  <input type="hidden" name="basic_salary" value="<?= htmlspecialchars($payroll_data['employee_salary'] ?? 0) ?>">
+                  <input type="hidden" name="allowance" value="<?= htmlspecialchars($allowance) ?>">
+                  <!-- Include all other payroll fields -->
+                  
+                  <button type="submit" class="btn btn-primary">
+                      ✅ Process Payslip for <?= date('F', mktime(0,0,0,$selected_month,10)) ?> <?= $selected_year ?>
+                  </button>
+              </form>
+          <?php endif; ?>
+      </div>
+  <?php endif; ?>
+
 
   </main><!-- End #main -->
 

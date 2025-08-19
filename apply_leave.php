@@ -461,7 +461,7 @@ ini_set('display_errors', 1);
                             echo "<h6>$remainingHospitalizationLeave</h6>";
 
                             // Close the database connection
-                            mysqli_close($con);
+                            mysqli_close($con)
                             ?>
                             </div>
                         </div>
@@ -474,7 +474,7 @@ ini_set('display_errors', 1);
     </section>
 
     
-    <div class="col-lg-12">
+    <div class="col-lg-14">
       <div class="card">
         <div class="card-body">
         <form id="leaveForm" action="process_form.php" method="post" enctype="multipart/form-data">
@@ -508,7 +508,7 @@ ini_set('display_errors', 1);
                   <div class="row">
                     <!-- Start Date Input -->
                     <div class="col-sm-6">
-                      <label for="inputStartDate" class="col-sm-3 col-form-label">Start Date</label>
+                      <label for="inputStartDate" class="col-sm-4 col-form-label">Start Date</label>
                       <div class="col-sm-12">
                         <input type="date" class="form-control" name="start_date" id="inputStartDate">
                       </div>

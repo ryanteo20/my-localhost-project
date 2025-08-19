@@ -19,11 +19,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($result && $result->num_rows === 1) {
         $user = $result->fetch_assoc();
         if (md5($password) === $user['password']) {
-            // Set session variables
-            $_SESSION['ID'] = $user['ID'];
-            $_SESSION['username'] = $username;
-            $_SESSION['role'] = $user['role'];
-            $_SESSION['first_login'] =  $user['first_login'];
+        // Set session variables
+        $_SESSION['ID'] = $user['ID'];
+        $_SESSION['username'] = $username;
+        $_SESSION['role'] = ucfirst(strtolower(trim($user['role']))); // normalize
+        $_SESSION['first_login'] =  $user['first_login'];
             if ($_SESSION['first_login'] == 1) {
                 // Redirect the user to create_password.php for password creation
                 header("Location: create_password.php");
