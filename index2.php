@@ -170,11 +170,6 @@ require('session.php');
         </a>
         <ul id="icons-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
-            <a href="P_payroll.php">
-              <i class="bi bi-circle"></i><span>Process Payroll</span>
-            </a>
-          </li>
-          <li>
             <a href="C_payslip.php">
               <i class="bi bi-circle"></i><span>Check Payslip</span>
             </a>

@@ -4,12 +4,10 @@ require('session.php');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-$_SESSION['ID'] = $row['personal_id'];   // already in your code
-$_SESSION['username'] = $row['full_name']; // or whatever field
-$_SESSION['role'] = ucfirst(strtolower($row['role'])); // normalize role
+
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Employer') {
-    header("Location: index.php");
+    header("Location: index2.php");
     exit("Access Denied: Employers only.");
 }
 
@@ -105,69 +103,40 @@ if (!empty($selected_emp)) {
     }
 }
 
-// Handle saving payroll data
-if (isset($_POST['save_current']) && !empty($_POST['employee_id'])) {
-    $employee_id = (int)$_POST['employee_id'];
-    $month = $_POST['month'];
-    $year = $_POST['year'];
-    
-    // Calculate period dates (first and last day of selected month)
-    $pay_period_start = date('Y-m-01', strtotime("$year-$month-01"));
-    $pay_period_end = date('Y-m-t', strtotime("$year-$month-01"));
-    
-    // Prepare data for insertion
-    $data = [
-        'employee_id' => $employee_id,
-        'pay_period_start' => $pay_period_start,
-        'pay_period_end' => $pay_period_end,
-        'payment_date' => date('Y-m-d'), // Today's date
-        'basic_salary' => (float)$_POST['basic_salary'],
-        'allowances' => (float)$_POST['allowance'],
-        'overtime_pay' => (float)$_POST['overtime'],
-        'epf_amount' => (float)$_POST['epf'],
-        'socso_amount' => (float)$_POST['socso'],
-        'eis_amount' => (float)$_POST['eis'],
-        'tax_amount' => (float)$_POST['pcb'],
-        'net_pay' => (float)$_POST['net_pay'],
-        'status' => 'processed'
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
+    $period_start = date("Y-m-01", strtotime($_POST['year']."-".$_POST['month']."-01"));
+    $period_end   = date("Y-m-t", strtotime($_POST['year']."-".$_POST['month']."-01"));
+    $payment_date = date("Y-m-d");
+
+    $payrollData = [
+        'employee_id'     => (int)$_POST['employee_id'],
+        'pay_period_start'=> $period_start,
+        'pay_period_end'  => $period_end,
+        'payment_date'    => $payment_date,
+        'basic_salary'    => (float)$_POST['basic_salary'],
+        'allowances'      => (float)$_POST['allowance'],
+        'deductions'      => (float)$_POST['epf'] + (float)$_POST['socso'] + (float)$_POST['eis'] + (float)$_POST['pcb'],
+        'tax_amount'      => (float)$_POST['pcb'],
+        'epf_amount'      => (float)$_POST['epf'],
+        'socso_amount'    => (float)$_POST['socso'],
+        'eis_amount'      => (float)$_POST['eis'],
+        'overtime_pay'    => (float)$_POST['overtime'],
+        'total_claims'    => (float)$_POST['total_claims'],
+        'net_pay'         => (float)$_POST['net_pay'],
+        'status'          => 'processed'
     ];
-    
-    // Check if record already exists for this employee/period
-    $check_query = "SELECT transaction_id FROM payroll_transactions 
-                   WHERE employee_id = $employee_id 
-                   AND pay_period_start = '$pay_period_start'";
-    $check_result = mysqli_query($con, $check_query);
-    
-    if (mysqli_num_rows($check_result) > 0) {
-        // Update existing record
-        $update_query = "UPDATE payroll_transactions SET 
-                        basic_salary = {$data['basic_salary']},
-                        allowances = {$data['allowances']},
-                        overtime_pay = {$data['overtime_pay']},
-                        epf_amount = {$data['epf_amount']},
-                        socso_amount = {$data['socso_amount']},
-                        eis_amount = {$data['eis_amount']},
-                        tax_amount = {$data['tax_amount']},
-                        net_pay = {$data['net_pay']},
-                        updated_at = NOW()
-                        WHERE employee_id = $employee_id 
-                        AND pay_period_start = '$pay_period_start'";
-        
-        mysqli_query($con, $update_query);
-    } else {
-        // Insert new record
-        $columns = implode(", ", array_keys($data));
-        $values = "'" . implode("', '", array_values($data)) . "'";
-        
-        $insert_query = "INSERT INTO payroll_transactions ($columns) VALUES ($values)";
-        mysqli_query($con, $insert_query);
-    }
-    
-    // If this was from the "Next Employee" form, redirect to process next employee
-    if (isset($_POST['employee_id']) && isset($_POST['month']) && isset($_POST['year'])) {
-        header("Location: P_payroll.php?employee_id={$_POST['employee_id']}&month={$_POST['month']}&year={$_POST['year']}");
+
+    require_once 'functions.php';
+    savePayrollTransaction($con, $payrollData);
+
+    // ✅ Redirect to next employee if requested
+    if (!empty($_POST['goto_next'])) {
+        $next_emp = (int)$_POST['goto_next'];
+        header("Location: P_payroll.php?month={$_POST['month']}&year={$_POST['year']}&employee_id={$next_emp}");
         exit;
     }
+
+    echo "<div class='alert alert-success mt-3'>💾 Payroll saved for Employee ID: {$payrollData['employee_id']}</div>";
 }
 ?>
 
@@ -310,131 +279,131 @@ if (isset($_POST['save_current']) && !empty($_POST['employee_id'])) {
 
   </header><!-- End Header -->
 
-  <!-- ======= Sidebar ======= -->
-  <aside id="sidebar" class="sidebar">
+<!-- ======= Sidebar ======= -->
+<aside id="sidebar" class="sidebar">
 
-    <ul class="sidebar-nav" id="sidebar-nav">
+  <ul class="sidebar-nav" id="sidebar-nav">
 
-      <li class="nav-item">
-        <a class="nav-link collapsed" href="index.php">
-          <i class="bi bi-grid"></i>
-          <span>Home</span>
-        </a>
-      </li><!-- End Dashboard Nav -->
+    <li class="nav-item">
+      <a class="nav-link collapsed" href="index.php">
+        <i class="bi bi-grid"></i>
+        <span>Home</span>
+      </a>
+    </li><!-- End Dashboard Nav -->
 
-      <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#components-nav" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-menu-button-wide"></i><span>Employee Management</span><i class="bi bi-chevron-down ms-auto"></i>
-        </a>
-        <ul id="components-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-          <li>
-            <a href="add.php">
-              <i class="bi bi-circle"></i><span>Add Employee</span>
-            </a>
-          </li>
-          <li>
-            <a href="delete.php">
-              <i class="bi bi-circle"></i><span>Delete Employee</span>
-            </a>
-          </li>
-          <li>
-            <a href="view_all.php">
-              <i class="bi bi-circle"></i><span>View All Employee</span>
-            </a>
-          </li>
-        </ul>
-      </li><!-- End Employee Management Nav -->
-
-      <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#forms-nav" data-bs-toggle="collapse" href="recruiment_process.php">
-          <i class="bi bi-journal-text"></i><span>Recruiment Process</span>
-        </a>
-      </li><!-- End Recruiment Process Nav -->
-
-      <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#attendance-nav" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
-        </a>
-        <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+    <li class="nav-item">
+      <a class="nav-link collapsed" data-bs-target="#components-nav" data-bs-toggle="collapse" href="#">
+        <i class="bi bi-menu-button-wide"></i><span>Employee Management</span><i class="bi bi-chevron-down ms-auto"></i>
+      </a>
+      <ul id="components-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
         <li>
-            <a href="attendance_employer.php">
-              <i class="bi bi-circle"></i><span>Clock in & out</span>
-            </a>
-          </li>
-          <li>
-            <a href="v_all_attendance.php">
-              <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
-            </a>
-          </li>
-        </ul>
-      </li><!-- End Attandance Nav -->
+          <a href="add.php">
+            <i class="bi bi-circle"></i><span>Add Employee</span>
+          </a>
+        </li>
+        <li>
+          <a href="delete.php">
+            <i class="bi bi-circle"></i><span>Delete Employee</span>
+          </a>
+        </li>
+        <li>
+          <a href="view_all.php">
+            <i class="bi bi-circle"></i><span>View All Employee</span>
+          </a>
+        </li>
+      </ul>
+    </li><!-- End Employee Management Nav -->
 
-      <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#charts-nav" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-bar-chart"></i><span>Leave Management</span><i class="bi bi-chevron-down ms-auto"></i>
-        </a>
-        <ul id="charts-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-          <li>
-            <a href="leave_tracking.php">
-              <i class="bi bi-circle"></i><span>Leave Tracking</span>
-            </a>
-          </li>
-          <li>
-            <a href="AL.php">
-              <i class="bi bi-circle"></i><span>Apply Leave</span>
-            </a>
-          </li>
-        </ul>
-      </li><!-- End Leave Management Nav -->
+    <li class="nav-item">
+      <a class="nav-link collapsed" data-bs-target="#forms-nav" data-bs-toggle="collapse" href="recruiment_process.php">
+        <i class="bi bi-journal-text"></i><span>Recruiment Process</span>
+      </a>
+    </li><!-- End Recruiment Process Nav -->
 
-      <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-gem"></i><span>Payroll</span><i class="bi bi-chevron-down ms-auto"></i>
-        </a>
-        <ul id="icons-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-          <?php if (isset($_SESSION['role']) && strcasecmp($_SESSION['role'],'Employer') === 0): 
-            echo "<!-- DEBUG ROLE: " . ($_SESSION['role'] ?? 'NOT SET') . " -->";
-?>
-            <li>
-              <a href="P_payroll.php">
-                <i class="bi bi-circle"></i><span>Process Payroll</span>
-              </a>
-            </li>
-          <?php endif; ?>
-          <li>
-            <a href="C_payslip.php">
-              <i class="bi bi-circle"></i><span>Check Payslip</span>
-            </a>
-          </li>
-        </ul>
-      </li>
-      <!-- End Payroll Nav -->
+    <li class="nav-item">
+      <a class="nav-link collapsed" data-bs-target="#attendance-nav" data-bs-toggle="collapse" href="#">
+        <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
+      </a>
+      <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+      <li>
+          <a href="attendance_employer.php">
+            <i class="bi bi-circle"></i><span>Clock in & out</span>
+          </a>
+        </li>
+        <li>
+          <a href="v_all_attendance.php">
+            <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
+          </a>
+        </li>
+      </ul>
+    </li><!-- End Attandance Nav -->
 
-      <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#claim-nav" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-currency-dollar"></i><span>Claim Management</span><i class="bi bi-chevron-down ms-auto"></i>
-        </a>
-        <ul id="claim-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+    <li class="nav-item">
+      <a class="nav-link collapsed" data-bs-target="#charts-nav" data-bs-toggle="collapse" href="#">
+        <i class="bi bi-bar-chart"></i><span>Leave Management</span><i class="bi bi-chevron-down ms-auto"></i>
+      </a>
+      <ul id="charts-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <li>
+          <a href="leave_tracking.php">
+            <i class="bi bi-circle"></i><span>Leave Tracking</span>
+          </a>
+        </li>
+        <li>
+          <a href="AL.php">
+            <i class="bi bi-circle"></i><span>Apply Leave</span>
+          </a>
+        </li>
+      </ul>
+    </li><!-- End Leave Management Nav -->
+
+    <li class="nav-item">
+      <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#">
+        <i class="bi bi-gem"></i><span>Payroll</span><i class="bi bi-chevron-down ms-auto"></i>
+      </a>
+      <ul id="icons-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'Employer'): ?>
           <li>
-            <a href="R_claim.php">
-              <i class="bi bi-circle"></i><span>Request Claim</span>
+            <a href="P_payroll.php">
+              <i class="bi bi-circle"></i><span>Process Payroll</span>
             </a>
           </li>
+        <?php endif; ?>
+        <li>
+          <a href="C_payslip.php">
+            <i class="bi bi-circle"></i><span>Check Payslip</span>
+          </a>
+        </li>
+      </ul>
+    </li>
+    <!-- End Payroll Nav -->
+
+    <li class="nav-item">
+      <a class="nav-link collapsed" data-bs-target="#claim-nav" data-bs-toggle="collapse" href="#">
+        <i class="bi bi-currency-dollar"></i><span>Claim Management</span><i class="bi bi-chevron-down ms-auto"></i>
+      </a>
+      <ul id="claim-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+        <li>
+          <a href="R_claim.php">
+            <i class="bi bi-circle"></i><span>Request Claim</span>
+          </a>
+        </li>
+        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'Employer'): ?>
           <li>
             <a href="AR_claim.php">
               <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
             </a>
           </li>
-          <li>
-            <a href="VR_claim.php">
-              <i class="bi bi-circle"></i><span>View All Claim</span>
-            </a>
-          </li>
-        </ul>
-      </li><!-- End Claim Management Nav -->
-    </ul>
+        <?php endif; ?>
+        <li>
+          <a href="VR_claim.php">
+            <i class="bi bi-circle"></i><span>View All Claim</span>
+          </a>
+        </li>
+      </ul>
+    </li><!-- End Claim Management Nav -->
+  </ul>
 
-  </aside>
+</aside>
 
   <main id="main" class="main">
 
@@ -687,27 +656,28 @@ if (isset($_POST['save_current']) && !empty($_POST['employee_id'])) {
               $next_emp = $emp_list[$nextIndex]['personal_id'];
               $next_name = $emp_list[$nextIndex]['full_name'];
           ?>
-              <form method="POST" id="nextEmployeeForm">
-                  <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
-                  <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
-                  <input type="hidden" name="employee_id" value="<?= htmlspecialchars($next_emp) ?>">
-                  <input type="hidden" name="save_current" value="1">
-                  
-                  <!-- Add hidden fields for all payroll data -->
-                  <input type="hidden" name="basic_salary" value="<?= htmlspecialchars($payroll_data['employee_salary'] ?? 0) ?>">
-                  <input type="hidden" name="allowance" value="<?= htmlspecialchars($allowance) ?>">
-                  <input type="hidden" name="overtime" value="<?= htmlspecialchars($overtime) ?>">
-                  <input type="hidden" name="total_claims" value="<?= htmlspecialchars($total_claim) ?>">
-                  <input type="hidden" name="epf" value="<?= htmlspecialchars($payroll_data['epf'] ?? 0) ?>">
-                  <input type="hidden" name="socso" value="<?= htmlspecialchars($payroll_data['socso'] ?? 0) ?>">
-                  <input type="hidden" name="eis" value="<?= htmlspecialchars($payroll_data['eis'] ?? 0) ?>">
-                  <input type="hidden" name="pcb" value="<?= htmlspecialchars($payroll_data['pcb'] ?? 0) ?>">
-                  <input type="hidden" name="net_pay" value="<?= htmlspecialchars($payroll_data['net_salary'] ?? 0) ?>">
-                  
-                  <button type="submit" class="btn btn-success">
-                      Process Next Employee (<?= htmlspecialchars($next_name) ?>) &nbsp; ➡️
-                  </button>
-              </form>
+          <form method="POST" id="nextEmployeeForm">
+              <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
+              <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
+              <input type="hidden" name="employee_id" value="<?= htmlspecialchars($selected_emp) ?>">
+              <input type="hidden" name="save_current" value="1">
+              <input type="hidden" name="goto_next" value="<?= htmlspecialchars($next_emp) ?>">
+
+              <!-- Payroll fields -->
+              <input type="hidden" name="basic_salary" value="<?= htmlspecialchars($payroll_data['employee_salary'] ?? 0) ?>">
+              <input type="hidden" name="allowance" value="<?= htmlspecialchars($allowance) ?>">
+              <input type="hidden" name="overtime" value="<?= htmlspecialchars($overtime) ?>">
+              <input type="hidden" name="total_claims" value="<?= htmlspecialchars($total_claim) ?>">
+              <input type="hidden" name="epf" value="<?= htmlspecialchars($payroll_data['epf'] ?? 0) ?>">
+              <input type="hidden" name="socso" value="<?= htmlspecialchars($payroll_data['socso'] ?? 0) ?>">
+              <input type="hidden" name="eis" value="<?= htmlspecialchars($payroll_data['eis'] ?? 0) ?>">
+              <input type="hidden" name="pcb" value="<?= htmlspecialchars($payroll_data['pcb'] ?? 0) ?>">
+              <input type="hidden" name="net_pay" value="<?= htmlspecialchars($payroll_data['net_salary'] ?? 0) ?>">
+
+              <button type="submit" class="btn btn-success">
+                  Process Current & Go to Next (<?= htmlspecialchars($next_name) ?>) ➡️
+              </button>
+          </form>
           <?php else: ?>
               <!-- Last employee: Show Process Payslip -->
               <form method="POST" action="generate_payslip.php">
