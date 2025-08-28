@@ -38,7 +38,6 @@ function handleRegistration($con) {
 
 $success_message = handleRegistration($con);
 ?>
-?>
 <!DOCTYPE html>
 <html lang="en">
 

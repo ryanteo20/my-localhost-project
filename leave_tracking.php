@@ -252,219 +252,203 @@ if (empty($current_user_id)) {
                   <button class="nav-link" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact" type="button" role="tab" aria-controls="contact" aria-selected="false">Rejected</button>
                 </li>
               </ul>
-              <div class="tab-content pt-2" id="myTabContent">
-                <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
-            <!-- Table with stripped rows -->
-            <table class="table datatable table-striped">
-                <thead>
-                    <tr>
-                    <th scope="col">Employee</th>
-                    <th scope="col">Leave Type</th>
-                    <th scope="col">From</th>
-                    <th scope="col">To</th>
-                    <th scope="col">Days</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col">Attachment</th>
-                    <th scope="col">Applied</th>
-                    <th scope="col">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
-                require('database.php');
+<div class="tab-content pt-2" id="myTabContent">
+  <!-- Pending Leave Requests Tab -->
+  <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+    <!-- Table for Pending Leave Requests -->
+    <table class="table datatable table-striped">
+      <thead>
+        <tr>
+          <th scope="col">Employee</th>
+          <th scope="col">Leave Type</th>
+          <th scope="col">From</th>
+          <th scope="col">To</th>
+          <th scope="col">Days</th>
+          <th scope="col">Reason</th>
+          <th scope="col">Attachment</th>
+          <th scope="col">Applied</th>
+          <th scope="col">Status</th>
+          <th scope="col">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+<?php
+require('database.php');
 
-                $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-                        FROM employeelogin el
-                        INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                        WHERE la.leave_review = 'Pending for review'
-                        AND el.ID = ?";
+$query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
+FROM employeelogin el
+INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+WHERE la.leave_review = 'Pending for review'
+ORDER BY la.apply_date DESC";
 
-                $stmt = mysqli_prepare($con, $query);
-                if ($stmt) {
-                    // BIND THE PARAMETER - This was missing!
-                    mysqli_stmt_bind_param($stmt, "i", $current_user_id);
-                    
-                    $result = mysqli_stmt_execute($stmt);
-                    $modalsContent = '';
+$stmt = mysqli_prepare($con, $query);
+if ($stmt) {
+    $result = mysqli_stmt_execute($stmt);
+    if ($result) {
+        $data = mysqli_stmt_get_result($stmt);
+        if (mysqli_num_rows($data) > 0) {
+            while ($row = mysqli_fetch_assoc($data)) {
+                echo "<tr>";
+                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
+                echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
+                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
+                echo "<td><button type='button' class='btn btn-primary review-button' onclick='showReviewModal(" . htmlspecialchars($row['leave_id']) . ")'>Review</button></td>";
+                echo "</tr>";
+            }
+        } else {
+            echo "<tr><td colspan='9'>No leave applications found.</td></tr>";
+        }
+    }
+}
+?>
+<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="reviewModalLabel">Review Leave Request</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="leaveStatus">Leave Status</label>
+          <select id="leaveStatus" class="form-select" onchange="showRejectionReason()">
+            <option value="Approved">Approve</option>
+            <option value="Rejected">Reject</option>
+          </select>
+        </div>
+        <div class="form-group mt-3" id="rejectionReasonSection" style="display:none;">
+          <label for="rejectionReason">Rejection Reason</label>
+          <textarea id="rejectionReason" class="form-control" rows="3" placeholder="Provide a reason for rejection..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn btn-primary" onclick="approveReview()">Approve</button>
+        <button type="button" class="btn btn-danger" onclick="rejectReview()">Reject</button>
+      </div>
+    </div>
+  </div>
+</div>
+      </tbody>
+    </table>
+  </div>
 
-                    if ($result) {
-                        $data = mysqli_stmt_get_result($stmt);
-                        if (mysqli_num_rows($data) > 0) {
-                            while ($row = mysqli_fetch_assoc($data)) {
-                                $rowId = htmlspecialchars($row['leave_id']);
-                                echo "<tr>";
-                                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
-                                $fullPath = htmlspecialchars($row['leave_document']);
-                                if ($fullPath != null) {
-                                    echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
-                                } else {
-                                    echo "<td>No document is uploaded.</td>";
-                                }
-                                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
-                                echo "<td><button type='button' class='btn btn-primary review-button' onclick='showReviewModal($rowId)'>Review</button></td>";
-                                echo "</tr>";
-                            }
-                        } else {
-                            echo "<tr><td colspan='9'>No pending reviews found.</td></tr>";
-                        }
-                    } else {
-                        echo "Error executing query: " . mysqli_stmt_error($stmt);
-                    }
-                    mysqli_stmt_close($stmt);
-                } else {
-                    echo "Error preparing statement: " . mysqli_error($con);
-                }
-                ?>
-                </tbody>
-                <?= $modalsContent ?>
-                </table>           
-                </div>
-                <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
-                <table class="table datatable table-striped">
-                <thead>
-                    <tr>
-                    <th scope="col">Employee</th>
-                    <th scope="col">Leave Type</th>
-                    <th scope="col">From</th>
-                    <th scope="col">To</th>
-                    <th scope="col">Days</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col">Attachment</th>
-                    <th scope="col">Applied</th>
-                    <th scope="col">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
-                require('database.php');
+  <!-- Approved Leave Requests Tab -->
+  <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+    <!-- Table for Approved Leave Requests -->
+    <table class="table datatable table-striped">
+      <thead>
+        <tr>
+          <th scope="col">Employee</th>
+          <th scope="col">Leave Type</th>
+          <th scope="col">From</th>
+          <th scope="col">To</th>
+          <th scope="col">Days</th>
+          <th scope="col">Reason</th>
+          <th scope="col">Attachment</th>
+          <th scope="col">Applied</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php
+        $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
+        FROM employeelogin el
+        INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+        WHERE la.leave_review = 'Approved'
+        ORDER BY la.apply_date DESC";
 
-                $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-                            FROM employeelogin el
-                            INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                            WHERE la.leave_review = 'Approved'
-                            AND el.ID = ?";
+        $stmt = mysqli_prepare($con, $query);
+        if ($stmt) {
+          $result = mysqli_stmt_execute($stmt);
+          if ($result) {
+            $data = mysqli_stmt_get_result($stmt);
+            if (mysqli_num_rows($data) > 0) {
+              while ($row = mysqli_fetch_assoc($data)) {
+                echo "<tr>";
+                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
+                echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
+                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
+                echo "</tr>";
+              }
+            } else {
+              echo "<tr><td colspan='9'>No approved leave applications found.</td></tr>";
+            }
+          }
+        }
+        ?>
+      </tbody>
+    </table>
+  </div>
 
-                $stmt = mysqli_prepare($con, $query);
-                if ($stmt) {
-                    // BIND THE PARAMETER - This was missing!
-                    mysqli_stmt_bind_param($stmt, "i", $current_user_id);
-                    
-                    $result = mysqli_stmt_execute($stmt);
-                    $modalsContent = '';
+  <!-- Rejected Leave Requests Tab -->
+  <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">
+    <!-- Table for Rejected Leave Requests -->
+    <table class="table datatable table-striped">
+      <thead>
+        <tr>
+          <th scope="col">Employee</th>
+          <th scope="col">Leave Type</th>
+          <th scope="col">From</th>
+          <th scope="col">To</th>
+          <th scope="col">Days</th>
+          <th scope="col">Reason</th>
+          <th scope="col">Attachment</th>
+          <th scope="col">Applied</th>
+          <th scope="col">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php
+        $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
+        FROM employeelogin el
+        INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+        WHERE la.leave_review = 'Rejected'
+        ORDER BY la.apply_date DESC";
 
-                    if ($result) {
-                        $data = mysqli_stmt_get_result($stmt);
-                        if (mysqli_num_rows($data) > 0) {
-                            while ($row = mysqli_fetch_assoc($data)) {
-                                $rowId = htmlspecialchars($row['leave_id']);
-                                echo "<tr class='clickable-row' data-id='$rowId'>";
-                                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
-                                $fullPath = htmlspecialchars($row['leave_document']);
-                                if ($fullPath != null) {
-                                    echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
-                                } else {
-                                    echo "<td>No document uploaded.</td>";
-                                }
-                                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
-                                echo "</tr>";
-                            }
-                        } else {
-                            echo "<tr><td colspan='9'>No approved leave requests found.</td></tr>";
-                        }
-                    } else {
-                        echo "Error executing query: " . mysqli_stmt_error($stmt);
-                    }
-                    mysqli_stmt_close($stmt);
-                } else {
-                    echo "Error preparing statement: " . mysqli_error($con);
-                }
-                ?>                        
-                </tbody>
-                </table> 
-                </div>
-                <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">
-                <table class="table datatable table-striped">
-                <thead>
-                    <tr>
-                    <th scope="col">Employee</th>
-                    <th scope="col">Leave Type</th>
-                    <th scope="col">From</th>
-                    <th scope="col">To</th>
-                    <th scope="col">Days</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col">Attachment</th>
-                    <th scope="col">Applied</th>
-                    <th scope="col">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php
-                require('database.php');
+        $stmt = mysqli_prepare($con, $query);
+        if ($stmt) {
+          $result = mysqli_stmt_execute($stmt);
+          if ($result) {
+            $data = mysqli_stmt_get_result($stmt);
+            if (mysqli_num_rows($data) > 0) {
+              while ($row = mysqli_fetch_assoc($data)) {
+                echo "<tr>";
+                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
+                echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
+                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
+                echo "</tr>";
+              }
+            } else {
+              echo "<tr><td colspan='9'>No rejected leave applications found.</td></tr>";
+            }
+          }
+        }
+        ?>
+      </tbody>
+    </table>
+  </div>
+</div>
 
-                $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-                        FROM employeelogin el
-                        INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                        WHERE la.leave_review = 'Rejected'
-                        AND el.ID = ?";
-
-                $stmt = mysqli_prepare($con, $query);
-                if ($stmt) {
-                    // BIND THE PARAMETER - This was missing!
-                    mysqli_stmt_bind_param($stmt, "i", $current_user_id);
-                    
-                    $result = mysqli_stmt_execute($stmt);
-                    $modalsContent = '';
-
-                    if ($result) {
-                        $data = mysqli_stmt_get_result($stmt);
-                        if (mysqli_num_rows($data) > 0) {
-                            while ($row = mysqli_fetch_assoc($data)) {
-                                $rowId = htmlspecialchars($row['leave_id']);
-                                echo "<tr class='reject-row' data-id='$rowId'>";
-                                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
-                                $fullPath = htmlspecialchars($row['leave_document']);
-                                if ($fullPath != null) {
-                                    echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
-                                } else {
-                                    echo "<td>No document uploaded.</td>";
-                                }
-                                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
-                                echo "</tr>";
-                            }
-                        } else {
-                            echo "<tr><td colspan='9'>No rejected leave requests found.</td></tr>";
-                        }
-                    } else {
-                        echo "Error executing query: " . mysqli_stmt_error($stmt);
-                    }
-                    mysqli_stmt_close($stmt);
-                } else {
-                    echo "Error preparing statement: " . mysqli_error($con);
-                }
-                ?>
-                        </tbody>
-                    </table>                 
-                  </div>
-              </div><!-- End Default Tabs -->
             </div>
-          </div>
     </main>
 
       <!-- ======= Footer ======= -->
@@ -494,36 +478,39 @@ if (empty($current_user_id)) {
   <script>
 let currentLeaveId = null;  // Global variable to keep track of the current leave ID
 
+// Show the review modal and set the current leave ID
 function showReviewModal(leaveId) {
     currentLeaveId = leaveId;
-    $('#rejectionReason').hide();  // Make sure to hide the rejection reason textarea initially
-    $('#submitRejection').hide();  // Hide the submit rejection button initially
+    $('#rejectionReason').hide();  // Hide the rejection reason initially
     $('#reviewModal').modal('show');  // Show the modal
 }
 
+// Handle approving the leave
 function approveReview() {
     if (currentLeaveId) {
-        updateLeaveStatus(currentLeaveId, 'Approve', '');
+        updateLeaveStatus(currentLeaveId, 'Approved', '');  // Approve without a reason
     }
 }
 
+// Show the rejection reason input when "Reject" is selected
 function showRejectionReason() {
-    $('#rejectionReason').show();
-    $('#submitRejection').show();
+    $('#rejectionReason').show();  // Show the rejection reason textarea
 }
 
+// Handle rejecting the leave
 function rejectReview() {
     var reason = $('#rejectionReason').val();
     if (!reason) {
         alert('Please provide a reason for rejection.');
         return;
     }
-    updateLeaveStatus(currentLeaveId, 'Reject', reason);
+    updateLeaveStatus(currentLeaveId, 'Rejected', reason);  // Reject with a reason
 }
 
+// Function to update the leave status (approve or reject)
 function updateLeaveStatus(leaveId, status, reason) {
     $.ajax({
-        url: 'update_leave_status.php',
+        url: 'update_leave_status.php',  // Server-side script to update the leave status
         type: 'POST',
         data: {
             leaveId: leaveId,
@@ -544,27 +531,6 @@ function updateLeaveStatus(leaveId, status, reason) {
             alert(`An error occurred while processing the leave. Please try again.`);
         }
     });
-}
-
-function approveReview(leaveId) {
-  if (confirm("Are you sure you want to approve this leave?")) {
-    fetch('process_approve_leave.php', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: 'leave_id=' + encodeURIComponent(leaveId)
-    })
-    .then(response => response.text())
-    .then(data => {
-      alert(data); // Shows success or error message from PHP
-      // Optionally reload the page or update the UI:
-      location.reload();
-    })
-    .catch(error => {
-      console.error('Error:', error);
-    });
-  }
 }
 
 </script>

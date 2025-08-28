@@ -33,10 +33,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             header("Location: " . ($user['role'] === 'Employee' ? "index2.php" : "index.php"));
             exit();
         } else {
-            $error = 'invalid_credentials';
+            $error = 'invalid username or password';
         }
     } else {
-        $error = 'invalid_credentials';
+        $error = 'invalid username or password';
     }
 }
 ?>

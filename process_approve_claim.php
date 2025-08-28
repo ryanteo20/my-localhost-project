@@ -24,21 +24,27 @@ if ($status === 'Rejected' && empty($reason)) {
 }
 
 if ($status === 'Approved') {
-    // Only 2 placeholders
+    // Add approved_at field for Approved claims
+    $approved_at = date('Y-m-d H:i:s');  // Current timestamp
+
+    // Update query with 3 placeholders (status, approved_at, claim_id)
     $sql = "UPDATE claims 
-            SET status = ?, rejection_reason = NULL 
+            SET status = ?, approved_at = ?, rejection_reason = NULL 
             WHERE claim_id = ?";
     $stmt = mysqli_prepare($con, $sql) or die("Prepare failed: " . mysqli_error($con));
-    mysqli_stmt_bind_param($stmt, "si", $status, $claim_id);
+    
+    // Bind 3 parameters: status, approved_at, claim_id
+    mysqli_stmt_bind_param($stmt, "ssi", $status, $approved_at, $claim_id);
 
 } else { // Rejected
-    // 3 placeholders
+    // 3 placeholders (status, rejection_reason, claim_id)
     $sql = "UPDATE claims 
             SET status = ?, rejection_reason = ? 
             WHERE claim_id = ?";
     $stmt = mysqli_prepare($con, $sql) or die("Prepare failed: " . mysqli_error($con));
     mysqli_stmt_bind_param($stmt, "ssi", $status, $reason, $claim_id);
 }
+
 
 if (mysqli_stmt_execute($stmt)) {
     echo "Success";

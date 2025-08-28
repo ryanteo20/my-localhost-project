@@ -32,6 +32,15 @@ require('session.php');
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <style>
+    #successMessage {
+        transition: opacity 1s ease-out;
+        opacity: 1;
+    }
+    #successMessage.fade-out {
+        opacity: 0;
+    }
+</style>
 </head>
 
 <body>
@@ -908,6 +917,45 @@ require('session.php');
   <script src="assets/js/main.js"></script>
   <script src="assets/js/view_all.js"></script>
   <script>
+// Function to show success message with fade effect and page refresh
+    function showSuccessMessage() {
+        const successMessage = document.getElementById('successMessage');
+        
+        // Show the message
+        successMessage.style.display = 'block';
+        
+        // Remove any existing fade-out class
+        successMessage.classList.remove('fade-out');
+        
+        // After 3 seconds, start fading out
+        setTimeout(function() {
+            successMessage.classList.add('fade-out');
+            
+            // After fade completes, refresh the page
+            setTimeout(function() {
+                window.location.reload();
+            }, 1000);
+        }, 3000);
+    }
+
+    // Update your existing save button event listener
+    document.getElementById('saveChangesBtn').addEventListener('click', function() {
+        // Show the success message with fade effect and refresh
+        showSuccessMessage();
+        
+        // Hide the modal after a short delay
+        setTimeout(function() {
+            $('#disablebackdrop').modal('hide');
+        }, 2000);
+    });
+
+    // Apply the same functionality to other save buttons if needed
+    document.getElementById('savePersonalBtn')?.addEventListener('click', showSuccessMessage);
+    document.getElementById('saveEmploymentBtn')?.addEventListener('click', showSuccessMessage);
+    document.getElementById('savePayrollBtn')?.addEventListener('click', showSuccessMessage);
+    document.getElementById('saveDocumentBtn')?.addEventListener('click', showSuccessMessage);
+    document.getElementById('saveLeaveBtn')?.addEventListener('click', showSuccessMessage);
+
     document.getElementById('saveChangesBtn').addEventListener('click', function() {
         // Show the success message
         document.getElementById('successMessage').style.display = 'block';

@@ -1,6 +1,4 @@
 <?php
-session_start(); // ✅ Must be FIRST
-
 require('database.php');
 require('session.php');
 

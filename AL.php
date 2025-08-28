@@ -601,6 +601,7 @@ ini_set('display_errors', 1);
                 <th scope="col">Days</th>
                 <th scope="col">Reason</th>
                 <th scope="col">Applied</th>
+                <th scope="col">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -611,7 +612,7 @@ ini_set('display_errors', 1);
               $userSessionID = $_SESSION['ID'];
 
               // Query to join the employeelogin and leave_apply tables and filter by user session ID
-              $query = "SELECT el.username, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_reason, la.apply_date, la.leave_length
+              $query = "SELECT el.username, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_reason, la.apply_date, la.leave_length, la.leave_review
                       FROM employeelogin el
                       INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
                       WHERE el.ID = ?";
@@ -639,6 +640,7 @@ ini_set('display_errors', 1);
                     echo "<td>" . $row['leave_length'] . "</td>";
                     echo "<td>" . $row['leave_reason'] . "</td>";
                     echo "<td>" . $row['apply_date'] . "</td>";
+                    echo "<td>" . $row['leave_review'] . "</td>";
                     echo "</tr>";
                     $row_count++;
                   }

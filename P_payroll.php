@@ -4,17 +4,19 @@ require('session.php');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-
-
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Employer') {
     header("Location: index2.php");
     exit("Access Denied: Employers only.");
 }
 
-// Default to current month/year
-$selected_month = $_POST['month'] ?? date('m');
-$selected_year = $_POST['year'] ?? date('Y');
-$selected_emp = $_POST['employee_id'] ?? '';
+// Default to current month/year, support GET after redirect
+$selected_month = $_POST['month'] ?? $_GET['month'] ?? date('m');
+$selected_year  = $_POST['year']  ?? $_GET['year']  ?? date('Y');
+$selected_emp   = $_POST['employee_id'] ?? $_GET['employee_id'] ?? '';
+
+$selected_month = str_pad((int)$selected_month, 2, '0', STR_PAD_LEFT);
+$selected_year  = (int)$selected_year;
+$selected_emp   = $selected_emp !== '' ? (int)$selected_emp : '';
 
 // Fetch employees
 $employees = mysqli_query($con, "SELECT personal_id, full_name FROM personal_information");
@@ -22,7 +24,7 @@ $employees = mysqli_query($con, "SELECT personal_id, full_name FROM personal_inf
 // Build employee options
 $emp_options = '';
 while ($emp = mysqli_fetch_assoc($employees)) {
-    $selected = ($emp['personal_id'] == $selected_emp) ? 'selected' : '';
+    $selected = ((string)$emp['personal_id'] === (string)$selected_emp) ? 'selected' : '';
     $emp_options .= "<option value='{$emp['personal_id']}' $selected>{$emp['full_name']}</option>";
 }
 
@@ -30,23 +32,24 @@ $payroll_data = null;
 $employee_name = '';
 
 if (!empty($selected_emp)) {
+    // Define emp_id before using it
+    $emp_id = (int)$selected_emp;
+
     // Get employee name for display
-    $emp_query = "SELECT full_name FROM personal_information WHERE personal_id = $selected_emp";
+    $emp_query = "SELECT full_name FROM personal_information WHERE personal_id = $emp_id";
     $emp_result = mysqli_query($con, $emp_query);
     if ($emp_row = mysqli_fetch_assoc($emp_result)) {
         $employee_name = $emp_row['full_name'];
     }
 
     if (isset($_POST['allowance_input']) && is_numeric($_POST['allowance_input'])) {
-    $payroll_data['allowance'] = (float)$_POST['allowance_input'];
+        $payroll_data['allowance'] = (float)$_POST['allowance_input'];
     } else {
-        // fallback if allowance not set in db or input
         $payroll_data['allowance'] = $payroll_data['allowance'] ?? 0;
     }
 
-
-    // Get payroll data
-    $query = "SELECT * FROM payroll_detail WHERE payroll_id = $selected_emp ";
+    // Get payroll data using emp_id
+    $query = "SELECT * FROM payroll_detail WHERE payroll_id = $emp_id";  // Use emp_id here
     $res = mysqli_query($con, $query);
 
     if (!$res) {
@@ -76,7 +79,6 @@ if (!empty($selected_emp)) {
     } else {
         echo "<div class='alert alert-danger'>Error in present query: " . mysqli_error($con) . "</div>";
     }
-
 
     $q = "SELECT COUNT(*) as total FROM attendance WHERE employee_id = $emp_id AND MONTH(date) = $month AND YEAR(date) = $year AND status = 'on-leave'";
     $res = mysqli_query($con, $q);
@@ -135,10 +137,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
         header("Location: P_payroll.php?month={$_POST['month']}&year={$_POST['year']}&employee_id={$next_emp}");
         exit;
     }
-
-    echo "<div class='alert alert-success mt-3'>💾 Payroll saved for Employee ID: {$payrollData['employee_id']}</div>";
 }
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">
@@ -636,67 +637,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
 </div>
 <?php endif; ?>
 
-//payroll process
-  <?php if (!empty($selected_emp)): ?>
-      <div class="text-center mt-4">
-          <?php
-          // Get all employees ordered by ID
-          $emp_list = [];
-          $res = mysqli_query($con, "SELECT personal_id, full_name FROM personal_information ORDER BY personal_id ASC");
-          while ($row = mysqli_fetch_assoc($res)) {
-              $emp_list[] = $row;
-          }
+<?php if (!empty($selected_emp)): ?>
+    <div class="text-center mt-4">
+        <?php
+        // Get all employees ordered by ID
+        $emp_list = [];
+        $res = mysqli_query($con, "SELECT personal_id, full_name FROM personal_information ORDER BY personal_id ASC");
+        while ($row = mysqli_fetch_assoc($res)) {
+            $emp_list[] = $row;
+        }
 
-          // Find current employee position
-          $currentIndex = array_search($selected_emp, array_column($emp_list, 'personal_id'));
+        // Find current employee position
+        $currentIndex = array_search($selected_emp, array_column($emp_list, 'personal_id'));
 
-          if ($currentIndex !== false && $currentIndex < count($emp_list) - 1): 
-              // Show "Next Employee" button
-              $nextIndex = $currentIndex + 1;
-              $next_emp = $emp_list[$nextIndex]['personal_id'];
-              $next_name = $emp_list[$nextIndex]['full_name'];
-          ?>
-          <form method="POST" id="nextEmployeeForm">
-              <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
-              <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
-              <input type="hidden" name="employee_id" value="<?= htmlspecialchars($selected_emp) ?>">
-              <input type="hidden" name="save_current" value="1">
-              <input type="hidden" name="goto_next" value="<?= htmlspecialchars($next_emp) ?>">
+        if ($currentIndex !== false && $currentIndex < count($emp_list) - 1): 
+            // Show "Next Employee" button
+            $nextIndex = $currentIndex + 1;
+            $next_emp = $emp_list[$nextIndex]['personal_id'];
+            $next_name = $emp_list[$nextIndex]['full_name'];
+        ?>
+        <form method="POST" id="nextEmployeeForm">
+            <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
+            <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
+            <input type="hidden" name="employee_id" value="<?= htmlspecialchars($selected_emp) ?>">
+            <input type="hidden" name="save_current" value="1">
+            <input type="hidden" name="goto_next" value="<?= htmlspecialchars($next_emp) ?>">
 
-              <!-- Payroll fields -->
-              <input type="hidden" name="basic_salary" value="<?= htmlspecialchars($payroll_data['employee_salary'] ?? 0) ?>">
-              <input type="hidden" name="allowance" value="<?= htmlspecialchars($allowance) ?>">
-              <input type="hidden" name="overtime" value="<?= htmlspecialchars($overtime) ?>">
-              <input type="hidden" name="total_claims" value="<?= htmlspecialchars($total_claim) ?>">
-              <input type="hidden" name="epf" value="<?= htmlspecialchars($payroll_data['epf'] ?? 0) ?>">
-              <input type="hidden" name="socso" value="<?= htmlspecialchars($payroll_data['socso'] ?? 0) ?>">
-              <input type="hidden" name="eis" value="<?= htmlspecialchars($payroll_data['eis'] ?? 0) ?>">
-              <input type="hidden" name="pcb" value="<?= htmlspecialchars($payroll_data['pcb'] ?? 0) ?>">
-              <input type="hidden" name="net_pay" value="<?= htmlspecialchars($payroll_data['net_salary'] ?? 0) ?>">
+            <!-- Payroll fields -->
+            <input type="hidden" name="basic_salary" value="<?= htmlspecialchars($payroll_data['employee_salary'] ?? 0) ?>">
+            <input type="hidden" name="allowance" value="<?= htmlspecialchars($allowance) ?>">
+            <input type="hidden" name="overtime" value="<?= htmlspecialchars($overtime) ?>">
+            <input type="hidden" name="total_claims" value="<?= htmlspecialchars($total_claim) ?>">
+            <input type="hidden" name="epf" value="<?= htmlspecialchars($payroll_data['epf'] ?? 0) ?>">
+            <input type="hidden" name="socso" value="<?= htmlspecialchars($payroll_data['socso'] ?? 0) ?>">
+            <input type="hidden" name="eis" value="<?= htmlspecialchars($payroll_data['eis'] ?? 0) ?>">
+            <input type="hidden" name="pcb" value="<?= htmlspecialchars($payroll_data['pcb'] ?? 0) ?>">
+            <input type="hidden" name="net_pay" value="<?= htmlspecialchars($payroll_data['net_salary'] ?? 0) ?>">
 
-              <button type="submit" class="btn btn-success">
-                  Process Current & Go to Next (<?= htmlspecialchars($next_name) ?>) ➡️
-              </button>
-          </form>
-          <?php else: ?>
-              <!-- Last employee: Show Process Payslip -->
-              <form method="POST" action="generate_payslip.php">
-                  <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
-                  <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
-                  <input type="hidden" name="save_current" value="1">
-                  
-                  <!-- Same hidden fields as above -->
-                  <input type="hidden" name="basic_salary" value="<?= htmlspecialchars($payroll_data['employee_salary'] ?? 0) ?>">
-                  <input type="hidden" name="allowance" value="<?= htmlspecialchars($allowance) ?>">
-                  <!-- Include all other payroll fields -->
-                  
-                  <button type="submit" class="btn btn-primary">
-                      ✅ Process Payslip for <?= date('F', mktime(0,0,0,$selected_month,10)) ?> <?= $selected_year ?>
-                  </button>
-              </form>
+            <button type="submit" class="btn btn-success">
+                Process Current & Go to Next (<?= htmlspecialchars($next_name) ?>) ➡️
+            </button>
+        </form>
+        <?php else: ?>
+            <!-- Last employee: Show "View Report" button -->
+          <?php if ($currentIndex === count($emp_list) - 1): ?>
+              <!-- Last employee: Show "View Report" button -->
+<?php if ($currentIndex === count($emp_list) - 1): ?>
+    <!-- Last employee: Show "Process Payroll" and "View Report" buttons -->
+
+    <!-- Process Payroll Form -->
+    <form method="POST" id="processPayrollForm">
+        <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
+        <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
+        <input type="hidden" name="employee_id" value="<?= htmlspecialchars($selected_emp) ?>">
+        <input type="hidden" name="save_current" value="1">
+
+        <!-- Payroll fields -->
+        <input type="hidden" name="basic_salary" value="<?= htmlspecialchars($payroll_data['employee_salary'] ?? 0) ?>">
+        <input type="hidden" name="allowance" value="<?= htmlspecialchars($allowance) ?>">
+        <input type="hidden" name="overtime" value="<?= htmlspecialchars($overtime) ?>">
+        <input type="hidden" name="total_claims" value="<?= htmlspecialchars($total_claim) ?>">
+        <input type="hidden" name="epf" value="<?= htmlspecialchars($payroll_data['epf'] ?? 0) ?>">
+        <input type="hidden" name="socso" value="<?= htmlspecialchars($payroll_data['socso'] ?? 0) ?>">
+        <input type="hidden" name="eis" value="<?= htmlspecialchars($payroll_data['eis'] ?? 0) ?>">
+        <input type="hidden" name="pcb" value="<?= htmlspecialchars($payroll_data['pcb'] ?? 0) ?>">
+        <input type="hidden" name="net_pay" value="<?= htmlspecialchars($payroll_data['net_salary'] ?? 0) ?>">
+
+        <button type="submit" class="btn btn-success">
+            ✅ Process Payroll for <?= date('F', mktime(0, 0, 0, $selected_month, 10)) ?> <?= $selected_year ?>
+        </button>
+    </form>
+<br>
+    <!-- View Report Form -->
+    <form method="GET" action="view_report.php">
+        <input type="hidden" name="month" value="<?= htmlspecialchars($selected_month) ?>">
+        <input type="hidden" name="year" value="<?= htmlspecialchars($selected_year) ?>">
+        <input type="hidden" name="employee_id" value="<?= htmlspecialchars($selected_emp) ?>">
+
+        <button type="submit" class="btn btn-info">
+            📊 View Report for <?= date('F', mktime(0, 0, 0, $selected_month, 10)) ?> <?= $selected_year ?>
+        </button>
+    </form>
+<?php endif; ?>
+
           <?php endif; ?>
-      </div>
-  <?php endif; ?>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
 
   </main><!-- End #main -->

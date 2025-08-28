@@ -1,7 +1,6 @@
 <?php
 require('database.php');
 require('session.php');
-session_start();
 ?>
 <!DOCTYPE html>
 <html lang="en">
