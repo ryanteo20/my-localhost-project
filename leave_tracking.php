@@ -236,232 +236,228 @@ if (empty($current_user_id)) {
   </aside>
 
   <main id="main" class="main">
-  <div class="card">
-            <div class="card-body">
-              <h5 class="card-title">View All Leave Request</h5>
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">View All Leave Request</h5>
 
-              <!-- Default Tabs -->
-              <ul class="nav nav-tabs" id="myTab" role="tablist">
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home" type="button" role="tab" aria-controls="home" aria-selected="true">Pending for review</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="false">Approved</button>
-                </li>
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact" type="button" role="tab" aria-controls="contact" aria-selected="false">Rejected</button>
-                </li>
-              </ul>
-<div class="tab-content pt-2" id="myTabContent">
-  <!-- Pending Leave Requests Tab -->
-  <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
-    <!-- Table for Pending Leave Requests -->
-    <table class="table datatable table-striped">
-      <thead>
-        <tr>
-          <th scope="col">Employee</th>
-          <th scope="col">Leave Type</th>
-          <th scope="col">From</th>
-          <th scope="col">To</th>
-          <th scope="col">Days</th>
-          <th scope="col">Reason</th>
-          <th scope="col">Attachment</th>
-          <th scope="col">Applied</th>
-          <th scope="col">Status</th>
-          <th scope="col">Action</th>
-        </tr>
-      </thead>
-      <tbody>
-<?php
-require('database.php');
+        <!-- Default Tabs -->
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#home" type="button" role="tab" aria-controls="home" aria-selected="true">Pending for review</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="false">Approved</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="contact-tab" data-bs-toggle="tab" data-bs-target="#contact" type="button" role="tab" aria-controls="contact" aria-selected="false">Rejected</button>
+          </li>
+        </ul>
 
-$query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-FROM employeelogin el
-INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-WHERE la.leave_review = 'Pending for review'
-ORDER BY la.apply_date DESC";
+        <div class="tab-content pt-2" id="myTabContent">
+          <!-- Pending Leave Requests Tab -->
+          <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">
+            <!-- Table for Pending Leave Requests -->
+            <table class="table datatable table-striped">
+              <thead>
+                <tr>
+                  <th scope="col">Employee</th>
+                  <th scope="col">Leave Type</th>
+                  <th scope="col">From</th>
+                  <th scope="col">To</th>
+                  <th scope="col">Days</th>
+                  <th scope="col">Reason</th>
+                  <th scope="col">Attachment</th>
+                  <th scope="col">Applied</th>
+                  <th scope="col">Status</th>
+                  <th scope="col">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php
+                require('database.php');
 
-$stmt = mysqli_prepare($con, $query);
-if ($stmt) {
-    $result = mysqli_stmt_execute($stmt);
-    if ($result) {
-        $data = mysqli_stmt_get_result($stmt);
-        if (mysqli_num_rows($data) > 0) {
-            while ($row = mysqli_fetch_assoc($data)) {
-                echo "<tr>";
-                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
-                echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
-                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
-                echo "<td><button type='button' class='btn btn-primary review-button' onclick='showReviewModal(" . htmlspecialchars($row['leave_id']) . ")'>Review</button></td>";
-                echo "</tr>";
-            }
-        } else {
-            echo "<tr><td colspan='9'>No leave applications found.</td></tr>";
-        }
-    }
-}
-?>
-<div class="modal fade" id="reviewModal" tabindex="-1" aria-labelledby="reviewModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="reviewModalLabel">Review Leave Request</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="form-group">
-          <label for="leaveStatus">Leave Status</label>
-          <select id="leaveStatus" class="form-select" onchange="showRejectionReason()">
-            <option value="Approved">Approve</option>
-            <option value="Rejected">Reject</option>
-          </select>
+                $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
+                FROM employeelogin el
+                INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+                WHERE la.leave_review = 'Pending for review'
+                ORDER BY la.apply_date DESC";
+
+                $stmt = mysqli_prepare($con, $query);
+                if ($stmt) {
+                    $result = mysqli_stmt_execute($stmt);
+                    if ($result) {
+                        $data = mysqli_stmt_get_result($stmt);
+                        if (mysqli_num_rows($data) > 0) {
+                            while ($row = mysqli_fetch_assoc($data)) {
+                                echo "<tr>";
+                                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
+                                echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
+                                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
+                                echo "<td><button type='button' class='btn btn-primary review-button' onclick='showReviewModal(" . htmlspecialchars($row['leave_id']) . ")'>Review</button></td>";
+                                echo "</tr>";
+                                echo <<<HTML
+                                <!-- Generic Modal for Leave Review -->
+                                <div class="modal fade" id="reviewModal" tabindex="-1" role="dialog" aria-labelledby="reviewModalLabel" aria-hidden="true">
+                                    <div class="modal-dialog" role="document">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="reviewModalLabel">Leave Request Review</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <!-- Buttons to approve or reject -->
+                                                <button class="btn btn-success" onclick="approveLeave()">Approve</button>
+                                                <button class="btn btn-danger" onclick="showRejectionReason()">Reject</button>
+                                                <!-- Textarea for rejection reason (hidden initially) -->
+                                                <textarea id="rejectionReason" style="display: none;" class="form-control mt-2" placeholder="Enter rejection reason"></textarea>
+                                                <!-- Submit Rejection Button (hidden initially) -->
+                                                <button class="btn btn-secondary mt-2" style="display: none;" id="submitRejection" onclick="rejectLeave(currentLeaveId)">Submit Rejection</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                HTML;
+                            }
+                        } else {
+                            echo "<tr><td colspan='9'>No leave applications found.</td></tr>";
+                        }
+                    }
+                }
+                ?>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Approved Leave Requests Tab -->
+          <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+            <!-- Table for Approved Leave Requests -->
+            <table class="table datatable table-striped">
+              <thead>
+                <tr>
+                  <th scope="col">Employee</th>
+                  <th scope="col">Leave Type</th>
+                  <th scope="col">From</th>
+                  <th scope="col">To</th>
+                  <th scope="col">Days</th>
+                  <th scope="col">Reason</th>
+                  <th scope="col">Attachment</th>
+                  <th scope="col">Applied</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php
+                $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
+                FROM employeelogin el
+                INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+                WHERE la.leave_review = 'Approved'
+                ORDER BY la.apply_date DESC";
+
+                $stmt = mysqli_prepare($con, $query);
+                if ($stmt) {
+                  $result = mysqli_stmt_execute($stmt);
+                  if ($result) {
+                    $data = mysqli_stmt_get_result($stmt);
+                    if (mysqli_num_rows($data) > 0) {
+                      while ($row = mysqli_fetch_assoc($data)) {
+                        echo "<tr>";
+                        echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
+                        echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
+                        echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
+                        echo "</tr>";
+                      }
+                    } else {
+                      echo "<tr><td colspan='9'>No approved leave applications found.</td></tr>";
+                    }
+                  }
+                }
+                ?>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Rejected Leave Requests Tab -->
+          <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">
+            <!-- Table for Rejected Leave Requests -->
+            <table class="table datatable table-striped">
+              <thead>
+                <tr>
+                  <th scope="col">Employee</th>
+                  <th scope="col">Leave Type</th>
+                  <th scope="col">From</th>
+                  <th scope="col">To</th>
+                  <th scope="col">Days</th>
+                  <th scope="col">Reason</th>
+                  <th scope="col">Attachment</th>
+                  <th scope="col">Applied</th>
+                  <th scope="col">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <?php
+                $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
+                FROM employeelogin el
+                INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
+                WHERE la.leave_review = 'Rejected'
+                ORDER BY la.apply_date DESC";
+
+                $stmt = mysqli_prepare($con, $query);
+                if ($stmt) {
+                  $result = mysqli_stmt_execute($stmt);
+                  if ($result) {
+                    $data = mysqli_stmt_get_result($stmt);
+                    if (mysqli_num_rows($data) > 0) {
+                      while ($row = mysqli_fetch_assoc($data)) {
+                        echo "<tr>";
+                        echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
+                        echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
+                        echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
+                        echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
+                        echo "</tr>";
+                      }
+                    } else {
+                      echo "<tr><td colspan='9'>No rejected leave applications found.</td></tr>";
+                    }
+                  }
+                }
+                ?>
+              </tbody>
+            </table>
+          </div>
         </div>
-        <div class="form-group mt-3" id="rejectionReasonSection" style="display:none;">
-          <label for="rejectionReason">Rejection Reason</label>
-          <textarea id="rejectionReason" class="form-control" rows="3" placeholder="Provide a reason for rejection..."></textarea>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-        <button type="button" class="btn btn-primary" onclick="approveReview()">Approve</button>
-        <button type="button" class="btn btn-danger" onclick="rejectReview()">Reject</button>
       </div>
     </div>
-  </div>
-</div>
-      </tbody>
-    </table>
-  </div>
+  </main><!-- End #main -->
 
-  <!-- Approved Leave Requests Tab -->
-  <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">
-    <!-- Table for Approved Leave Requests -->
-    <table class="table datatable table-striped">
-      <thead>
-        <tr>
-          <th scope="col">Employee</th>
-          <th scope="col">Leave Type</th>
-          <th scope="col">From</th>
-          <th scope="col">To</th>
-          <th scope="col">Days</th>
-          <th scope="col">Reason</th>
-          <th scope="col">Attachment</th>
-          <th scope="col">Applied</th>
-          <th scope="col">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php
-        $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-        FROM employeelogin el
-        INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-        WHERE la.leave_review = 'Approved'
-        ORDER BY la.apply_date DESC";
-
-        $stmt = mysqli_prepare($con, $query);
-        if ($stmt) {
-          $result = mysqli_stmt_execute($stmt);
-          if ($result) {
-            $data = mysqli_stmt_get_result($stmt);
-            if (mysqli_num_rows($data) > 0) {
-              while ($row = mysqli_fetch_assoc($data)) {
-                echo "<tr>";
-                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
-                echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
-                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
-                echo "</tr>";
-              }
-            } else {
-              echo "<tr><td colspan='9'>No approved leave applications found.</td></tr>";
-            }
-          }
-        }
-        ?>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Rejected Leave Requests Tab -->
-  <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">
-    <!-- Table for Rejected Leave Requests -->
-    <table class="table datatable table-striped">
-      <thead>
-        <tr>
-          <th scope="col">Employee</th>
-          <th scope="col">Leave Type</th>
-          <th scope="col">From</th>
-          <th scope="col">To</th>
-          <th scope="col">Days</th>
-          <th scope="col">Reason</th>
-          <th scope="col">Attachment</th>
-          <th scope="col">Applied</th>
-          <th scope="col">Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php
-        $query = "SELECT el.username, la.leave_id, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason, la.leave_document, la.apply_date, la.leave_review
-        FROM employeelogin el
-        INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-        WHERE la.leave_review = 'Rejected'
-        ORDER BY la.apply_date DESC";
-
-        $stmt = mysqli_prepare($con, $query);
-        if ($stmt) {
-          $result = mysqli_stmt_execute($stmt);
-          if ($result) {
-            $data = mysqli_stmt_get_result($stmt);
-            if (mysqli_num_rows($data) > 0) {
-              while ($row = mysqli_fetch_assoc($data)) {
-                echo "<tr>";
-                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
-                echo "<td>" . ($row['leave_document'] ? "<a href='" . $row['leave_document'] . "' download>Download Document</a>" : "No document is uploaded.") . "</td>";
-                echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
-                echo "</tr>";
-              }
-            } else {
-              echo "<tr><td colspan='9'>No rejected leave applications found.</td></tr>";
-            }
-          }
-        }
-        ?>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-            </div>
-    </main>
-
-      <!-- ======= Footer ======= -->
-      <footer id="footer" class="footer text-center">
-        <div class="copyright">
-          &copy; Copyright <strong><span>SMEasyHR</span></strong>. All Rights Reserved
-        </div>
-      </footer><!-- End Footer -->
+  <!-- ======= Footer ======= -->
+  <footer id="footer" class="footer text-center">
+    <div class="copyright">
+      &copy; Copyright <strong><span>SMEasyHR</span></strong>. All Rights Reserved
+    </div>
+  </footer><!-- End Footer -->
 
   <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
 
   <!-- Vendor JS Files -->
   <script src="assets/vendor/apexcharts/apexcharts.min.js"></script>
+  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="assets/vendor/chart.js/chart.umd.js"></script>
   <script src="assets/vendor/echarts/echarts.min.js"></script>
   <script src="assets/vendor/quill/quill.min.js"></script>
@@ -471,71 +467,68 @@ if ($stmt) {
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script>
-let currentLeaveId = null;  // Global variable to keep track of the current leave ID
+  <script>let currentLeaveId = null;  // Global variable to keep track of the current leave ID
 
 // Show the review modal and set the current leave ID
 function showReviewModal(leaveId) {
-    currentLeaveId = leaveId;
+    currentLeaveId = leaveId;  // Store the leave ID globally so we can use it when approving or rejecting the leave
     $('#rejectionReason').hide();  // Hide the rejection reason initially
+    $('#submitRejection').hide();  // Hide the submit rejection button initially
     $('#reviewModal').modal('show');  // Show the modal
 }
 
 // Handle approving the leave
-function approveReview() {
+function approveLeave() {
     if (currentLeaveId) {
         updateLeaveStatus(currentLeaveId, 'Approved', '');  // Approve without a reason
+        $('#reviewModal').modal('hide');  // Close the modal
     }
 }
 
-// Show the rejection reason input when "Reject" is selected
+// Show the rejection reason input when "Reject" is clicked
 function showRejectionReason() {
     $('#rejectionReason').show();  // Show the rejection reason textarea
+    $('#submitRejection').show();  // Show the submit rejection button
 }
 
 // Handle rejecting the leave
-function rejectReview() {
-    var reason = $('#rejectionReason').val();
-    if (!reason) {
+function rejectLeave() {
+    var reason = $('#rejectionReason').val().trim();  // Get the rejection reason entered by the user and trim spaces
+    if (!reason) {  // Check if the reason is empty or contains only spaces
         alert('Please provide a reason for rejection.');
         return;
     }
     updateLeaveStatus(currentLeaveId, 'Rejected', reason);  // Reject with a reason
+    $('#reviewModal').modal('hide');  // Close the modal
 }
 
 // Function to update the leave status (approve or reject)
 function updateLeaveStatus(leaveId, status, reason) {
     $.ajax({
-        url: 'update_leave_status.php',  // Server-side script to update the leave status
+        url: 'process_approve_leave.php',  // Server-side script to update the leave status
         type: 'POST',
         data: {
-            leaveId: leaveId,
+            leave_id: leaveId,
             status: status,
             reason: reason
         },
         success: function(response) {
             if (response.trim() === "Success") {
                 alert(`Leave request ${status.toLowerCase()} successfully!`);
-                $('#reviewModal').modal('hide');  // Close the modal
                 location.reload();  // Refresh the page to show updated status
             } else {
                 alert(`Failed to ${status.toLowerCase()} leave. Server response: ` + response);
             }
         },
         error: function(xhr, status, error) {
-            console.error(`An error occurred: ${xhr.responseText}`);
-            alert(`An error occurred while processing the leave. Please try again.`);
+            console.error(`Error: ${xhr.responseText}`);
+            alert("An error occurred while processing the leave.");
         }
     });
 }
 
-</script>
-
-
+  </script>
 </body>
 
 </html>

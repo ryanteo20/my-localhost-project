@@ -199,99 +199,99 @@ ini_set('display_errors', 1);
     </ul>
 
   </aside>
+
   <main id="main" class="main">
+  <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">View All Claim Request</h5>
+              <?php
+                $user_id = $_SESSION['ID']; // Get the logged-in user's ID
 
-    
-    <div class="col-lg-12">
-      <div class="card">
-        <div class="card-body">
-          <div class="justify-content-between align-items-center mb-3">
-              <h5 class="card-title">View Leave Application Status</h5>
-              
+                // Modify query to fetch data for the current user, combining all statuses
+                $query = "
+                    SELECT 
+                        el.username,
+                        la.claim_id,
+                        la.category,
+                        la.transaction_date,
+                        la.amount,
+                        la.invoice_number,
+                        la.notes,
+                        la.attachment,
+                        la.status,
+                        la.created_at,
+                        la.rejection_reason,
+                        la.approved_at
+                    FROM employeelogin el
+                    INNER JOIN claims la ON el.ID = la.employee_id
+                    WHERE el.ID = ?
+                    GROUP BY el.username, la.claim_id, la.category, la.transaction_date, la.amount, la.invoice_number, la.notes, la.attachment, la.status, la.created_at, la.rejection_reason, la.approved_at
+                ";
 
-                <!-- Table with stripped rows -->
-                <table class="table datatable table-striped">
+                $stmt = mysqli_prepare($con, $query);
+                mysqli_stmt_bind_param($stmt, "i", $user_id);  // Bind the user ID to the query
+                $result = mysqli_stmt_execute($stmt);
+                ?>
+
+            <!-- Table with stripped rows -->
+            <table class="table datatable table-striped">
                 <thead>
                     <tr>
-                    <th scope="col">Employee</th>
-                    <th scope="col">Leave Type</th>
-                    <th scope="col">From</th>
-                    <th scope="col">To</th>
-                    <th scope="col">Days</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col">Attachment</th>
-                    <th scope="col">Applied</th>
-                    <th scope="col">Status</th>
+                        <th scope="col">Employee</th>
+                        <th scope="col">Category</th>
+                        <th scope="col">Transaction Date</th>
+                        <th scope="col">Amount</th>
+                        <th scope="col">Invoice Number</th>
+                        <th scope="col">Notes</th>
+                        <th scope="col">Attachment</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Created at</th>
+                        <th scope="col">Rejection reason</th>
+                        <th scope="col">Approve at</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php
-                    // Connect to the database
-                    require('database.php');
-
-                    $userSessionID = $_SESSION['ID'];
-
-                    // Query to join the employeelogin and leave_apply tables and filter by user session ID
-                    $query = "SELECT el.username, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason,la.leave_document, la.apply_date, la.leave_review
-                            FROM employeelogin el
-                            INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                            WHERE el.ID = ?";
-
-                    // Prepare the statement
-                    $stmt = mysqli_prepare($con, $query);
-
-                    // Bind the user session ID parameter
-                    mysqli_stmt_bind_param($stmt, "s", $userSessionID);
-
-                    // Execute the prepared statement
-                    $result = mysqli_stmt_execute($stmt);
-
-                    // Check if the query was successful
                     if ($result) {
-                    $data = mysqli_stmt_get_result($stmt);
-                    if (mysqli_num_rows($data) > 0) {
-                        $row_count = 1;
-                        while ($row = mysqli_fetch_assoc($data)) {
-                        echo "<tr>";
-                        echo "<td>" . $row['username'] . "</td>";
-                        echo "<td>" . $row['leave_type'] . "</td>";
-                        echo "<td>" . $row['leave_datestart'] . "</td>";
-                        echo "<td>" . $row['leave_dateend'] . "</td>";
-                        echo "<td>" . $row['leave_length'] . "</td>";
-                        echo "<td>" . $row['leave_reason'] . "</td>";
-                        // Extract the full path of the document
-                        $fullPath = $row['leave_document'];
-                        // Directly specify the file extension as .pdf in the download link
-                        echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
-                        echo "<td>" . $row['apply_date'] . "</td>";
-                        echo "<td>" . $row['leave_review'] . "</td>";
-                        echo "</tr>";
-                        $row_count++;
+                        $data = mysqli_stmt_get_result($stmt);
+                        if (mysqli_num_rows($data) > 0) {
+                            while ($row = mysqli_fetch_assoc($data)) {
+                                echo "<tr>";
+                                echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['category']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['transaction_date']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['amount']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['invoice_number']) . "</td>";
+                                echo "<td>" . htmlspecialchars($row['notes']) . "</td>";
+                                $fullPath = htmlspecialchars($row['attachment']);
+                                if ($fullPath != null) {
+                                    echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
+                                } else {
+                                    echo "<td>No document is uploaded.</td>"; // Leave the cell empty if leave_document is null
+                                }
+                                echo "<td>" . htmlspecialchars($row['status']) . "</td>";
+                                echo "<td>" . ($row['created_at']) . "</td>";
+                                echo "<td>" . ($row['rejection_reason']) . "</td>";
+                                echo "<td>" . ($row['approved_at']) . "</td>";
+                                echo "</tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='11'>No claim requests found.</td></tr>";
                         }
                     } else {
-                        echo "<tr><td colspan='6'>No records found.</td></tr>";
+                        echo "Error executing query: " . mysqli_stmt_error($stmt);
                     }
-                    } else {
-                    echo "Error executing query: " . mysqli_stmt_error($stmt);
-                    }
-
-                    // Close the prepared statement
                     mysqli_stmt_close($stmt);
-
-                    // Close the database connection
                     mysqli_close($con);
                     ?>
                 </tbody>
-                </table>
-                </div>
-                </div>
+            </table>
+            
+                  </div>
+              </div><!-- End Default Tabs -->
             </div>
-        </div>
+          </div>
     </main>
-    <!-- Notification Container -->
-    <div id="notification" class="notification-container">
-        Successfully applied for leave!
-    </div>
 
       <!-- ======= Footer ======= -->
       <footer id="footer" class="footer text-center">
@@ -304,7 +304,6 @@ ini_set('display_errors', 1);
 
   <!-- Vendor JS Files -->
   <script src="assets/vendor/apexcharts/apexcharts.min.js"></script>
-  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
   <script src="assets/vendor/chart.js/chart.umd.js"></script>
   <script src="assets/vendor/echarts/echarts.min.js"></script>
   <script src="assets/vendor/quill/quill.min.js"></script>
@@ -314,6 +313,66 @@ ini_set('display_errors', 1);
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+let currentLeaveId = null;  // Global variable to keep track of the current leave ID
+
+function showReviewModal(leaveId) {
+    currentLeaveId = leaveId;
+    $('#rejectionReason').hide();  // Make sure to hide the rejection reason textarea initially
+    $('#submitRejection').hide();  // Hide the submit rejection button initially
+    $('#reviewModal').modal('show');  // Show the modal
+}
+
+function approveReview() {
+    if (currentLeaveId) {
+        updateLeaveStatus(currentLeaveId, 'Approve', '');
+    }
+}
+
+function showRejectionReason() {
+    $('#rejectionReason').show();
+    $('#submitRejection').show();
+}
+
+function rejectReview() {
+    var reason = $('#rejectionReason').val();
+    if (!reason) {
+        alert('Please provide a reason for rejection.');
+        return;
+    }
+    updateLeaveStatus(currentLeaveId, 'Reject', reason);
+}
+
+function updateLeaveStatus(leaveId, status, reason) {
+    $.ajax({
+        url: 'update_leave_status.php',
+        type: 'POST',
+        data: {
+            leaveId: leaveId,
+            status: status,
+            reason: reason
+        },
+        success: function(response) {
+            if (response.trim() === "Success") {
+                alert(`Leave request ${status.toLowerCase()} successfully!`);
+                $('#reviewModal').modal('hide');  // Close the modal
+                location.reload();  // Refresh the page to show updated status
+            } else {
+                alert(`Failed to ${status.toLowerCase()} leave. Server response: ` + response);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error(`An error occurred: ${xhr.responseText}`);
+            alert(`An error occurred while processing the leave. Please try again.`);
+        }
+    });
+}
+</script>
+
 
 </body>
 

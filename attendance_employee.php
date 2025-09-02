@@ -1,8 +1,73 @@
 <?php
 require('database.php');
 require('session.php');
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+
+date_default_timezone_set('Asia/Kuala_Lumpur');
+$date = date('Y-m-d');
+$time_now = date('Y-m-d H:i:s');
+
+
+$employee_id = $_SESSION['ID'] ?? null;
+
+$date = date('Y-m-d');
+$time_now = date('Y-m-d H:i:s');
+$status = 'present';
+$ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
+$location_coordinates = null;
+
+// Handle Clock In
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_in'])) {
+  $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
+
+  $stmt = $con->prepare($query);
+  $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
+  
+  if (!$stmt->execute()) {
+      die("Error clocking in: " . $stmt->error);
+  }
+}
+
+// Handle Clock Out
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_out'])) {
+  // Step 1: Check if user already clocked out
+  $checkQuery = "SELECT clock_out FROM attendance WHERE employee_id = ? AND date = ?";
+  $checkStmt = $con->prepare($checkQuery);
+  $checkStmt->bind_param("is", $employee_id, $date);
+  $checkStmt->execute();
+  $result = $checkStmt->get_result();
+
+  if ($result && $row = $result->fetch_assoc()) {
+      if (empty($row['clock_out'])) {
+          // Step 2: Only update if not already clocked out
+          $updateQuery = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
+          $updateStmt = $con->prepare($updateQuery);
+          $updateStmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
+          $updateStmt->execute();
+      } else {
+          // Optional: log or ignore duplicate attempt
+          // echo "Already clocked out!";
+      }
+  }
+}
+// ✅ Fetch today's attendance
+$query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
+$stmt = $con->prepare($query);
+$stmt->bind_param("is", $employee_id, $date);
+$stmt->execute();
+$result = $stmt->get_result();
+$attendance = $result->fetch_assoc();
+
+// ✅ Define flags to control UI logic
+$hasClockedIn = false;
+$hasClockedOut = false;
+
+if ($attendance) {
+    $hasClockedIn = !empty($attendance['clock_in']);
+    $hasClockedOut = !empty($attendance['clock_out']);
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -106,6 +171,7 @@ ini_set('display_errors', 1);
   </header><!-- End Header -->
 
   <!-- ======= Sidebar ======= -->
+  <!-- ======= Sidebar ======= -->
   <aside id="sidebar" class="sidebar">
 
     <ul class="sidebar-nav" id="sidebar-nav">
@@ -201,104 +267,54 @@ ini_set('display_errors', 1);
   </aside>
   <main id="main" class="main">
 
-    
-    <div class="col-lg-12">
-      <div class="card">
-        <div class="card-body">
-          <div class="justify-content-between align-items-center mb-3">
-              <h5 class="card-title">View Leave Application Status</h5>
-              
+    <div class="pagetitle">
+      <h1>Attendance</h1>
+    </div><!-- End Page Title -->
 
-                <!-- Table with stripped rows -->
-                <table class="table datatable table-striped">
-                <thead>
-                    <tr>
-                    <th scope="col">Employee</th>
-                    <th scope="col">Leave Type</th>
-                    <th scope="col">From</th>
-                    <th scope="col">To</th>
-                    <th scope="col">Days</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col">Attachment</th>
-                    <th scope="col">Applied</th>
-                    <th scope="col">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    // Connect to the database
-                    require('database.php');
+      <section class="section">
+        <div class="card p-4" style="max-width: 500px; margin: auto;">
+          <h4 class="mb-3">Clock In / Clock Out</h4>
 
-                    $userSessionID = $_SESSION['ID'];
-
-                    // Query to join the employeelogin and leave_apply tables and filter by user session ID
-                    $query = "SELECT el.username, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason,la.leave_document, la.apply_date, la.leave_review
-                            FROM employeelogin el
-                            INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                            WHERE el.ID = ?";
-
-                    // Prepare the statement
-                    $stmt = mysqli_prepare($con, $query);
-
-                    // Bind the user session ID parameter
-                    mysqli_stmt_bind_param($stmt, "s", $userSessionID);
-
-                    // Execute the prepared statement
-                    $result = mysqli_stmt_execute($stmt);
-
-                    // Check if the query was successful
-                    if ($result) {
-                    $data = mysqli_stmt_get_result($stmt);
-                    if (mysqli_num_rows($data) > 0) {
-                        $row_count = 1;
-                        while ($row = mysqli_fetch_assoc($data)) {
-                        echo "<tr>";
-                        echo "<td>" . $row['username'] . "</td>";
-                        echo "<td>" . $row['leave_type'] . "</td>";
-                        echo "<td>" . $row['leave_datestart'] . "</td>";
-                        echo "<td>" . $row['leave_dateend'] . "</td>";
-                        echo "<td>" . $row['leave_length'] . "</td>";
-                        echo "<td>" . $row['leave_reason'] . "</td>";
-                        // Extract the full path of the document
-                        $fullPath = $row['leave_document'];
-                        // Directly specify the file extension as .pdf in the download link
-                        echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
-                        echo "<td>" . $row['apply_date'] . "</td>";
-                        echo "<td>" . $row['leave_review'] . "</td>";
-                        echo "</tr>";
-                        $row_count++;
-                        }
-                    } else {
-                        echo "<tr><td colspan='6'>No records found.</td></tr>";
-                    }
-                    } else {
-                    echo "Error executing query: " . mysqli_stmt_error($stmt);
-                    }
-
-                    // Close the prepared statement
-                    mysqli_stmt_close($stmt);
-
-                    // Close the database connection
-                    mysqli_close($con);
-                    ?>
-                </tbody>
-                </table>
-                </div>
-                </div>
+          <div class="d-flex align-items-center justify-content-between border rounded p-3">
+            <div class="d-flex align-items-center">
+              <span class="me-2" style="font-size: 20px; color: <?= $hasClockedIn ? 'green' : 'red' ?>">●</span>
+              <div>
+                <?php if ($hasClockedIn): ?>
+                  <p class="mb-0">Since <?= date('g:i A', strtotime($attendance['clock_in'])) ?></p>
+                  <strong 
+                      id="duration" 
+                      data-clockin="<?= $attendance['clock_in'] ?>"
+                      <?php if ($hasClockedOut): ?>data-clockout="<?= $attendance['clock_out'] ?>"<?php endif; ?>
+                    >
+                      00:00:00
+                    </strong>
+                    <?php else: ?>
+                  <p class="mb-0">Not yet checked in</p>
+                  <small>Click to start your shift</small>
+                <?php endif; ?>
+              </div>
             </div>
-        </div>
-    </main>
-    <!-- Notification Container -->
-    <div id="notification" class="notification-container">
-        Successfully applied for leave!
-    </div>
 
-      <!-- ======= Footer ======= -->
-      <footer id="footer" class="footer text-center">
-        <div class="copyright">
-          &copy; Copyright <strong><span>SMEasyHR</span></strong>. All Rights Reserved
+            <form method="post">
+            <?php if (!$hasClockedIn): ?>
+                <button type="submit" name="check_in" class="btn btn-success">Check In</button>
+            <?php elseif (!$hasClockedOut): ?>
+                <button type="submit" name="check_out" class="btn btn-warning">Check Out</button>
+            <?php else: ?>
+                <span class="badge bg-secondary">Checked Out</span>
+            <?php endif; ?>
+          </form>
+          </div>
         </div>
-      </footer><!-- End Footer -->
+      </section>
+  </main><!-- End #main -->
+
+  <!-- ======= Footer ======= -->
+  <footer id="footer" class="footer">
+    <div class="copyright">
+      &copy; Copyright <strong><span>SMEasyHR</span></strong>. All Rights Reserved
+    </div>
+  </footer><!-- End Footer -->
 
   <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
 
@@ -314,7 +330,32 @@ ini_set('display_errors', 1);
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const durationElement = document.getElementById("duration");
+      if (!durationElement) return;
 
+      const clockIn = new Date(durationElement.dataset.clockin).getTime();
+      const clockOutAttr = durationElement.dataset.clockout;
+      const clockOut = clockOutAttr ? new Date(clockOutAttr).getTime() : null;
+
+      function updateDuration() {
+        const now = clockOut || new Date().getTime();
+        const diff = now - clockIn;
+
+        const hours = String(Math.floor(diff / (1000 * 60 * 60))).padStart(2, '0');
+        const minutes = String(Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))).padStart(2, '0');
+        const seconds = String(Math.floor((diff % (1000 * 60)) / 1000)).padStart(2, '0');
+
+        durationElement.textContent = `${hours}:${minutes}:${seconds}`;
+
+        if (clockOut) clearInterval(timer); // stop if already clocked out
+      }
+
+      updateDuration();
+      const timer = setInterval(updateDuration, 1000);
+    });
+</script>
 </body>
 
 </html>

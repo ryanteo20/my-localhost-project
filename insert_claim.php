@@ -55,8 +55,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     $stmt->close();
     $con->close();
-    header("Location: R_claim.php");
+    redirectBasedOnRole($role);
     exit;
 } else {
     echo "Invalid request.";
+}
+
+// Helper function to redirect based on role
+function redirectBasedOnRole($role) {
+    if (strtolower($role) === 'employer') {
+        header("Location: R_claim.php");
+    } else { // default to employee
+        header("Location: ER_claim.php");
+    }
 }

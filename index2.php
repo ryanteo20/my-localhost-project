@@ -1,6 +1,11 @@
 <?php
 require('database.php');
 require('session.php');
+// For employer-specific page
+if ($_SESSION['role'] != 'Employee') {
+    header("Location: pages-login.php");
+    exit();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -134,13 +139,13 @@ require('session.php');
         </a>
         <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
         <li>
-            <a href="attendance_employer.php">
+            <a href="attendance_employee.php">
               <i class="bi bi-circle"></i><span>Clock in & out</span>
             </a>
           </li>
           <li>
-            <a href="v_all_attendance.php">
-              <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
+            <a href="v_attendance.php">
+              <i class="bi bi-circle"></i><span>View Attendance</span>
             </a>
           </li>
         </ul>
@@ -170,7 +175,7 @@ require('session.php');
         </a>
         <ul id="icons-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
-            <a href="C_payslip.php">
+            <a href="EC_payslip.php">
               <i class="bi bi-circle"></i><span>Check Payslip</span>
             </a>
           </li>
@@ -183,17 +188,12 @@ require('session.php');
         </a>
         <ul id="claim-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
-            <a href="R_claim.php">
+            <a href="ER_claim.php">
               <i class="bi bi-circle"></i><span>Request Claim</span>
             </a>
           </li>
           <li>
-            <a href="AR_claim.php">
-              <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
-            </a>
-          </li>
-          <li>
-            <a href="VR_claim.php">
+            <a href="EVR_claim.php">
               <i class="bi bi-circle"></i><span>View All Claim</span>
             </a>
           </li>

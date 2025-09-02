@@ -1,6 +1,13 @@
 <?php
 require('database.php');
 require('session.php');
+
+// For employer-specific page
+if ($_SESSION['role'] != 'Employer') {
+    header("Location: pages-login.php");
+    exit();
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -231,104 +238,109 @@ require('session.php');
     </div><!-- End Page Title -->
 
     <section class="section dashboard">
+  <div class="row">
+    <h3>Employee Management</h3>
+    
+    <!-- Left side columns -->
+    <div class="col-lg-12">
       <div class="row">
-      <h3>Employee Management</h3>                      
-        <!-- Left side columns -->
-        <div class="col-lg-12">
-          <div class="row">
 
-            <!-- Sales Card -->
-            <div class="col-xxl-4 col-md-6">
-              <div class="card info-card sales-card">
-
-                <div class="filter">
-                  <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+        <!-- Sales Card: Total Employee -->
+        <div class="col-xxl-3 col-md-6 col-sm-12 mb-4">
+          <div class="card info-card sales-card">
+            <div class="filter">
+              <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+            </div>
+            <div class="card-body">
+              <h5 class="card-title">Total Employee</h5>
+              <div class="d-flex align-items-center">
+                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                  <i class="ri-group-line"></i>
                 </div>
-                <div class="card-body">
-                  <h5 class="card-title">Total Employee</h5>
-
-                  <div class="d-flex align-items-center">
-                      <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                          <i class="ri-group-line"></i>
-                      </div>
-                      <div class="ps-3">
-                          <?php
-                          // Include your database connection
-                          require('database.php');
-                          
-                          // Prepare the SQL query to count the number of rows in the employeelogin table
-                          $query = "SELECT COUNT(*) AS total_employees FROM employeelogin";
-                          
-                          // Execute the query
-                          $result = mysqli_query($con, $query);
-                          
-                          // Check if the query executed successfully
-                          if ($result) {
-                              // Fetch the result as an associative array
-                              $row = mysqli_fetch_assoc($result);
-                              
-                              // Get the total number of employees
-                              $totalEmployees = $row['total_employees'];
-                              
-                          } 
-                          
-                          // Output the total number of employees within the card
-                          echo "<h6>$totalEmployees</h6>";
-                          ?>
-                      </div>
-                  </div>
-              </div>
-              </div>
-            </div><!-- End Sales Card -->
-            <!-- Sales Card -->
-            <div class="col-xxl-4 col-md-6">
-              <div class="card info-card sales-card">
-
-                <div class="filter">
-                  <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+                <div class="ps-3">
+                  <?php
+                  require('database.php');
+                  $query = "SELECT COUNT(*) AS total_employees FROM employeelogin";
+                  $result = mysqli_query($con, $query);
+                  if ($result) {
+                      $row = mysqli_fetch_assoc($result);
+                      $totalEmployees = $row['total_employees'];
+                  }
+                  echo "<h6>$totalEmployees</h6>";
+                  ?>
                 </div>
-                <div class="card-body">
-                  <h5 class="card-title">Total Leave pending</h5>
-
-                  <div class="d-flex align-items-center">
-                      <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                          <i class="ri-group-line"></i>
-                      </div>
-                      <div class="ps-3">
-                      <?php
-                          // Include your database connection
-                          require('database.php');
-
-                          // Query pending leave applications for review
-                          $query_pending_review = "SELECT COUNT(*) AS pending_review FROM leave_apply WHERE leave_review = 'Pending for review'";
-
-                          // Execute the query
-                          $result_pending_review = mysqli_query($con, $query_pending_review);
-
-                          // Check if the query executed successfully
-                          if ($result_pending_review) {
-                              // Fetch the result as an associative array
-                              $row_pending_review = mysqli_fetch_assoc($result_pending_review);
-                              
-                              // Get the total number of pending leave applications for review
-                              $pendingReview = $row_pending_review['pending_review'];
-                              
-                          } else {
-                              // Error handling if the query fails
-                              $pendingReview = "Error fetching pending leave for review";
-                          }
-
-                          // Output the total number of pending leave applications for review within the card
-                          echo "<h6>$pendingReview</h6>";
-                          ?>
-                      </div>
-                  </div>
               </div>
-              </div>
-            </div><!-- End Sales Card -->
+            </div>
+          </div>
+        </div><!-- End Total Employee Card -->
 
-      </div>
-    </section>
+        <!-- Sales Card: Total Leave Pending -->
+        <div class="col-xxl-3 col-md-6 col-sm-12 mb-4">
+          <div class="card info-card sales-card">
+            <div class="filter">
+              <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+            </div>
+            <div class="card-body">
+              <h5 class="card-title">Total Leave Pending</h5>
+              <div class="d-flex align-items-center">
+                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                  <i class="ri-group-line"></i>
+                </div>
+                <div class="ps-3">
+                  <?php
+                  require('database.php');
+                  $query_pending_review = "SELECT COUNT(*) AS pending_review FROM leave_apply WHERE leave_review = 'Pending for review'";
+                  $result_pending_review = mysqli_query($con, $query_pending_review);
+                  if ($result_pending_review) {
+                      $row_pending_review = mysqli_fetch_assoc($result_pending_review);
+                      $pendingReview = $row_pending_review['pending_review'];
+                  } else {
+                      $pendingReview = "Error fetching pending leave for review";
+                  }
+                  echo "<h6>$pendingReview</h6>";
+                  ?>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- End Total Leave Pending Card -->
+
+        <!-- Sales Card: Total Claim Requested -->
+        <div class="col-xxl-3 col-md-6 col-sm-12 mb-4">
+          <div class="card info-card sales-card">
+            <div class="filter">
+              <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+            </div>
+            <div class="card-body">
+              <h5 class="card-title">Total Claim Pending</h5>
+              <div class="d-flex align-items-center">
+                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                  <i class="ri-money-dollar-box-line"></i>
+                </div>
+                <div class="ps-3">
+                  <?php
+                  require('database.php');
+                  $query_pending_claims = "SELECT COUNT(*) AS pending_claims FROM claims WHERE status = 'Pending'";
+                  $result_pending_claims = mysqli_query($con, $query_pending_claims);
+                  if ($result_pending_claims) {
+                      $row_pending_claims = mysqli_fetch_assoc($result_pending_claims);
+                      $pendingClaims = $row_pending_claims['pending_claims'];
+                  } else {
+                      $pendingClaims = "Error fetching pending claims";
+                  }
+                  echo "<h6>$pendingClaims</h6>";
+                  ?>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div><!-- End Total Claim Requested Card -->
+
+      </div><!-- End Row -->
+    </div><!-- End Left side columns -->
+  </div><!-- End Section -->
+</section>
+
 
   </main><!-- End #main -->
 

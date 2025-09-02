@@ -44,7 +44,7 @@ ini_set('display_errors', 1);
     <div class="d-flex align-items-center justify-content-between">
       <a href="index2.php" class="logo d-flex align-items-center">
         <img src="assets/img/logo.png" alt="">
-        <span class="d-none d-lg-block">SMEasyHR</span>
+        <span class="d-none d-lg-block">SMEasyHR - Employee</span>
       </a>
       <i class="bi bi-list toggle-sidebar-btn"></i>
     </div><!-- End Logo -->
@@ -106,6 +106,7 @@ ini_set('display_errors', 1);
   </header><!-- End Header -->
 
   <!-- ======= Sidebar ======= -->
+  <!-- ======= Sidebar ======= -->
   <aside id="sidebar" class="sidebar">
 
     <ul class="sidebar-nav" id="sidebar-nav">
@@ -136,13 +137,13 @@ ini_set('display_errors', 1);
         </a>
         <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
         <li>
-            <a href="attendance_employer.php">
+            <a href="attendance_employee.php">
               <i class="bi bi-circle"></i><span>Clock in & out</span>
             </a>
           </li>
           <li>
-            <a href="v_all_attendance.php">
-              <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
+            <a href="v_attendance.php">
+              <i class="bi bi-circle"></i><span>View Attendance</span>
             </a>
           </li>
         </ul>
@@ -172,12 +173,7 @@ ini_set('display_errors', 1);
         </a>
         <ul id="icons-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
-            <a href="P_payroll.php">
-              <i class="bi bi-circle"></i><span>Process Payroll</span>
-            </a>
-          </li>
-          <li>
-            <a href="C_payslip.php">
+            <a href="EC_payslip.php">
               <i class="bi bi-circle"></i><span>Check Payslip</span>
             </a>
           </li>
@@ -190,25 +186,20 @@ ini_set('display_errors', 1);
         </a>
         <ul id="claim-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
-            <a href="R_claim.php">
+            <a href="ER_claim.php">
               <i class="bi bi-circle"></i><span>Request Claim</span>
             </a>
           </li>
           <li>
-            <a href="AR_claim.php">
-              <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
-            </a>
-          </li>
-          <li>
-            <a href="VR_claim.php">
+            <a href="EVR_claim.php">
               <i class="bi bi-circle"></i><span>View All Claim</span>
             </a>
           </li>
         </ul>
       </li><!-- End Claim Management Nav -->
     </ul>
-  </aside>
 
+  </aside>
   <main id="main" class="main">
 
     <div class="pagetitle">

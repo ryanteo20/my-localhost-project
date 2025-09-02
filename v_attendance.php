@@ -1,8 +1,71 @@
 <?php
 require('database.php');
 require('session.php');
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+
+$employee_id = $_SESSION['ID'] ?? null;
+
+$date = date('Y-m-d');
+$time_now = date('Y-m-d H:i:s');
+$status = 'present';
+$ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
+$location_coordinates = null;
+
+if (isset($_POST['check_in'])) {
+    $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
+              VALUES (?, ?, ?, ?, ?, ?)
+              ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
+    $stmt = $con->prepare($query);
+    $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
+    $stmt->execute();
+}
+
+if (isset($_POST['check_out'])) {
+    $query = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
+    $stmt = $con->prepare($query);
+    $stmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
+    $stmt->execute();
+}
+
+$query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
+$stmt = $con->prepare($query);
+$stmt->bind_param("is", $employee_id, $date);
+$stmt->execute();
+$result = $stmt->get_result();
+$attendance = $result->fetch_assoc();
+
+$selected_month = $_GET['month'] ?? date('m');
+$selected_year = $_GET['year'] ?? date('Y');
+
+$history_query = "SELECT * FROM attendance 
+                  WHERE employee_id = ? 
+                  AND MONTH(date) = ? 
+                  AND YEAR(date) = ? 
+                  ORDER BY date DESC";
+$stmt = $con->prepare($history_query);
+if ($stmt) {
+    $stmt->bind_param("iii", $employee_id, $selected_month, $selected_year);
+    $stmt->execute();
+    $history_result = $stmt->get_result();
+} else {
+    echo "<div class='alert alert-danger'>Query Error: " . $con->error . "</div>";
+    $history_result = false;
+}
+
+// Count totals
+$total_present = $total_absent = $total_leave = $total_halfday = 0;
+if ($history_result) {
+    foreach ($history_result as $row) {
+        switch ($row['status']) {
+            case 'present': $total_present++; break;
+            case 'absent': $total_absent++; break;
+            case 'on-leave': $total_leave++; break;
+            case 'half-day': $total_halfday++; break;
+        }
+    }
+    // Re-execute to use again below
+    $stmt->execute();
+    $history_result = $stmt->get_result();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -199,106 +262,85 @@ ini_set('display_errors', 1);
     </ul>
 
   </aside>
+
   <main id="main" class="main">
 
-    
-    <div class="col-lg-12">
-      <div class="card">
-        <div class="card-body">
-          <div class="justify-content-between align-items-center mb-3">
-              <h5 class="card-title">View Leave Application Status</h5>
-              
+    <div class="pagetitle">
+      <h1>Attendance</h1>
+    </div><!-- End Page Title -->
 
-                <!-- Table with stripped rows -->
-                <table class="table datatable table-striped">
-                <thead>
-                    <tr>
-                    <th scope="col">Employee</th>
-                    <th scope="col">Leave Type</th>
-                    <th scope="col">From</th>
-                    <th scope="col">To</th>
-                    <th scope="col">Days</th>
-                    <th scope="col">Reason</th>
-                    <th scope="col">Attachment</th>
-                    <th scope="col">Applied</th>
-                    <th scope="col">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    // Connect to the database
-                    require('database.php');
+    <section class="section dashboard">
+      <h5>Employer Attendance</h5>                      
+        <div class="card p-4 mb-5">
+        <h4 class="mb-3">Clock In / Out</h4>
+        <form method="get" class="row g-3 mb-4">
+          <div class="col-auto">
+            <select name="month" class="form-select">
+              <?php for ($m = 1; $m <= 12; $m++): ?>
+                <option value="<?= $m ?>" <?= ($m == $selected_month) ? 'selected' : '' ?>><?= date('F', mktime(0, 0, 0, $m, 10)) ?></option>
+              <?php endfor; ?>
+            </select>
+          </div>
+          <div class="col-auto">
+            <select name="year" class="form-select">
+              <?php for ($y = date('Y') - 3; $y <= date('Y'); $y++): ?>
+                <option value="<?= $y ?>" <?= ($y == $selected_year) ? 'selected' : '' ?>><?= $y ?></option>
+              <?php endfor; ?>
+            </select>
+          </div>
+          <div class="col-auto">
+            <button type="submit" class="btn btn-primary">Filter</button>
+            <a href="export_attendance.php?month=<?= $selected_month ?>&year=<?= $selected_year ?>" class="btn btn-success">Export</a>
+          </div>
+        </form>
 
-                    $userSessionID = $_SESSION['ID'];
-
-                    // Query to join the employeelogin and leave_apply tables and filter by user session ID
-                    $query = "SELECT el.username, la.leave_type, la.leave_datestart, la.leave_dateend, la.leave_length, la.leave_reason,la.leave_document, la.apply_date, la.leave_review
-                            FROM employeelogin el
-                            INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
-                            WHERE el.ID = ?";
-
-                    // Prepare the statement
-                    $stmt = mysqli_prepare($con, $query);
-
-                    // Bind the user session ID parameter
-                    mysqli_stmt_bind_param($stmt, "s", $userSessionID);
-
-                    // Execute the prepared statement
-                    $result = mysqli_stmt_execute($stmt);
-
-                    // Check if the query was successful
-                    if ($result) {
-                    $data = mysqli_stmt_get_result($stmt);
-                    if (mysqli_num_rows($data) > 0) {
-                        $row_count = 1;
-                        while ($row = mysqli_fetch_assoc($data)) {
-                        echo "<tr>";
-                        echo "<td>" . $row['username'] . "</td>";
-                        echo "<td>" . $row['leave_type'] . "</td>";
-                        echo "<td>" . $row['leave_datestart'] . "</td>";
-                        echo "<td>" . $row['leave_dateend'] . "</td>";
-                        echo "<td>" . $row['leave_length'] . "</td>";
-                        echo "<td>" . $row['leave_reason'] . "</td>";
-                        // Extract the full path of the document
-                        $fullPath = $row['leave_document'];
-                        // Directly specify the file extension as .pdf in the download link
-                        echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
-                        echo "<td>" . $row['apply_date'] . "</td>";
-                        echo "<td>" . $row['leave_review'] . "</td>";
-                        echo "</tr>";
-                        $row_count++;
-                        }
-                    } else {
-                        echo "<tr><td colspan='6'>No records found.</td></tr>";
-                    }
-                    } else {
-                    echo "Error executing query: " . mysqli_stmt_error($stmt);
-                    }
-
-                    // Close the prepared statement
-                    mysqli_stmt_close($stmt);
-
-                    // Close the database connection
-                    mysqli_close($con);
-                    ?>
-                </tbody>
-                </table>
-                </div>
-                </div>
-            </div>
+        <div class="mb-3">
+          <strong>Totals for <?= date('F Y', mktime(0, 0, 0, $selected_month, 1, $selected_year)) ?>:</strong><br>
+          Present: <?= $total_present ?>, Absent: <?= $total_absent ?>, On Leave: <?= $total_leave ?>, Half Day: <?= $total_halfday ?>
         </div>
-    </main>
-    <!-- Notification Container -->
-    <div id="notification" class="notification-container">
-        Successfully applied for leave!
+      </div>
+
+      <div class="card p-4">
+        <h4 class="mb-3">Attendance History (Last 30 Days)</h4>
+        <div class="table-responsive">
+          <table class="table table-bordered">
+            <thead class="table-light">
+              <tr>
+                <th>Date</th>
+                <th>Clock In</th>
+                <th>Clock Out</th>
+                <th>Status</th>
+                <th>IP Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if ($history_result): ?>
+                <?php while ($row = $history_result->fetch_assoc()): ?>
+                  <tr>
+                    <td><?php echo htmlspecialchars($row['date']); ?></td>
+                    <td><?php echo htmlspecialchars($row['clock_in']); ?></td>
+                    <td><?php echo htmlspecialchars($row['clock_out']); ?></td>
+                    <td><?php echo htmlspecialchars($row['status']); ?></td>
+                    <td><?php echo htmlspecialchars($row['ip_address']); ?></td>
+                  </tr>
+                <?php endwhile; ?>
+              <?php else: ?>
+                <tr><td colspan="5">No attendance records found.</td></tr>
+              <?php endif; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main><!-- End #main -->
+
+  <!-- ======= Footer ======= -->
+  <footer id="footer" class="footer">
+    <div class="copyright">
+      &copy; Copyright <strong><span>SMEasyHR</span></strong>. All Rights Reserved
     </div>
-
-      <!-- ======= Footer ======= -->
-      <footer id="footer" class="footer text-center">
-        <div class="copyright">
-          &copy; Copyright <strong><span>SMEasyHR</span></strong>. All Rights Reserved
-        </div>
-      </footer><!-- End Footer -->
+  </footer><!-- End Footer -->
 
   <a href="#" class="back-to-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
 

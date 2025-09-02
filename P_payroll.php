@@ -104,11 +104,45 @@ if (!empty($selected_emp)) {
         echo "<div class='alert alert-danger'>Error in claim query: " . mysqli_error($con) . "</div>";
     }
 }
+// Initialize allowance and overtime variables properly
+$allowance = 0;
+$overtime = 0;
+
+if ($payroll_data) {
+    // Use POST inputs if they exist (after form submission), otherwise use database values
+    $allowance = isset($_POST['allowance_input']) && is_numeric($_POST['allowance_input']) 
+        ? (float)$_POST['allowance_input'] 
+        : (float)($payroll_data['allowance'] ?? 0);
+
+    $overtime = isset($_POST['overtime_input']) && is_numeric($_POST['overtime_input']) 
+        ? (float)$_POST['overtime_input'] 
+        : (float)($payroll_data['overtime_pay'] ?? 0);
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
     $period_start = date("Y-m-01", strtotime($_POST['year']."-".$_POST['month']."-01"));
     $period_end   = date("Y-m-t", strtotime($_POST['year']."-".$_POST['month']."-01"));
     $payment_date = date("Y-m-d");
+
+    // Get the values, prioritizing the recalculated values
+    $final_allowance = 0;
+    $final_overtime = 0;
+
+    // Check multiple possible field names
+    if (isset($_POST['allowance'])) {
+        $final_allowance = (float)$_POST['allowance'];
+    } elseif (isset($_POST['allowance_input'])) {
+        $final_allowance = (float)$_POST['allowance_input'];
+    }
+
+    if (isset($_POST['overtime'])) {
+        $final_overtime = (float)$_POST['overtime'];
+    } elseif (isset($_POST['overtime_input'])) {
+        $final_overtime = (float)$_POST['overtime_input'];
+    }
+
+    // Debug output - remove after fixing
+    echo "<div class='alert alert-info'>Debug: Allowance = $final_allowance, Overtime = $final_overtime</div>";
 
     $payrollData = [
         'employee_id'     => (int)$_POST['employee_id'],
@@ -116,22 +150,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
         'pay_period_end'  => $period_end,
         'payment_date'    => $payment_date,
         'basic_salary'    => (float)$_POST['basic_salary'],
-        'allowances'      => (float)$_POST['allowance'],
+        'allowances'      => $final_allowance,        // This should now have the correct value
         'deductions'      => (float)$_POST['epf'] + (float)$_POST['socso'] + (float)$_POST['eis'] + (float)$_POST['pcb'],
         'tax_amount'      => (float)$_POST['pcb'],
         'epf_amount'      => (float)$_POST['epf'],
         'socso_amount'    => (float)$_POST['socso'],
         'eis_amount'      => (float)$_POST['eis'],
-        'overtime_pay'    => (float)$_POST['overtime'],
+        'overtime_pay'    => $final_overtime,         // This should now have the correct value
         'total_claims'    => (float)$_POST['total_claims'],
         'net_pay'         => (float)$_POST['net_pay'],
         'status'          => 'processed'
     ];
 
     require_once 'functions.php';
-    savePayrollTransaction($con, $payrollData);
+    $result = savePayrollTransaction($con, $payrollData);
+    
+    if ($result) {
+        echo "<div class='alert alert-success'>Payroll saved successfully!</div>";
+    } else {
+        echo "<div class='alert alert-danger'>Error saving payroll data.</div>";
+    }
 
-    // ✅ Redirect to next employee if requested
+    // Redirect to next employee if requested
     if (!empty($_POST['goto_next'])) {
         $next_emp = (int)$_POST['goto_next'];
         header("Location: P_payroll.php?month={$_POST['month']}&year={$_POST['year']}&employee_id={$next_emp}");
@@ -482,30 +522,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
                 </span>
             </div>
         <?php endif; ?>
-            <!-- Allowance -->
-            <form method="POST" id="allowanceForm" style="margin-bottom: 0;">
-            <div class="item">
-            <span>Allowance</span>
-            <span id="allowanceDisplay" onclick="toggleAllowanceInput()" class="editable-money" style="cursor:pointer;">
-                RM <?= number_format(isset($_POST['allowance_input']) ? (float)$_POST['allowance_input'] : ($payroll_data['allowance'] ?? 0), 2) ?>
-            </span>
+<!-- Allowance -->
+<div class="item">
+    <span>Allowance</span>
+    <span id="allowanceDisplay" onclick="toggleAllowanceInput()" class="editable-money" style="cursor:pointer;">
+        RM <?= number_format($allowance, 2) ?>
+    </span>
+    <input type="number" step="0.01" min="0" name="allowance_input" id="allowanceInput"
+           value="<?= $allowance ?>"
+           class="editable-money" style="display:none; width: 100px; text-align:right;" />
+</div>
 
-            <input type="number" step="0.01" min="0" name="allowance_input" id="allowanceInput"
-                    value="<?= isset($_POST['allowance_input']) ? $_POST['allowance_input'] : ($payroll_data['allowance'] ?? 0) ?>"
-                    class="editable-money" style="display:none; width: 100px; text-align:right;" />
-            </div>
-            </form>
-            <!-- OT -->
-            <div class="item">
-            <span>Overtime Pay</span>
-            <span id="overtimeDisplay" onclick="toggleOvertimeInput()" class="editable-money" style="cursor:pointer;">
-                RM <?= number_format(isset($_POST['overtime_input']) ? (float)$_POST['overtime_input'] : ($payroll_data['overtime_pay'] ?? 0), 2) ?>
-            </span>
-
-            <input type="number" step="0.01" min="0" name="overtime_input" id="overtimeInput"
-                    value="<?= isset($_POST['overtime_input']) ? $_POST['overtime_input'] : ($payroll_data['overtime_pay'] ?? 0) ?>"
-                    class="editable-money" style="display:none; width: 100px; text-align:right;" />
-            </div>
+<!-- Overtime -->
+<div class="item">
+    <span>Overtime Pay</span>
+    <span id="overtimeDisplay" onclick="toggleOvertimeInput()" class="editable-money" style="cursor:pointer;">
+        RM <?= number_format($overtime, 2) ?>
+    </span>
+    <input type="number" step="0.01" min="0" name="overtime_input" id="overtimeInput"
+           value="<?= $overtime ?>"
+           class="editable-money" style="display:none; width: 100px; text-align:right;" />
+</div>
 
     </div>
     
@@ -750,257 +787,259 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
   <script>
-        // Optional: Also auto-submit when month/year changes
-        document.addEventListener('DOMContentLoaded', function() {
-            const monthSelect = document.querySelector('select[name="month"]');
-            const yearSelect = document.querySelector('select[name="year"]');
-            const employeeSelect = document.querySelector('select[name="employee_id"]');
-            
-            // Auto-submit when month or year changes (only if employee is already selected)
-            monthSelect.addEventListener('change', function() {
-                if (employeeSelect.value) {
-                    document.getElementById('payrollForm').submit();
-                }
-            });
-            
-            yearSelect.addEventListener('change', function() {
-                if (employeeSelect.value) {
-                    document.getElementById('payrollForm').submit();
-                }
-            });
-        });
+// Global variables to track current values
+let currentAllowance = 0;
+let currentOvertime = 0;
+let hasUnsavedChanges = false;
 
-
-
-            
-</script>
-
-<script>
-    // Auto-submit when month/year changes
-    document.addEventListener('DOMContentLoaded', function() {
-        const monthSelect = document.querySelector('select[name="month"]');
-        const yearSelect = document.querySelector('select[name="year"]');
-        const employeeSelect = document.querySelector('select[name="employee_id"]');
-        
-        // Auto-submit when month or year changes (only if employee is already selected)
-        monthSelect.addEventListener('change', function() {
-            if (employeeSelect.value) {
-                document.getElementById('payrollForm').submit();
-            }
-        });
-        
-        yearSelect.addEventListener('change', function() {
-            if (employeeSelect.value) {
-                document.getElementById('payrollForm').submit();
-            }
-        });
-
-        // Highlight updated values if page was just refreshed after edit
-        const postData = <?= json_encode($_POST) ?>;
-        
-        if (postData && (postData.allowance_input !== undefined || postData.overtime_input !== undefined)) {
-            // Add a brief highlight to show the calculation was updated
-            setTimeout(() => {
-                const netPayElement = document.querySelector('.highlight');
-                if (netPayElement) {
-                    netPayElement.style.animation = 'pulse 1s ease-in-out';
-                    // Show a brief success message
-                    showSuccessMessage('Payroll updated successfully!');
-                }
-            }, 300);
+document.addEventListener('DOMContentLoaded', function() {
+    const monthSelect = document.querySelector('select[name="month"]');
+    const yearSelect = document.querySelector('select[name="year"]');
+    const employeeSelect = document.querySelector('select[name="employee_id"]');
+    
+    // Initialize current values from page load
+    const allowanceInput = document.getElementById('allowanceInput');
+    const overtimeInput = document.getElementById('overtimeInput');
+    
+    if (allowanceInput) currentAllowance = parseFloat(allowanceInput.value || 0);
+    if (overtimeInput) currentOvertime = parseFloat(overtimeInput.value || 0);
+    
+    // Auto-submit when month or year changes (only if employee is already selected)
+    monthSelect.addEventListener('change', function() {
+        if (employeeSelect.value) {
+            document.getElementById('payrollForm').submit();
         }
     });
+    
+    yearSelect.addEventListener('change', function() {
+        if (employeeSelect.value) {
+            document.getElementById('payrollForm').submit();
+        }
+    });
+});
 
-    // Allowance editing functions
-    let originalAllowance = '';
+// Allowance editing functions
+function toggleAllowanceInput() {
+    const display = document.getElementById('allowanceDisplay');
+    const input = document.getElementById('allowanceInput');
 
-    function toggleAllowanceInput() {
-        const display = document.getElementById('allowanceDisplay');
-        const input = document.getElementById('allowanceInput');
+    display.style.display = 'none';
+    input.style.display = 'inline-block';
+    input.focus();
+    input.select();
+}
 
-        display.style.display = 'none';
-        input.style.display = 'inline-block';
-        input.focus();
-        originalAllowance = input.value;
-    }
+function toggleOvertimeInput() {
+    const display = document.getElementById('overtimeDisplay');
+    const input = document.getElementById('overtimeInput');
 
-    document.getElementById('allowanceInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
+    display.style.display = 'none';
+    input.style.display = 'inline-block';
+    input.focus();
+    input.select();
+}
+
+// Event listeners for allowance input
+document.addEventListener('DOMContentLoaded', function() {
+    const allowanceInput = document.getElementById('allowanceInput');
+    const overtimeInput = document.getElementById('overtimeInput');
+    
+    if (allowanceInput) {
+        allowanceInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                finishEditingAllowance();
+            }
+        });
+        
+        allowanceInput.addEventListener('blur', function() {
             finishEditingAllowance();
-        }
-    });
-
-    document.getElementById('allowanceInput').addEventListener('blur', function() {
-        finishEditingAllowance();
-    });
-
-    function finishEditingAllowance() {
-        const input = document.getElementById('allowanceInput');
-        const display = document.getElementById('allowanceDisplay');
-        const hiddenInput = document.getElementById('hiddenAllowance');
-        const value = parseFloat(input.value || 0).toFixed(2);
-
-        display.textContent = 'RM ' + value;
-        display.style.display = 'inline-block';
-        input.style.display = 'none';
-        hiddenInput.value = value;
-        
-        // Show loading indicator
-        showLoadingIndicator();
-        
-        // Small delay then submit form to recalculate payroll
-        setTimeout(() => {
-            document.getElementById('payrollForm').submit();
-        }, 100);
-    }
-
-    // Overtime editing functions
-    let originalOvertime = '';
-
-    function toggleOvertimeInput() {
-        const display = document.getElementById('overtimeDisplay');
-        const input = document.getElementById('overtimeInput');
-
-        display.style.display = 'none';
-        input.style.display = 'inline-block';
-        input.focus();
-        originalOvertime = input.value;
-    }
-
-    document.getElementById('overtimeInput').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            finishEditingOvertime();
-        }
-    });
-
-    document.getElementById('overtimeInput').addEventListener('blur', function() {
-        finishEditingOvertime();
-    });
-
-    function finishEditingOvertime() {
-        const input = document.getElementById('overtimeInput');
-        const display = document.getElementById('overtimeDisplay');
-        const hiddenInput = document.getElementById('hiddenOvertime');
-        const value = parseFloat(input.value || 0).toFixed(2);
-
-        display.textContent = 'RM ' + value;
-        display.style.display = 'inline-block';
-        input.style.display = 'none';
-        hiddenInput.value = value;
-        
-        // Show loading indicator
-        showLoadingIndicator();
-        
-        // Small delay then submit form to recalculate payroll
-        setTimeout(() => {
-            document.getElementById('payrollForm').submit();
-        }, 100);
-    }
-
-    // Loading indicator function
-    function showLoadingIndicator() {
-        // Create a temporary loading overlay
-        const overlay = document.createElement('div');
-        overlay.id = 'loadingOverlay';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        `;
-        
-        const spinner = document.createElement('div');
-        spinner.style.cssText = `
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
-        `;
-        spinner.innerHTML = `
-            <div style="display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #007bff; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-            <div style="margin-top: 10px; color: #666;">Updating payroll...</div>
-        `;
-        
-        overlay.appendChild(spinner);
-        document.body.appendChild(overlay);
-    }
-
-    // Success message function
-    function showSuccessMessage(message) {
-        const successDiv = document.createElement('div');
-        successDiv.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #28a745;
-            color: white;
-            padding: 10px 20px;
-            border-radius: 5px;
-            z-index: 10000;
-            animation: slideIn 0.3s ease;
-        `;
-        successDiv.textContent = message;
-        
-        document.body.appendChild(successDiv);
-        
-        // Remove after 2 seconds
-        setTimeout(() => {
-            successDiv.style.animation = 'slideOut 0.3s ease';
-            setTimeout(() => {
-                if (document.body.contains(successDiv)) {
-                    document.body.removeChild(successDiv);
-                }
-            }, 300);
-        }, 2000);
-    }
-
-        function showRecalcButton() {
-            document.getElementById("netPayDisplay").innerHTML = 
-                '<button type="button" class="btn btn-warning btn-sm" onclick="recalculateNetPay()">Recalculate</button>';
-        }
-                // Listen for changes in Allowance & Overtime fields
-        document.addEventListener("DOMContentLoaded", function() {
-            document.getElementById("allowanceInput").addEventListener("input", showRecalcButton);
-            document.getElementById("overtimeInput").addEventListener("input", showRecalcButton);
         });
+        
+        allowanceInput.addEventListener('input', function() {
+            hasUnsavedChanges = true;
+            showRecalcButton();
+        });
+    }
+    
+    if (overtimeInput) {
+        overtimeInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                finishEditingOvertime();
+            }
+        });
+        
+        overtimeInput.addEventListener('blur', function() {
+            finishEditingOvertime();
+        });
+        
+        overtimeInput.addEventListener('input', function() {
+            hasUnsavedChanges = true;
+            showRecalcButton();
+        });
+    }
+});
 
-        function recalculateNetPay() {
-            let salary = parseFloat("<?= (float)$payroll_data['employee_salary'] ?>") || 0;
-            let allowance = parseFloat(document.getElementById('allowanceInput').value || 0);
-            let overtime  = parseFloat(document.getElementById('overtimeInput').value || 0);
-            let totalClaims = parseFloat("<?= (float)$total_claim ?>") || 0;
+function finishEditingAllowance() {
+    const input = document.getElementById('allowanceInput');
+    const display = document.getElementById('allowanceDisplay');
+    const value = parseFloat(input.value || 0).toFixed(2);
 
-            let epf  = salary * 0.11;
-            let socso = salary * 0.005;
-            let eis   = salary * 0.002;
-            let pcb   = parseFloat("<?= (float)$payroll_data['pcb'] ?>") || 0;
+    display.textContent = 'RM ' + value;
+    display.style.display = 'inline-block';
+    input.style.display = 'none';
+}
 
-            let totalDeductions = epf + socso + eis + pcb;
-            let gross = salary + allowance + overtime + totalClaims;
-            let net   = gross - totalDeductions;
+function finishEditingOvertime() {
+    const input = document.getElementById('overtimeInput');
+    const display = document.getElementById('overtimeDisplay');
+    const value = parseFloat(input.value || 0).toFixed(2);
 
-            // Update Pay Summary
-            document.getElementById("grossPayDisplay").textContent   = "RM " + salary.toFixed(2);
-            document.getElementById("allowanceSummary").textContent  = "RM " + allowance.toFixed(2);
-            document.getElementById("overtimeSummary").textContent   = "RM " + overtime.toFixed(2);
-            document.getElementById("claimsDisplay").textContent     = "RM " + totalClaims.toFixed(2);
-            document.getElementById("deductionsDisplay").textContent = "RM " + totalDeductions.toFixed(2);
-            document.getElementById("netPayDisplay").textContent     = "RM " + net.toFixed(2);
+    display.textContent = 'RM ' + value;
+    display.style.display = 'inline-block';
+    input.style.display = 'none';
+}
 
-            // Also update Employee Info column (optional, so both sides show same)
-            document.getElementById("allowanceEditDisplay").textContent = "RM " + allowance.toFixed(2);
-            document.getElementById("overtimeEditDisplay").textContent  = "RM " + overtime.toFixed(2);
+function showRecalcButton() {
+    const netPayElement = document.getElementById("netPayDisplay");
+    if (netPayElement && hasUnsavedChanges) {
+        netPayElement.innerHTML = 
+            '<button type="button" class="btn btn-warning btn-sm" onclick="recalculateNetPay()">Recalculate</button>';
+    }
+}
+
+function recalculateNetPay() {
+    // Get PHP values safely
+    const salary = <?= isset($payroll_data['employee_salary']) ? (float)$payroll_data['employee_salary'] : 0 ?>;
+    const totalClaims = <?= (float)$total_claim ?>;
+    const pcb = <?= isset($payroll_data['pcb']) ? (float)$payroll_data['pcb'] : 0 ?>;
+    
+    // Get current input values
+    const allowance = parseFloat(document.getElementById('allowanceInput').value || 0);
+    const overtime = parseFloat(document.getElementById('overtimeInput').value || 0);
+
+    // Update global variables
+    currentAllowance = allowance;
+    currentOvertime = overtime;
+
+    const epf = salary * 0.11;
+    const socso = salary * 0.005;
+    const eis = salary * 0.002;
+
+    const totalDeductions = epf + socso + eis + pcb;
+    const gross = salary + allowance + overtime + totalClaims;
+    const net = gross - totalDeductions;
+
+    // Update Pay Summary display
+    document.getElementById("grossPayDisplay").textContent = "RM " + salary.toFixed(2);
+    document.getElementById("allowanceSummary").textContent = "RM " + allowance.toFixed(2);
+    document.getElementById("overtimeSummary").textContent = "RM " + overtime.toFixed(2);
+    document.getElementById("claimsDisplay").textContent = "RM " + totalClaims.toFixed(2);
+    document.getElementById("deductionsDisplay").textContent = "RM " + totalDeductions.toFixed(2);
+    document.getElementById("netPayDisplay").textContent = "RM " + net.toFixed(2);
+
+    // Mark changes as saved (recalculated)
+    hasUnsavedChanges = false;
+    
+    console.log('Recalculated - Allowance:', allowance, 'Overtime:', overtime, 'Net:', net);
+    showSuccessMessage('Payroll recalculated successfully!');
+}
+
+// Intercept form submissions to add current values
+function interceptFormSubmission() {
+    // Find all forms that might submit payroll data
+    const forms = document.querySelectorAll('form');
+    
+    forms.forEach(form => {
+        // Check if this form contains payroll-related hidden fields
+        if (form.querySelector('input[name="save_current"]')) {
+            form.addEventListener('submit', function(e) {
+                console.log('Form submission intercepted');
+                
+                // Add or update hidden fields with current values
+                addOrUpdateHiddenField(form, 'allowance', currentAllowance.toFixed(2));
+                addOrUpdateHiddenField(form, 'overtime', currentOvertime.toFixed(2));
+                
+                // Also update the original input field names as backup
+                addOrUpdateHiddenField(form, 'allowance_input', currentAllowance.toFixed(2));
+                addOrUpdateHiddenField(form, 'overtime_input', currentOvertime.toFixed(2));
+                
+                console.log('Added fields - Allowance:', currentAllowance, 'Overtime:', currentOvertime);
+                
+                // Log all form data for debugging
+                const formData = new FormData(form);
+                console.log('Form data being submitted:');
+                for (let [key, value] of formData.entries()) {
+                    console.log(key + ': ' + value);
+                }
+            });
         }
+    });
+}
 
+function addOrUpdateHiddenField(form, name, value) {
+    let field = form.querySelector(`input[name="${name}"]`);
+    if (field) {
+        field.value = value;
+        console.log('Updated field', name, 'to', value);
+    } else {
+        field = document.createElement('input');
+        field.type = 'hidden';
+        field.name = name;
+        field.value = value;
+        form.appendChild(field);
+        console.log('Created field', name, 'with value', value);
+    }
+}
+
+// Initialize form interception when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Small delay to ensure all forms are loaded
+    setTimeout(interceptFormSubmission, 500);
+});
+
+function showSuccessMessage(message) {
+    const successDiv = document.createElement('div');
+    successDiv.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 5px;
+        z-index: 10000;
+        animation: slideIn 0.3s ease;
+    `;
+    successDiv.textContent = message;
+    
+    document.body.appendChild(successDiv);
+    
+    setTimeout(() => {
+        successDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => {
+            if (document.body.contains(successDiv)) {
+                document.body.removeChild(successDiv);
+            }
+        }, 300);
+    }, 2000);
+}
+
+// Add CSS animations
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes slideIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
+    }
+    
+    @keyframes slideOut {
+        from { transform: translateX(0); opacity: 1; }
+        to { transform: translateX(100%); opacity: 0; }
+    }
+`;
+document.head.appendChild(style);
 </script>
 </body>
 </html>
