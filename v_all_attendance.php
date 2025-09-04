@@ -10,25 +10,32 @@ $status = 'present';
 $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
 $location_coordinates = null;
 
+// Get the list of employees
+$employee_query = "SELECT * FROM employeelogin";
+$employee_result = $con->query($employee_query);
+
+// Default employee_id to the current logged-in user
+$selected_employee_id = $_GET['employee_id'] ?? $employee_id;
+
 if (isset($_POST['check_in'])) {
     $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
               VALUES (?, ?, ?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
     $stmt = $con->prepare($query);
-    $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
+    $stmt->bind_param("isssss", $selected_employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
     $stmt->execute();
 }
 
 if (isset($_POST['check_out'])) {
     $query = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
     $stmt = $con->prepare($query);
-    $stmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
+    $stmt->bind_param("ssis", $time_now, $ip_address, $selected_employee_id, $date);
     $stmt->execute();
 }
 
 $query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
 $stmt = $con->prepare($query);
-$stmt->bind_param("is", $employee_id, $date);
+$stmt->bind_param("is", $selected_employee_id, $date);
 $stmt->execute();
 $result = $stmt->get_result();
 $attendance = $result->fetch_assoc();
@@ -43,7 +50,7 @@ $history_query = "SELECT * FROM attendance
                   ORDER BY date DESC";
 $stmt = $con->prepare($history_query);
 if ($stmt) {
-    $stmt->bind_param("iii", $employee_id, $selected_month, $selected_year);
+    $stmt->bind_param("iii", $selected_employee_id, $selected_month, $selected_year);
     $stmt->execute();
     $history_result = $stmt->get_result();
 } else {
@@ -301,6 +308,14 @@ if ($history_result) {
         <h4 class="mb-3">Clock In / Out</h4>
         <form method="get" class="row g-3 mb-4">
           <div class="col-auto">
+            <select name="employee_id" class="form-select">
+              <option value="">Select Employee</option>
+              <?php while ($row = $employee_result->fetch_assoc()): ?>
+                <option value="<?= $row['ID'] ?>" <?= ($row['ID'] == $selected_employee_id) ? 'selected' : '' ?>><?= $row['username'] ?></option>
+              <?php endwhile; ?>
+            </select>
+          </div>
+          <div class="col-auto">
             <select name="month" class="form-select">
               <?php for ($m = 1; $m <= 12; $m++): ?>
                 <option value="<?= $m ?>" <?= ($m == $selected_month) ? 'selected' : '' ?>><?= date('F', mktime(0, 0, 0, $m, 10)) ?></option>
@@ -316,7 +331,7 @@ if ($history_result) {
           </div>
           <div class="col-auto">
             <button type="submit" class="btn btn-primary">Filter</button>
-            <a href="export_attendance.php?month=<?= $selected_month ?>&year=<?= $selected_year ?>" class="btn btn-success">Export</a>
+            <a href="export_attendance.php?employee_id=<?= $selected_employee_id ?>&month=<?= $selected_month ?>&year=<?= $selected_year ?>" class="btn btn-success">Export</a>
           </div>
         </form>
 
