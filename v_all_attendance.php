@@ -17,6 +17,30 @@ $employee_result = $con->query($employee_query);
 // Default employee_id to the current logged-in user
 $selected_employee_id = $_GET['employee_id'] ?? $employee_id;
 
+// Check attendance and set to absent if no clock-in after 6 PM
+$query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
+$stmt = $con->prepare($query);
+$stmt->bind_param("is", $selected_employee_id, $date);
+$stmt->execute();
+$result = $stmt->get_result();
+$attendance = $result->fetch_assoc();
+
+// Get the current time and compare with 6 PM
+$clock_in_time = isset($attendance['clock_in']) ? strtotime($attendance['clock_in']) : null;
+$cutoff_time = strtotime($date . ' 18:00:00');  // 6 PM cutoff
+
+// If clock-in time is not set or is after 6 PM, mark as absent
+if (!$clock_in_time || $clock_in_time > $cutoff_time) {
+    // Update status to 'absent' if the clock-in is not done by 6 PM
+    $query = "UPDATE attendance SET status = 'absent' WHERE employee_id = ? AND date = ?";
+    $stmt = $con->prepare($query);
+    $stmt->bind_param("is", $selected_employee_id, $date);
+    $stmt->execute();
+}
+
+// Check if the status is updated to absent and make sure it reflects in the totals
+
+
 if (isset($_POST['check_in'])) {
     $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
               VALUES (?, ?, ?, ?, ?, ?)
@@ -59,12 +83,13 @@ if ($stmt) {
 }
 
 // Count totals
-$total_present = $total_absent = $total_leave = $total_halfday = 0;
+$total_present = $total_absent = $total_leave = $total_halfday = $total_off = 0;
 if ($history_result) {
     foreach ($history_result as $row) {
         switch ($row['status']) {
             case 'present': $total_present++; break;
             case 'absent': $total_absent++; break;
+            case 'off day': $total_off++; break;
             case 'on-leave': $total_leave++; break;
             case 'half-day': $total_halfday++; break;
         }
@@ -134,6 +159,26 @@ if ($history_result) {
             <i class="bi bi-search"></i>
           </a>
         </li><!-- End Search Icon-->
+
+        
+                <!-- Notification Icon -->
+        <li class="nav-item dropdown">
+          <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notificationIcon">
+            <i class="bi bi-bell"></i>
+            <span class="badge bg-primary badge-number" id="notificationCount" style="display: none;">0</span>
+          </a><!-- End Notification Icon -->
+
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications" id="notificationDropdown">
+            <li class="dropdown-header">
+              You have <span id="notificationHeaderCount">0</span> new notifications
+              <a href="#" onclick="markAllAsRead()"><span class="badge rounded-pill bg-primary p-2 ms-2">view all</span></a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <div id="notificationList">
+              <!-- Notifications will be loaded here -->
+            </div>
+          </ul><!-- End Notification Dropdown Items -->
+        </li><!-- End Notification Nav -->
 
         <li class="nav-item dropdown pe-3">
 
@@ -285,11 +330,6 @@ if ($history_result) {
               <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
             </a>
           </li>
-          <li>
-            <a href="VR_claim.php">
-              <i class="bi bi-circle"></i><span>View All Claim</span>
-            </a>
-          </li>
         </ul>
       </li><!-- End Claim Management Nav -->
     </ul>
@@ -337,7 +377,7 @@ if ($history_result) {
 
         <div class="mb-3">
           <strong>Totals for <?= date('F Y', mktime(0, 0, 0, $selected_month, 1, $selected_year)) ?>:</strong><br>
-          Present: <?= $total_present ?>, Absent: <?= $total_absent ?>, On Leave: <?= $total_leave ?>, Half Day: <?= $total_halfday ?>
+          Present: <?= $total_present ?>, Absent: <?= $total_absent ?>, Off Day: <?= $total_off ?>, On Leave: <?= $total_leave ?>, Half Day: <?= $total_halfday ?>
         </div>
       </div>
 

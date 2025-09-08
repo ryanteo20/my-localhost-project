@@ -218,11 +218,6 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
               <i class="bi bi-circle"></i><span>Approved/Rejected Claim</span>
             </a>
           </li>
-          <li>
-            <a href="VR_claim.php">
-              <i class="bi bi-circle"></i><span>View All Claim</span>
-            </a>
-          </li>
         </ul>
       </li><!-- End Claim Management Nav -->
     </ul>

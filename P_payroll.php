@@ -280,6 +280,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
           </a>
         </li><!-- End Search Icon-->
 
+        
+                <!-- Notification Icon -->
+        <li class="nav-item dropdown">
+          <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notificationIcon">
+            <i class="bi bi-bell"></i>
+            <span class="badge bg-primary badge-number" id="notificationCount" style="display: none;">0</span>
+          </a><!-- End Notification Icon -->
+
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications" id="notificationDropdown">
+            <li class="dropdown-header">
+              You have <span id="notificationHeaderCount">0</span> new notifications
+              <a href="#" onclick="markAllAsRead()"><span class="badge rounded-pill bg-primary p-2 ms-2">view all</span></a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <div id="notificationList">
+              <!-- Notifications will be loaded here -->
+            </div>
+          </ul><!-- End Notification Dropdown Items -->
+        </li><!-- End Notification Nav -->
+
         <li class="nav-item dropdown pe-3">
 
           <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">

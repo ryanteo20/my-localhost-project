@@ -221,7 +221,7 @@ if ($_SESSION['role'] != 'Employee') {
         <div class="col-lg-12">
           <div class="row">
 
-            <!-- Sales Card -->
+<!-- Sales Card -->
             <div class="col-xxl-4 col-md-6">
               <div class="card info-card sales-card">
 
@@ -249,12 +249,8 @@ if ($_SESSION['role'] != 'Employee') {
                             // Get the user session ID
                             $userSessionID = $_SESSION['ID'];
 
-                            $query = "SELECT l.annual_leave, l.annual_leavetaken, 
-                                    SUM(CASE WHEN a.leave_type = 'annual' AND a.leave_review = 'Approve' THEN a.leave_length ELSE 0 END) AS total_approved_leave
-                                    FROM leave_info l
-                                    LEFT JOIN leave_apply a ON l.leaveinfo_id = a.fk_leaveapply_id
-                                    WHERE l.leaveinfo_id = ?";
-                                            
+                            // Simplified query - just get the leave info since trigger handles the calculations
+                            $query = "SELECT annual_leave, annual_leavetaken FROM leave_info WHERE leaveinfo_id = ?";
 
                             // Use prepared statement to prevent SQL injection
                             $stmt = mysqli_prepare($con, $query);
@@ -265,7 +261,7 @@ if ($_SESSION['role'] != 'Employee') {
                             }
 
                             // Bind the session ID parameter
-                            $success = mysqli_stmt_bind_param($stmt, "s", $userSessionID);
+                            $success = mysqli_stmt_bind_param($stmt, "i", $userSessionID);
 
                             if (!$success) {
                                 // Handle the error if binding parameters fails
@@ -281,7 +277,7 @@ if ($_SESSION['role'] != 'Employee') {
                             }
 
                             // Bind the result variables
-                            mysqli_stmt_bind_result($stmt, $annualLeave, $annualLeaveTaken, $totalApprovedLeave);
+                            mysqli_stmt_bind_result($stmt, $annualLeave, $annualLeaveTaken);
 
                             // Fetch the result
                             mysqli_stmt_fetch($stmt);
@@ -289,10 +285,10 @@ if ($_SESSION['role'] != 'Employee') {
                             // Close the statement
                             mysqli_stmt_close($stmt);
 
-                            // Calculate the remaining hospitalization leave by subtracting total approved leave from total hospitalization leave taken
-                            $remainingAnnualLeave = $annualLeave - $totalApprovedLeave;
+                            // Calculate the remaining annual leave (trigger already updated annual_leavetaken)
+                            $remainingAnnualLeave = $annualLeave - $annualLeaveTaken;
 
-                            // Display the remaining hospitalization leave
+                            // Display the remaining annual leave
                             echo "<h6>$remainingAnnualLeave</h6>";
 
                             // Close the database connection
@@ -300,7 +296,6 @@ if ($_SESSION['role'] != 'Employee') {
                             ?>
                           </div>
                       </div>
-
 
                   </div>
                 </div>

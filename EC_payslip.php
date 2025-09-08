@@ -221,11 +221,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
               <i class="bi bi-circle"></i><span>Request Claim</span>
             </a>
           </li>
-          <li>
-            <a href="VR_claim.php">
-              <i class="bi bi-circle"></i><span>View All Claim</span>
-            </a>
-          </li>
         </ul>
       </li><!-- End Claim Management Nav -->
     </ul>

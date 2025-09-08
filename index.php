@@ -115,6 +115,26 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
           </a>
         </li><!-- End Search Icon-->
 
+        
+                <!-- Notification Icon -->
+        <li class="nav-item dropdown">
+          <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notificationIcon">
+            <i class="bi bi-bell"></i>
+            <span class="badge bg-primary badge-number" id="notificationCount" style="display: none;">0</span>
+          </a><!-- End Notification Icon -->
+
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications" id="notificationDropdown">
+            <li class="dropdown-header">
+              You have <span id="notificationHeaderCount">0</span> new notifications
+              <a href="#" onclick="markAllAsRead()"><span class="badge rounded-pill bg-primary p-2 ms-2">view all</span></a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <div id="notificationList">
+              <!-- Notifications will be loaded here -->
+            </div>
+          </ul><!-- End Notification Dropdown Items -->
+        </li><!-- End Notification Nav -->
+
         <li class="nav-item dropdown pe-3">
 
           <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
@@ -263,11 +283,6 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
           <li>
             <a href="AR_claim.php">
               <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
-            </a>
-          </li>
-          <li>
-            <a href="VR_claim.php">
-              <i class="bi bi-circle"></i><span>View All Claim</span>
             </a>
           </li>
         </ul>
@@ -422,49 +437,56 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
 <script>
-  // Data for the chart
-  const leaveClaimsData = {
-    labels: ['Current Month', 'Previous Month'],
-    datasets: [
-      {
-        label: 'Approved Leave Applications',
-        data: [<?php echo $current_approved_leave; ?>, <?php echo $previous_approved_leave; ?>],
-        backgroundColor: ['rgba(75, 192, 192, 0.2)'],
-        borderColor: ['rgba(75, 192, 192, 1)'],
-        borderWidth: 1
-      },
-      {
-        label: 'Approved Claims',
-        data: [<?php echo $current_approved_claims; ?>, <?php echo $previous_approved_claims; ?>],
-        backgroundColor: ['rgba(255, 99, 132, 0.2)'],
-        borderColor: ['rgba(255, 99, 132, 1)'],
-        borderWidth: 1
-      }
-    ]
-  };
+const leaveClaimsData = {
+  labels: ['Current Month', 'Previous Month'],
+  datasets: [
+    {
+      label: 'Approved Leave',
+      data: [
+        Math.floor(parseInt('<?php echo $current_approved_leave; ?>', 10)),
+        Math.floor(parseInt('<?php echo $previous_approved_leave; ?>', 10))
+      ],
+      backgroundColor: ['rgba(75, 192, 192, 0.2)'],
+      borderColor: ['rgba(75, 192, 192, 1)'],
+      borderWidth: 1
+    },
+    {
+      label: 'Approved Claims',
+      data: [
+        Math.floor(parseInt('<?php echo $current_approved_claims; ?>', 10)),
+        Math.floor(parseInt('<?php echo $previous_approved_claims; ?>', 10))
+      ],
+      backgroundColor: ['rgba(255, 99, 132, 0.2)'],
+      borderColor: ['rgba(255, 99, 132, 1)'],
+      borderWidth: 1
+    }
+  ]
+};
 
-  const ctx = document.getElementById('leaveClaimsChart').getContext('2d');
-  const leaveClaimsChart = new Chart(ctx, {
-    type: 'bar',
-    data: leaveClaimsData,
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          beginAtZero: false,  // Prevent starting from 0
-          min: 1,              // Set minimum value to 1
-          suggestedMin: 10,    // Set suggested minimum value to 10
-          ticks: {
-            stepSize: 1,       // Step size of 1 for y-axis ticks
-            callback: function(value) {
-              // Display only whole numbers on the y-axis
-              return value;
-            }
+const ctx = document.getElementById('leaveClaimsChart').getContext('2d');
+const leaveClaimsChart = new Chart(ctx, {
+  type: 'bar', // Use 'bar' for horizontal bars
+  data: leaveClaimsData,
+  options: {
+    indexAxis: 'y',  // Switch to horizontal bars
+    responsive: true,
+    scales: {
+      x: {
+        barThickness: 5,  // Adjust bar thickness for horizontal bars
+        categoryPercentage: 0.8
+      },
+      y: {
+        ticks: {
+          stepSize: 1, // Ensure only whole numbers
+          callback: function(value) {
+            return Number.isInteger(value) ? value : ''; // Only show integers
           }
         }
       }
     }
-  });
+  }
+});
+
 </script>
 
 </body>

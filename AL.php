@@ -219,11 +219,6 @@ ini_set('display_errors', 1);
               <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
             </a>
           </li>
-          <li>
-            <a href="VR_claim.php">
-              <i class="bi bi-circle"></i><span>View All Claim</span>
-            </a>
-          </li>
         </ul>
       </li><!-- End Claim Management Nav -->
     </ul>

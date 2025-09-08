@@ -104,6 +104,26 @@ require 'vendor/autoload.php';
           </a>
         </li><!-- End Search Icon-->
 
+        
+                <!-- Notification Icon -->
+        <li class="nav-item dropdown">
+          <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notificationIcon">
+            <i class="bi bi-bell"></i>
+            <span class="badge bg-primary badge-number" id="notificationCount" style="display: none;">0</span>
+          </a><!-- End Notification Icon -->
+
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications" id="notificationDropdown">
+            <li class="dropdown-header">
+              You have <span id="notificationHeaderCount">0</span> new notifications
+              <a href="#" onclick="markAllAsRead()"><span class="badge rounded-pill bg-primary p-2 ms-2">view all</span></a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <div id="notificationList">
+              <!-- Notifications will be loaded here -->
+            </div>
+          </ul><!-- End Notification Dropdown Items -->
+        </li><!-- End Notification Nav -->
+
         <li class="nav-item dropdown pe-3">
 
           <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
@@ -254,11 +274,6 @@ require 'vendor/autoload.php';
               <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
             </a>
           </li>
-          <li>
-            <a href="VR_claim.php">
-              <i class="bi bi-circle"></i><span>View All Claim</span>
-            </a>
-          </li>
         </ul>
       </li><!-- End Claim Management Nav -->
     </ul>
@@ -337,45 +352,55 @@ require 'vendor/autoload.php';
                         <div class="card info-card sales-card">
 
                             <div class="filter">
-                            <a class="icon" href="#" data-bs-toggle="dropdown"></a>
+                                <a class="icon" href="#" data-bs-toggle="dropdown"></a>
                             </div>
                             <div class="card-body">
-                            <h5 class="card-title">Total Claim Approve</h5>
+                                <h5 class="card-title">Total Claims Approved This Month</h5>
 
-                            <div class="d-flex align-items-center">
-                                <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
-                                    <i class="ri-money-dollar-box-line"></i>
-                                </div>
-                                <div class="ps-3">
-                                <?php
-                                    // Include your database connection
-                                    require('database.php');
+                                <div class="d-flex align-items-center">
+                                    <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
+                                        <i class="ri-money-dollar-box-line"></i>
+                                    </div>
+                                    <div class="ps-3">
+                                        <?php
+                                            // Include your database connection
+                                            require('database.php');
 
-                                    // Query pending leave applications for review
-                                    $query_pending_review = "SELECT COUNT(*) AS Approve FROM claims WHERE status = 'Approve'";
+                                            // Get the current month and year
+                                            $current_month = date('m');
+                                            $current_year = date('Y');
 
-                                    // Execute the query
-                                    $result_pending_review = mysqli_query($con, $query_pending_review);
+                                            // Query approved claims for the current month based on 'approved_at' date
+                                            $query_current_month_approve = "
+                                                SELECT COUNT(*) AS Approve
+                                                FROM claims
+                                                WHERE status = 'Approved'
+                                                AND MONTH(approved_at) = $current_month
+                                                AND YEAR(approved_at) = $current_year
+                                            ";
 
-                                    // Check if the query executed successfully
-                                    if ($result_pending_review) {
-                                        // Fetch the result as an associative array
-                                        $row_pending_review = mysqli_fetch_assoc($result_pending_review);
-                                        
-                                        // Get the total number of pending leave applications for review
-                                        $pendingReview = $row_pending_review['Approve'];
-                                        
-                                    } else {
-                                        // Error handling if the query fails
-                                        $pendingReview = "Error fetching pending leave for review";
-                                    }
+                                            // Execute the query
+                                            $result_current_month_approve = mysqli_query($con, $query_current_month_approve);
 
-                                    // Output the total number of pending leave applications for review within the card
-                                    echo "<h6>$pendingReview</h6>";
-                                    ?>
+                                            // Check if the query executed successfully
+                                            if ($result_current_month_approve) {
+                                                // Fetch the result as an associative array
+                                                $row_current_month_approve = mysqli_fetch_assoc($result_current_month_approve);
+
+                                                // Get the total number of approved claims this month
+                                                $approveCount = $row_current_month_approve['Approve'];
+
+                                            } else {
+                                                // Error handling if the query fails
+                                                $approveCount = "Error: " . mysqli_error($con);
+                                            }
+
+                                            // Output the total number of approved claims this month within the card
+                                            echo "<h6>$approveCount</h6>";
+                                        ?>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
                         </div>
                     </div><!-- End Sales Card -->
                     <div class="col-auto ms-auto">
