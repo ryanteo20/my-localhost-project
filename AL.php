@@ -41,10 +41,11 @@ ini_set('display_errors', 1);
 <body>
 
   <!-- ======= Header ======= -->
+  <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
 
     <div class="d-flex align-items-center justify-content-between">
-      <a href="index2.php" class="logo d-flex align-items-center">
+      <a href="index.php" class="logo d-flex align-items-center">
         <img src="assets/img/logo.png" alt="">
         <span class="d-none d-lg-block">SMEasyHR</span>
       </a>
@@ -67,6 +68,26 @@ ini_set('display_errors', 1);
           </a>
         </li><!-- End Search Icon-->
 
+        
+                <!-- Notification Icon -->
+        <li class="nav-item dropdown">
+          <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notificationIcon">
+            <i class="bi bi-bell"></i>
+            <span class="badge bg-primary badge-number" id="notificationCount" style="display: none;">0</span>
+          </a><!-- End Notification Icon -->
+
+          <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications" id="notificationDropdown">
+            <li class="dropdown-header">
+              You have <span id="notificationHeaderCount">0</span> new notifications
+              <a href="#" onclick="markAllAsRead()"><span class="badge rounded-pill bg-primary p-2 ms-2">view all</span></a>
+            </li>
+            <li><hr class="dropdown-divider"></li>
+            <div id="notificationList">
+              <!-- Notifications will be loaded here -->
+            </div>
+          </ul><!-- End Notification Dropdown Items -->
+        </li><!-- End Notification Nav -->
+
         <li class="nav-item dropdown pe-3">
 
           <a class="nav-link nav-profile d-flex align-items-center pe-0" href="#" data-bs-toggle="dropdown">
@@ -76,7 +97,7 @@ ini_set('display_errors', 1);
 
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow profile">
             <li class="dropdown-header">
-              <h6><?php echo $_SESSION['username']; ?></h6>
+            <h6><?php echo $_SESSION['username']; ?></h6>
               <span><?php echo $_SESSION['role']; ?></span>
             </li>
             <li>
@@ -121,8 +142,7 @@ ini_set('display_errors', 1);
 
       <li class="nav-item">
         <a class="nav-link collapsed" data-bs-target="#components-nav" data-bs-toggle="collapse" href="#">
-          <i class="bi bi-menu-button-wide"></i><span>Employee Management</span><i
-            class="bi bi-chevron-down ms-auto"></i>
+          <i class="bi bi-menu-button-wide"></i><span>Employee Management</span><i class="bi bi-chevron-down ms-auto"></i>
         </a>
         <ul id="components-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
@@ -144,9 +164,8 @@ ini_set('display_errors', 1);
       </li><!-- End Employee Management Nav -->
 
       <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#forms-nav" data-bs-toggle="collapse"
-          href="recruiment_process.php">
-          <i class="bi bi-journal-text"></i><span>Recruiment Process</span>
+        <a class="nav-link collapsed" href="recruitment_process.php">
+          <i class="bi bi-journal-text"></i><span>Recruitment Process</span>
         </a>
       </li><!-- End Recruiment Process Nav -->
 
@@ -155,7 +174,7 @@ ini_set('display_errors', 1);
           <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
         </a>
         <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-          <li>
+        <li>
             <a href="attendance_employer.php">
               <i class="bi bi-circle"></i><span>Clock in & out</span>
             </a>

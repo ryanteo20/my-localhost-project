@@ -200,8 +200,8 @@ require 'vendor/autoload.php';
       </li><!-- End Employee Management Nav -->
 
       <li class="nav-item">
-        <a class="nav-link collapsed" data-bs-target="#forms-nav" data-bs-toggle="collapse" href="recruiment_process.php">
-          <i class="bi bi-journal-text"></i><span>Recruiment Process</span>
+        <a class="nav-link collapsed" href="recruitment_process.php">
+          <i class="bi bi-journal-text"></i><span>Recruitment Process</span>
         </a>
       </li><!-- End Recruiment Process Nav -->
 

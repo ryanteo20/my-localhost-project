@@ -29,11 +29,15 @@ try {
     
     $result = $stmt->execute();
     
-    if ($result) {
-        echo json_encode(['success' => true, 'message' => 'Notifications marked as read']);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $query = "UPDATE notifications SET status = 'read' WHERE status = 'unread'";
+    $stmt = $con->prepare($query);
+    if ($stmt->execute()) {
+        echo json_encode(['success' => true]);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Failed to update notifications']);
+        echo json_encode(['success' => false, 'message' => 'Failed to update notifications.']);
     }
+}
     
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);

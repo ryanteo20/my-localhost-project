@@ -253,7 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
 
 <body>
 
-  <!-- ======= Header ======= -->
+   <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
 
     <div class="d-flex align-items-center justify-content-between">
@@ -340,131 +340,121 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
 
   </header><!-- End Header -->
 
-<!-- ======= Sidebar ======= -->
-<aside id="sidebar" class="sidebar">
+  <!-- ======= Sidebar ======= -->
+  <aside id="sidebar" class="sidebar">
 
-  <ul class="sidebar-nav" id="sidebar-nav">
+    <ul class="sidebar-nav" id="sidebar-nav">
 
-    <li class="nav-item">
-      <a class="nav-link collapsed" href="index.php">
-        <i class="bi bi-grid"></i>
-        <span>Home</span>
-      </a>
-    </li><!-- End Dashboard Nav -->
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="index.php">
+          <i class="bi bi-grid"></i>
+          <span>Home</span>
+        </a>
+      </li><!-- End Dashboard Nav -->
 
-    <li class="nav-item">
-      <a class="nav-link collapsed" data-bs-target="#components-nav" data-bs-toggle="collapse" href="#">
-        <i class="bi bi-menu-button-wide"></i><span>Employee Management</span><i class="bi bi-chevron-down ms-auto"></i>
-      </a>
-      <ul id="components-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#components-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-menu-button-wide"></i><span>Employee Management</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="components-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+          <li>
+            <a href="add.php">
+              <i class="bi bi-circle"></i><span>Add Employee</span>
+            </a>
+          </li>
+          <li>
+            <a href="delete.php">
+              <i class="bi bi-circle"></i><span>Delete Employee</span>
+            </a>
+          </li>
+          <li>
+            <a href="view_all.php">
+              <i class="bi bi-circle"></i><span>View All Employee</span>
+            </a>
+          </li>
+        </ul>
+      </li><!-- End Employee Management Nav -->
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" href="recruitment_process.php">
+          <i class="bi bi-journal-text"></i><span>Recruitment Process</span>
+        </a>
+      </li><!-- End Recruiment Process Nav -->
+
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#attendance-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
         <li>
-          <a href="add.php">
-            <i class="bi bi-circle"></i><span>Add Employee</span>
-          </a>
-        </li>
-        <li>
-          <a href="delete.php">
-            <i class="bi bi-circle"></i><span>Delete Employee</span>
-          </a>
-        </li>
-        <li>
-          <a href="view_all.php">
-            <i class="bi bi-circle"></i><span>View All Employee</span>
-          </a>
-        </li>
-      </ul>
-    </li><!-- End Employee Management Nav -->
+            <a href="attendance_employer.php">
+              <i class="bi bi-circle"></i><span>Clock in & out</span>
+            </a>
+          </li>
+          <li>
+            <a href="v_all_attendance.php">
+              <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
+            </a>
+          </li>
+        </ul>
+      </li><!-- End Attandance Nav -->
 
-    <li class="nav-item">
-      <a class="nav-link collapsed" data-bs-target="#forms-nav" data-bs-toggle="collapse" href="recruiment_process.php">
-        <i class="bi bi-journal-text"></i><span>Recruiment Process</span>
-      </a>
-    </li><!-- End Recruiment Process Nav -->
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#charts-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-bar-chart"></i><span>Leave Management</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="charts-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+          <li>
+            <a href="leave_tracking.php">
+              <i class="bi bi-circle"></i><span>Leave Tracking</span>
+            </a>
+          </li>
+          <li>
+            <a href="AL.php">
+              <i class="bi bi-circle"></i><span>Apply Leave</span>
+            </a>
+          </li>
+        </ul>
+      </li><!-- End Leave Management Nav -->
 
-    <li class="nav-item">
-      <a class="nav-link collapsed" data-bs-target="#attendance-nav" data-bs-toggle="collapse" href="#">
-        <i class="bi bi-gem"></i><span>Attendance</span><i class="bi bi-chevron-down ms-auto"></i>
-      </a>
-      <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-      <li>
-          <a href="attendance_employer.php">
-            <i class="bi bi-circle"></i><span>Clock in & out</span>
-          </a>
-        </li>
-        <li>
-          <a href="v_all_attendance.php">
-            <i class="bi bi-circle"></i><span>View All Employee Attendance</span>
-          </a>
-        </li>
-      </ul>
-    </li><!-- End Attandance Nav -->
-
-    <li class="nav-item">
-      <a class="nav-link collapsed" data-bs-target="#charts-nav" data-bs-toggle="collapse" href="#">
-        <i class="bi bi-bar-chart"></i><span>Leave Management</span><i class="bi bi-chevron-down ms-auto"></i>
-      </a>
-      <ul id="charts-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-        <li>
-          <a href="leave_tracking.php">
-            <i class="bi bi-circle"></i><span>Leave Tracking</span>
-          </a>
-        </li>
-        <li>
-          <a href="AL.php">
-            <i class="bi bi-circle"></i><span>Apply Leave</span>
-          </a>
-        </li>
-      </ul>
-    </li><!-- End Leave Management Nav -->
-
-    <li class="nav-item">
-      <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#">
-        <i class="bi bi-gem"></i><span>Payroll</span><i class="bi bi-chevron-down ms-auto"></i>
-      </a>
-      <ul id="icons-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'Employer'): ?>
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#icons-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-gem"></i><span>Payroll</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="icons-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
           <li>
             <a href="P_payroll.php">
               <i class="bi bi-circle"></i><span>Process Payroll</span>
             </a>
           </li>
-        <?php endif; ?>
-        <li>
-          <a href="C_payslip.php">
-            <i class="bi bi-circle"></i><span>Check Payslip</span>
-          </a>
-        </li>
-      </ul>
-    </li>
-    <!-- End Payroll Nav -->
+          <li>
+            <a href="C_payslip.php">
+              <i class="bi bi-circle"></i><span>Check Payslip</span>
+            </a>
+          </li>
+        </ul>
+      </li><!-- End Payroll Nav -->
 
-    <li class="nav-item">
-      <a class="nav-link collapsed" data-bs-target="#claim-nav" data-bs-toggle="collapse" href="#">
-        <i class="bi bi-currency-dollar"></i><span>Claim Management</span><i class="bi bi-chevron-down ms-auto"></i>
-      </a>
-      <ul id="claim-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
-        <li>
-          <a href="R_claim.php">
-            <i class="bi bi-circle"></i><span>Request Claim</span>
-          </a>
-        </li>
-        <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'Employer'): ?>
+      <li class="nav-item">
+        <a class="nav-link collapsed" data-bs-target="#claim-nav" data-bs-toggle="collapse" href="#">
+          <i class="bi bi-currency-dollar"></i><span>Claim Management</span><i class="bi bi-chevron-down ms-auto"></i>
+        </a>
+        <ul id="claim-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
+          <li>
+            <a href="R_claim.php">
+              <i class="bi bi-circle"></i><span>Request Claim</span>
+            </a>
+          </li>
           <li>
             <a href="AR_claim.php">
               <i class="bi bi-circle"></i><span>Approve/Reject Claim</span>
             </a>
           </li>
-        <?php endif; ?>
-        <li>
-          <a href="VR_claim.php">
-            <i class="bi bi-circle"></i><span>View All Claim</span>
-          </a>
-        </li>
-      </ul>
-    </li><!-- End Claim Management Nav -->
-  </ul>
+        </ul>
+      </li><!-- End Claim Management Nav -->
+    </ul>
 
-</aside>
+  </aside>
 
   <main id="main" class="main">
 
