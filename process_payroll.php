@@ -22,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Prepare the SQL query
     $query = "INSERT INTO payroll_transactions (employee_id, pay_period_start, pay_period_end, payment_date, basic_salary, allowances, deductions, tax_amount, epf_amount, socso_amount, eis_amount, overtime_pay, total_claims, net_pay, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
     
-    $stmt = mysqli_prepare($con, $query);
+    $stmt = mysqli_prepare($conn, $query);
     
     $pay_period_start = date("Y-m-01", strtotime($_POST['year']."-".$_POST['month']."-01"));
     $pay_period_end = date("Y-m-t", strtotime($_POST['year']."-".$_POST['month']."-01"));
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (mysqli_stmt_execute($stmt)) {
         echo "Payroll saved successfully.";
     } else {
-        echo "Error saving payroll: " . mysqli_error($con);
+        echo "Error saving payroll: " . mysqli_error($conn);
     }
 
     mysqli_stmt_close($stmt);

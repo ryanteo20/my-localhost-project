@@ -21,7 +21,7 @@ if ($user_role === 'employer' || $user_role === 'admin') {
               WHERE n.employer_id = ? AND n.status = 'unread' 
               ORDER BY n.created_at DESC 
               LIMIT 10";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -35,7 +35,7 @@ if ($user_role === 'employer' || $user_role === 'admin') {
               WHERE employee_id = ? AND status = 'unread' 
               ORDER BY created_at DESC 
               LIMIT 10";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $user_id);
     $stmt->execute();
     $result = $stmt->get_result();

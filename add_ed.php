@@ -2,10 +2,10 @@
 require('database.php');
 require('session.php');
 
-function handleEmployeeDocument($con) {
+function handleEmployeeDocument($conn) {
   if (isset($_REQUEST['inputEducation']) && isset($_FILES['inputIC']) && $_FILES['inputIC']['error'] === UPLOAD_ERR_OK) {
       
-      $inputEducation = mysqli_real_escape_string($con, $_REQUEST['inputEducation']);
+      $inputEducation = mysqli_real_escape_string($conn, $_REQUEST['inputEducation']);
       $file = $_FILES['inputIC'];
       $fileTmpName = $file['tmp_name'];
       $fileName = $file['name'];
@@ -13,7 +13,7 @@ function handleEmployeeDocument($con) {
       $fileContent = file_get_contents($fileTmpName);
 
       $query = "INSERT INTO employee_document (education_level, ic_picture, filename, mime_type) VALUES (?, ?, ?, ?)";
-      $stmt = mysqli_prepare($con, $query);
+      $stmt = mysqli_prepare($conn, $query);
       mysqli_stmt_bind_param($stmt, "ssss", $inputEducation, $fileContent, $fileName, $fileType);
 
       if (mysqli_stmt_execute($stmt)) {

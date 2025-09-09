@@ -1,7 +1,7 @@
 <?php
-function savePayrollTransaction($con, $data) {
+function savePayrollTransaction($conn, $data) {
     // Check if record already exists for employee + pay period
-    $check = $con->prepare("
+    $check = $conn->prepare("
         SELECT transaction_id 
         FROM payroll_transactions 
         WHERE employee_id = ? 
@@ -15,7 +15,7 @@ function savePayrollTransaction($con, $data) {
     if ($result && $row = $result->fetch_assoc()) {
         // Record exists → UPDATE
         $transaction_id = $row['transaction_id'];
-        $stmt = $con->prepare("
+        $stmt = $conn->prepare("
             UPDATE payroll_transactions 
             SET payment_date=?, basic_salary=?, allowances=?, deductions=?, tax_amount=?, epf_amount=?, socso_amount=?, eis_amount=?, overtime_pay=?, total_claims=?, net_pay=?, status=? 
             WHERE transaction_id=?
@@ -38,7 +38,7 @@ function savePayrollTransaction($con, $data) {
         );
     } else {
         // No record → INSERT new
-        $stmt = $con->prepare("
+        $stmt = $conn->prepare("
             INSERT INTO payroll_transactions 
             (employee_id, pay_period_start, pay_period_end, payment_date, basic_salary, allowances, deductions, tax_amount, epf_amount, socso_amount, eis_amount, overtime_pay, total_claims, net_pay, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)

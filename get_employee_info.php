@@ -5,13 +5,13 @@ require('database.php');
 // Check if the employee ID is provided
 if (isset($_POST['employeeId'])) {
     // Sanitize the input to prevent SQL injection
-    $employeeId = mysqli_real_escape_string($con, $_POST['employeeId']);
+    $employeeId = mysqli_real_escape_string($conn, $_POST['employeeId']);
 
     // Prepare the SQL query to select employee information by ID
     $query = "SELECT * FROM employees WHERE id = '$employeeId'";
 
     // Execute the query
-    $result = mysqli_query($con, $query);
+    $result = mysqli_query($conn, $query);
 
     // Check if there is exactly one row returned
     if ($result && mysqli_num_rows($result) == 1) {
@@ -38,5 +38,5 @@ if (isset($_POST['employeeId'])) {
 }
 
 // Close the connection
-mysqli_close($con);
+mysqli_close($conn);
 ?>

@@ -20,7 +20,7 @@ $query = "
     FROM payroll_transactions
     WHERE MONTH(pay_period_start) = ? AND YEAR(pay_period_start) = ? AND status != 'confirmed'
 ";
-$stmt = mysqli_prepare($con, $query);
+$stmt = mysqli_prepare($conn, $query);
 mysqli_stmt_bind_param($stmt, "ii", $month, $year);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);
@@ -51,14 +51,14 @@ WHERE MONTH(pt.pay_period_start) = ? AND YEAR(pt.pay_period_start) = ?
 
 
 
-$stmt = mysqli_prepare($con, $payroll_query);
+$stmt = mysqli_prepare($conn, $payroll_query);
 mysqli_stmt_bind_param($stmt, "ii", $month, $year);
 mysqli_stmt_execute($stmt);
 $payroll_result = mysqli_stmt_get_result($stmt);
 
 // Check if query executed successfully
 if ($payroll_result === false) {
-    die('Error executing query: ' . mysqli_error($con));
+    die('Error executing query: ' . mysqli_error($conn));
 }
 
 // Check if the success or error message session variable is set
@@ -661,5 +661,5 @@ function showLoading() {
 <?php
 // Clean up
 mysqli_stmt_close($stmt);
-mysqli_close($con);
+mysqli_close($conn);
 ?>

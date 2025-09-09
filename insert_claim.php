@@ -36,10 +36,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $sql = "INSERT INTO claims (employee_id, category, transaction_date, amount, invoice_number, notes, attachment, status) 
             VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')";
 
-    $stmt = $con->prepare($sql);
+    $stmt = $conn->prepare($sql);
 
     if (!$stmt) {
-        $_SESSION['error_message'] = "Prepare failed: " . $con->error;
+        $_SESSION['error_message'] = "Prepare failed: " . $conn->error;
         header("Location: R_claim.php");
         exit;
     }
@@ -54,7 +54,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     }
 
     $stmt->close();
-    $con->close();
+    $conn->close();
     redirectBasedOnRole($role);
     exit;
 } else {

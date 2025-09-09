@@ -249,11 +249,11 @@ ini_set('display_errors', 1);
                                             
 
                             // Use prepared statement to prevent SQL injection
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             if (!$stmt) {
                                 // Handle the error if the statement preparation fails
-                                exit("Error: " . mysqli_error($con));
+                                exit("Error: " . mysqli_error($conn));
                             }
 
                             // Bind the session ID parameter
@@ -261,7 +261,7 @@ ini_set('display_errors', 1);
 
                             if (!$success) {
                                 // Handle the error if binding parameters fails
-                                exit("Error binding parameters: " . mysqli_error($con));
+                                exit("Error binding parameters: " . mysqli_error($conn));
                             }
 
                             // Execute the query
@@ -269,7 +269,7 @@ ini_set('display_errors', 1);
 
                             if (!$success) {
                                 // Handle the error if execution fails
-                                exit("Error executing query: " . mysqli_error($con));
+                                exit("Error executing query: " . mysqli_error($conn));
                             }
 
                             // Bind the result variables
@@ -288,7 +288,7 @@ ini_set('display_errors', 1);
                             echo "<h6>$remainingAnnualLeave</h6>";
 
                             // Close the database connection
-                            mysqli_close($con);
+                            mysqli_close($conn);
                             ?>
                           </div>
                       </div>
@@ -331,11 +331,11 @@ ini_set('display_errors', 1);
                                             
 
                             // Use prepared statement to prevent SQL injection
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             if (!$stmt) {
                                 // Handle the error if the statement preparation fails
-                                exit("Error: " . mysqli_error($con));
+                                exit("Error: " . mysqli_error($conn));
                             }
 
                             // Bind the session ID parameter
@@ -343,7 +343,7 @@ ini_set('display_errors', 1);
 
                             if (!$success) {
                                 // Handle the error if binding parameters fails
-                                exit("Error binding parameters: " . mysqli_error($con));
+                                exit("Error binding parameters: " . mysqli_error($conn));
                             }
 
                             // Execute the query
@@ -351,7 +351,7 @@ ini_set('display_errors', 1);
 
                             if (!$success) {
                                 // Handle the error if execution fails
-                                exit("Error executing query: " . mysqli_error($con));
+                                exit("Error executing query: " . mysqli_error($conn));
                             }
 
                             // Bind the result variables
@@ -370,7 +370,7 @@ ini_set('display_errors', 1);
                             echo "<h6>$remainingSickLeave</h6>";
 
                             // Close the database connection
-                            mysqli_close($con);
+                            mysqli_close($conn);
                             ?>
                           </div>
                         </div>
@@ -413,11 +413,11 @@ ini_set('display_errors', 1);
                                             
 
                             // Use prepared statement to prevent SQL injection
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             if (!$stmt) {
                                 // Handle the error if the statement preparation fails
-                                exit("Error: " . mysqli_error($con));
+                                exit("Error: " . mysqli_error($conn));
                             }
 
                             // Bind the session ID parameter
@@ -425,7 +425,7 @@ ini_set('display_errors', 1);
 
                             if (!$success) {
                                 // Handle the error if binding parameters fails
-                                exit("Error binding parameters: " . mysqli_error($con));
+                                exit("Error binding parameters: " . mysqli_error($conn));
                             }
 
                             // Execute the query
@@ -433,7 +433,7 @@ ini_set('display_errors', 1);
 
                             if (!$success) {
                                 // Handle the error if execution fails
-                                exit("Error executing query: " . mysqli_error($con));
+                                exit("Error executing query: " . mysqli_error($conn));
                             }
 
                             // Bind the result variables
@@ -452,7 +452,7 @@ ini_set('display_errors', 1);
                             echo "<h6>$remainingHospitalizationLeave</h6>";
 
                             // Close the database connection
-                            mysqli_close($con)
+                            mysqli_close($conn)
                             ?>
                             </div>
                         </div>
@@ -580,7 +580,7 @@ ini_set('display_errors', 1);
                       WHERE el.ID = ?";
 
             // Prepare the statement
-            $stmt = mysqli_prepare($con, $query);
+            $stmt = mysqli_prepare($conn, $query);
 
             // Bind the user session ID parameter
             mysqli_stmt_bind_param($stmt, "s", $userSessionID);
@@ -615,7 +615,7 @@ ini_set('display_errors', 1);
             mysqli_stmt_close($stmt);
 
             // Close the database connection
-            mysqli_close($con);
+            mysqli_close($conn);
             ?>
           </tbody>
         </table>

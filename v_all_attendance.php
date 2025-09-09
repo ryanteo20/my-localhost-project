@@ -12,14 +12,14 @@ $location_coordinates = null;
 
 // Get the list of employees
 $employee_query = "SELECT * FROM employeelogin";
-$employee_result = $con->query($employee_query);
+$employee_result = $conn->query($employee_query);
 
 // Default employee_id to the current logged-in user
 $selected_employee_id = $_GET['employee_id'] ?? $employee_id;
 
 // Check attendance and set to absent if no clock-in after 6 PM
 $query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
-$stmt = $con->prepare($query);
+$stmt = $conn->prepare($query);
 $stmt->bind_param("is", $selected_employee_id, $date);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -33,7 +33,7 @@ $cutoff_time = strtotime($date . ' 18:00:00');  // 6 PM cutoff
 if (!$clock_in_time || $clock_in_time > $cutoff_time) {
     // Update status to 'absent' if the clock-in is not done by 6 PM
     $query = "UPDATE attendance SET status = 'absent' WHERE employee_id = ? AND date = ?";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("is", $selected_employee_id, $date);
     $stmt->execute();
 }
@@ -45,20 +45,20 @@ if (isset($_POST['check_in'])) {
     $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
               VALUES (?, ?, ?, ?, ?, ?)
               ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("isssss", $selected_employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
     $stmt->execute();
 }
 
 if (isset($_POST['check_out'])) {
     $query = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("ssis", $time_now, $ip_address, $selected_employee_id, $date);
     $stmt->execute();
 }
 
 $query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
-$stmt = $con->prepare($query);
+$stmt = $conn->prepare($query);
 $stmt->bind_param("is", $selected_employee_id, $date);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -72,13 +72,13 @@ $history_query = "SELECT * FROM attendance
                   AND MONTH(date) = ? 
                   AND YEAR(date) = ? 
                   ORDER BY date DESC";
-$stmt = $con->prepare($history_query);
+$stmt = $conn->prepare($history_query);
 if ($stmt) {
     $stmt->bind_param("iii", $selected_employee_id, $selected_month, $selected_year);
     $stmt->execute();
     $history_result = $stmt->get_result();
 } else {
-    echo "<div class='alert alert-danger'>Query Error: " . $con->error . "</div>";
+    echo "<div class='alert alert-danger'>Query Error: " . $conn->error . "</div>";
     $history_result = false;
 }
 

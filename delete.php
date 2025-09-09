@@ -263,7 +263,7 @@ require('session.php');
                           $query = "SELECT ID, username, password, reg_date FROM employeelogin";
 
                           // Execute the query
-                          $result = mysqli_query($con, $query);
+                          $result = mysqli_query($conn, $query);
 
                           // Check if there are any rows returned
                           if (mysqli_num_rows($result) > 0) {
@@ -282,7 +282,7 @@ require('session.php');
                           }
 
                           // Close the connection
-                          mysqli_close($con);
+                          mysqli_close($conn);
                           ?>
                       </tbody>
                   </table>  

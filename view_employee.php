@@ -252,7 +252,7 @@ ini_set('display_errors', 1);
                             $query = "SELECT * FROM employeelogin WHERE ID = ?";
 
                             // Prepare a statement
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             // Bind the session ID value to the query parameter
                             mysqli_stmt_bind_param($stmt, "i", $sessionID);
@@ -286,7 +286,7 @@ ini_set('display_errors', 1);
                         }
 
                         // Close the connection
-                        mysqli_close($con);
+                        mysqli_close($conn);
                         ?>
                       </tbody>
                   </table>
@@ -328,7 +328,7 @@ ini_set('display_errors', 1);
                             JOIN employeelogin AS el ON pi.personal_id = el.ID
                             WHERE el.ID = ?";
                             // Prepare a statement
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             // Bind the session ID value to the query parameter
                             mysqli_stmt_bind_param($stmt, "i", $sessionID);
@@ -372,7 +372,7 @@ ini_set('display_errors', 1);
                         }
 
                         // Close the connection
-                        mysqli_close($con);
+                        mysqli_close($conn);
                         ?>
                           </tbody>
                       </table>
@@ -408,7 +408,7 @@ ini_set('display_errors', 1);
                             JOIN employeelogin AS el ON pi.employment_id = el.ID
                             WHERE el.ID = ?";
                             // Prepare a statement
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             // Bind the session ID value to the query parameter
                             mysqli_stmt_bind_param($stmt, "i", $sessionID);
@@ -445,7 +445,7 @@ ini_set('display_errors', 1);
                         }
 
                         // Close the connection
-                        mysqli_close($con);
+                        mysqli_close($conn);
                         ?>
                       </tbody>
                   </table>          
@@ -478,7 +478,7 @@ ini_set('display_errors', 1);
                             JOIN employeelogin AS el ON pi.payroll_id = el.ID
                             WHERE el.ID = ?";
                             // Prepare a statement
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             // Bind the session ID value to the query parameter
                             mysqli_stmt_bind_param($stmt, "i", $sessionID);
@@ -514,7 +514,7 @@ ini_set('display_errors', 1);
                         }
 
                         // Close the connection
-                        mysqli_close($con);
+                        mysqli_close($conn);
                         ?>
                       </tbody>
                   </table>
@@ -544,7 +544,7 @@ ini_set('display_errors', 1);
                             JOIN employeelogin AS el ON pi.document_id = el.ID
                             WHERE el.ID = ?";
                             // Prepare a statement
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             // Bind the session ID value to the query parameter
                             mysqli_stmt_bind_param($stmt, "i", $sessionID);
@@ -578,7 +578,7 @@ ini_set('display_errors', 1);
                         }
 
                         // Close the connection
-                        mysqli_close($con);
+                        mysqli_close($conn);
                         ?>
                     </tbody>
                 </table>              
@@ -609,7 +609,7 @@ ini_set('display_errors', 1);
                               JOIN employeelogin AS el ON pi.leaveinfo_id = el.ID
                               WHERE el.ID = ?";
                               // Prepare a statement
-                              $stmt = mysqli_prepare($con, $query);
+                              $stmt = mysqli_prepare($conn, $query);
 
                               // Bind the session ID value to the query parameter
                               mysqli_stmt_bind_param($stmt, "i", $sessionID);
@@ -643,7 +643,7 @@ ini_set('display_errors', 1);
                           }
 
                         // Close the connection
-                        mysqli_close($con);
+                        mysqli_close($conn);
                         ?>
                     </tbody>
                 </table>  

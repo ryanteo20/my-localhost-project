@@ -11,7 +11,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
 
     // Use prepared statement for security
-    $stmt = $con->prepare('SELECT * FROM employeelogin WHERE username = ?');
+    $stmt = $conn->prepare('SELECT * FROM employeelogin WHERE username = ?');
     $stmt->bind_param('s', $username);
     $stmt->execute();
     $result = $stmt->get_result();

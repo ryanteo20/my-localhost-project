@@ -19,7 +19,7 @@ $selected_year  = (int)$selected_year;
 $selected_emp   = $selected_emp !== '' ? (int)$selected_emp : '';
 
 // Fetch employees
-$employees = mysqli_query($con, "SELECT personal_id, full_name FROM personal_information");
+$employees = mysqli_query($conn, "SELECT personal_id, full_name FROM personal_information");
 
 // Build employee options
 $emp_options = '';
@@ -37,7 +37,7 @@ if (!empty($selected_emp)) {
 
     // Get employee name for display
     $emp_query = "SELECT full_name FROM personal_information WHERE personal_id = $emp_id";
-    $emp_result = mysqli_query($con, $emp_query);
+    $emp_result = mysqli_query($conn, $emp_query);
     if ($emp_row = mysqli_fetch_assoc($emp_result)) {
         $employee_name = $emp_row['full_name'];
     }
@@ -50,10 +50,10 @@ if (!empty($selected_emp)) {
 
     // Get payroll data using emp_id
     $query = "SELECT * FROM payroll_detail WHERE payroll_id = $emp_id";  // Use emp_id here
-    $res = mysqli_query($con, $query);
+    $res = mysqli_query($conn, $query);
 
     if (!$res) {
-        die("Query Error: " . mysqli_error($con));
+        die("Query Error: " . mysqli_error($conn));
     }
 
     $payroll_data = mysqli_fetch_assoc($res);
@@ -73,35 +73,35 @@ if (!empty($selected_emp)) {
     $emp_id = (int)$selected_emp;
 
     $q = "SELECT COUNT(*) as total FROM attendance WHERE employee_id = $emp_id AND MONTH(date) = $month AND YEAR(date) = $year AND status = 'present'";
-    $res = mysqli_query($con, $q);
+    $res = mysqli_query($conn, $q);
     if ($res) {
         $attendance_summary['present'] = mysqli_fetch_assoc($res)['total'] ?? 0;
     } else {
-        echo "<div class='alert alert-danger'>Error in present query: " . mysqli_error($con) . "</div>";
+        echo "<div class='alert alert-danger'>Error in present query: " . mysqli_error($conn) . "</div>";
     }
 
     $q = "SELECT COUNT(*) as total FROM attendance WHERE employee_id = $emp_id AND MONTH(date) = $month AND YEAR(date) = $year AND status = 'on-leave'";
-    $res = mysqli_query($con, $q);
+    $res = mysqli_query($conn, $q);
     if ($res) {
         $attendance_summary['on-leave'] = mysqli_fetch_assoc($res)['total'] ?? 0;
     } else {
-        echo "<div class='alert alert-danger'>Error in present query: " . mysqli_error($con) . "</div>";
+        echo "<div class='alert alert-danger'>Error in present query: " . mysqli_error($conn) . "</div>";
     }
 
     $q = "SELECT COUNT(*) as total FROM attendance WHERE employee_id = $emp_id AND MONTH(date) = $month AND YEAR(date) = $year AND status = 'absent'";
-    $res = mysqli_query($con, $q);
+    $res = mysqli_query($conn, $q);
     if ($res) {
         $attendance_summary['absent'] = mysqli_fetch_assoc($res)['total'] ?? 0;
     } else {
-        echo "<div class='alert alert-danger'>Error in present query: " . mysqli_error($con) . "</div>";
+        echo "<div class='alert alert-danger'>Error in present query: " . mysqli_error($conn) . "</div>";
     }
 
     $q = "SELECT SUM(amount) as total FROM claims WHERE employee_id = $emp_id AND MONTH(transaction_date) = $month AND YEAR(transaction_date) = $year AND status ='Approved'";
-    $res = mysqli_query($con, $q);
+    $res = mysqli_query($conn, $q);
     if ($res) {
         $total_claim = mysqli_fetch_assoc($res)['total'] ?? 0.00;
     } else {
-        echo "<div class='alert alert-danger'>Error in claim query: " . mysqli_error($con) . "</div>";
+        echo "<div class='alert alert-danger'>Error in claim query: " . mysqli_error($conn) . "</div>";
     }
 }
 // Initialize allowance and overtime variables properly
@@ -163,7 +163,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
     ];
 
     require_once 'functions.php';
-    $result = savePayrollTransaction($con, $payrollData);
+    $result = savePayrollTransaction($conn, $payrollData);
     
     if ($result) {
         echo "<div class='alert alert-success'>Payroll saved successfully!</div>";
@@ -689,7 +689,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_current'])) {
         <?php
         // Get all employees ordered by ID
         $emp_list = [];
-        $res = mysqli_query($con, "SELECT personal_id, full_name FROM personal_information ORDER BY personal_id ASC");
+        $res = mysqli_query($conn, "SELECT personal_id, full_name FROM personal_information ORDER BY personal_id ASC");
         while ($row = mysqli_fetch_assoc($res)) {
             $emp_list[] = $row;
         }

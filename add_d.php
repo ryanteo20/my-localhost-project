@@ -2,34 +2,34 @@
 require('database.php');
 require('session.php');
 
-function handleEmploymentDetails($con) {
+function handleEmploymentDetails($conn) {
   if (isset($_REQUEST['inputType'])) {
       // Sanitize form data
       $employeeType = stripslashes($_REQUEST['inputType']);
-      $employeeType = mysqli_real_escape_string($con, $employeeType);
+      $employeeType = mysqli_real_escape_string($conn, $employeeType);
       $status = stripslashes($_REQUEST['inputStatus']);
-      $status = mysqli_real_escape_string($con, $status);
+      $status = mysqli_real_escape_string($conn, $status);
       $position = stripslashes($_REQUEST['inputPosition']);
-      $position= mysqli_real_escape_string($con, $position);
+      $position= mysqli_real_escape_string($conn, $position);
       $department = stripslashes($_REQUEST['inputDepartment']);
-      $department = mysqli_real_escape_string($con, $department);
+      $department = mysqli_real_escape_string($conn, $department);
       $employmentStart = stripslashes($_REQUEST['inputStart']);
-      $employmentStart = mysqli_real_escape_string($con, $employmentStart);
+      $employmentStart = mysqli_real_escape_string($conn, $employmentStart);
       $employmentEnd = stripslashes($_REQUEST['inputEnd']);
-      $employmentEnd = mysqli_real_escape_string($con, $employmentEnd);
+      $employmentEnd = mysqli_real_escape_string($conn, $employmentEnd);
       
       // SQL statement to insert data into employment_detail table
       $query = "INSERT INTO `employment_detail` (employment_type, employment_status, employment_position, employment_department, employment_start, employment_end) 
               VALUES ('$employeeType', '$status', '$position', '$department', '$employmentStart', '$employmentEnd')";
 
       // Execute the query
-      $result = mysqli_query($con, $query);
+      $result = mysqli_query($conn, $query);
 
       // Check if the insertion was successful
       if ($result) {
           return "Employment details inserted successfully.";
       } else {
-          return "Error: " . mysqli_error($con);
+          return "Error: " . mysqli_error($conn);
       }
   }
 }

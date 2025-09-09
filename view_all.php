@@ -297,7 +297,7 @@ require('session.php');
                           $query = "SELECT ID, username, password, reg_date, role, first_login FROM employeelogin";
 
                           // Execute the query
-                          $result = mysqli_query($con, $query);
+                          $result = mysqli_query($conn, $query);
 
                           // Check if there are any rows returned
                           if ($result && mysqli_num_rows($result) > 0) {
@@ -318,7 +318,7 @@ require('session.php');
                           }
 
                           // Close the connection
-                          mysqli_close($con);
+                          mysqli_close($conn);
                           ?>
                       </tbody>
                   </table>
@@ -404,7 +404,7 @@ require('session.php');
 
                               $query = "SELECT personal_id, full_name, email, phone_number, ic, address, address2, zip, city, state, race, religion, marital, gender FROM personal_information";
 
-                              $result = mysqli_query($con, $query);
+                              $result = mysqli_query($conn, $query);
 
                               if ($result) {
                                   if (mysqli_num_rows($result) > 0) {
@@ -430,10 +430,10 @@ require('session.php');
                                       echo "<tr><td colspan='4'>No data found</td></tr>";
                                   }
                               } else {
-                                  echo "Error: " . mysqli_error($con);
+                                  echo "Error: " . mysqli_error($conn);
                               }
 
-                              mysqli_close($con);
+                              mysqli_close($conn);
                               ?>
                           </tbody>
                       </table>
@@ -570,7 +570,7 @@ require('session.php');
                           $query = "SELECT employment_id, employment_type, employment_status, employment_position, employment_department, employment_start, employment_end FROM employment_detail";
 
                           // Execute the query
-                          $result = mysqli_query($con, $query);
+                          $result = mysqli_query($conn, $query);
 
                           // Check if there are any rows returned
                           if (mysqli_num_rows($result) > 0) {
@@ -591,7 +591,7 @@ require('session.php');
                               echo "<tr><td colspan='4'>No data found</td></tr>";
                           }
                           // Close the connection
-                          mysqli_close($con);
+                          mysqli_close($conn);
                           ?>
                       </tbody>
                   </table>   
@@ -661,7 +661,7 @@ require('session.php');
                           $query = "SELECT payroll_id, salary_type, bank_account_name, bank_account_no, employee_salary, bank_name FROM payroll_detail";
 
                           // Execute the query
-                          $result = mysqli_query($con, $query);
+                          $result = mysqli_query($conn, $query);
 
                           // Check if there are any rows returned
                           if (mysqli_num_rows($result) > 0) {
@@ -685,7 +685,7 @@ require('session.php');
                           ini_set('display_errors', 1);
                           
                           // Close the connection
-                          mysqli_close($con);
+                          mysqli_close($conn);
                           ?> 
                       </tbody>
                   </table>
@@ -750,7 +750,7 @@ require('session.php');
                         $query = "SELECT document_id, education_level, ic_picture FROM employee_document";
 
                         // Execute the query
-                        $result = mysqli_query($con, $query);
+                        $result = mysqli_query($conn, $query);
 
                         // Check if there are any rows returned
                         if (mysqli_num_rows($result) > 0) {
@@ -768,7 +768,7 @@ require('session.php');
                         }
 
                         // Close the connection
-                        mysqli_close($con);
+                        mysqli_close($conn);
                         ?>
                     </tbody>
                 </table>  
@@ -832,7 +832,7 @@ require('session.php');
                         $query = "SELECT * FROM leave_info";
 
                         // Execute the query
-                        $result = mysqli_query($con, $query);
+                        $result = mysqli_query($conn, $query);
 
                         // Check if there are any rows returned
                         if (mysqli_num_rows($result) > 0) {
@@ -851,7 +851,7 @@ require('session.php');
                         }
 
                         // Close the connection
-                        mysqli_close($con);
+                        mysqli_close($conn);
                         ?>
                     </tbody>
                 </table>  

@@ -18,12 +18,12 @@ try {
     if ($user_role === 'employer' || $user_role === 'admin') {
         // Mark all notifications for this employer as read
         $query = "UPDATE notifications SET status = 'read' WHERE employer_id = ? AND status = 'unread'";
-        $stmt = $con->prepare($query);
+        $stmt = $conn->prepare($query);
         $stmt->bind_param("i", $user_id);
     } else {
         // Mark all notifications for this employee as read
         $query = "UPDATE notifications SET status = 'read' WHERE employee_id = ? AND status = 'unread'";
-        $stmt = $con->prepare($query);
+        $stmt = $conn->prepare($query);
         $stmt->bind_param("i", $user_id);
     }
     
@@ -31,7 +31,7 @@ try {
     
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $query = "UPDATE notifications SET status = 'read' WHERE status = 'unread'";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     if ($stmt->execute()) {
         echo json_encode(['success' => true]);
     } else {

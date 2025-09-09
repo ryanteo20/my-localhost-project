@@ -1,59 +1,277 @@
 <?php
 require('database.php');
 require('session.php');
-
 date_default_timezone_set('Asia/Kuala_Lumpur');
 $date = date('Y-m-d');
 $time_now = date('Y-m-d H:i:s');
-
+$current_hour = (int)date('H');
 
 $employee_id = $_SESSION['ID'] ?? null;
 
-$date = date('Y-m-d');
-$time_now = date('Y-m-d H:i:s');
 $status = 'present';
 $ip_address = $_SERVER['REMOTE_ADDR'] ?? null;
 $location_coordinates = null;
 
+// Function to insert notification into the database
+function insertNotification($employee_id, $employer_id, $message) {
+    global $conn;
+    $query = "INSERT INTO notifications (employee_id, employer_id, message, status, created_at) VALUES (?, ?, ?, 'unread', NOW())";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("iis", $employee_id, $employer_id, $message);
+    return $stmt->execute();
+}
+
+// Function to get employee name
+function getEmployeeName($employee_id) {
+    global $conn;
+    $query = "SELECT username FROM employeelogin WHERE ID = ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("i", $employee_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $row = $result->fetch_assoc();
+    return $row ? $row['username'] : "Employee #$employee_id";
+}
+
+// Function to get employer ID and email for an employee
+// Function to get employer ID and email for an employee
+function getEmployerInfo($employee_id) {
+    global $conn;
+    
+    // SQL query to get employer info
+    $query = "SELECT el.employer_id, e.email as employer_email 
+              FROM employeelogin el 
+              LEFT JOIN employeelogin e ON el.employer_id = e.ID 
+              WHERE el.ID = ?";
+    
+    // Prepare the query
+    $stmt = $conn->prepare($query);
+    
+    if (!$stmt) {
+        // If the prepare statement fails, output the specific MySQL error
+        echo "✗ Error preparing query: " . $conn->error . "\n";
+        return null;
+    }
+
+    // Bind parameters
+    $stmt->bind_param("i", $employee_id);
+    
+    // Execute the query
+    if (!$stmt->execute()) {
+        echo "✗ Error executing query: " . $stmt->error . "\n";
+        return null;
+    }
+
+    // Get the result
+    $result = $stmt->get_result();
+    
+    // Check if any result was returned
+    if ($result->num_rows > 0) {
+        return $result->fetch_assoc(); // Return the first row
+    } else {
+        echo "✗ No employer information found for employee ID: $employee_id\n";
+        return null;
+    }
+}
+
+
+// Function to check if notification already exists today
+function notificationExistsToday($employee_id, $employer_id, $message_pattern) {
+    global $conn, $date;
+    $query = "SELECT ID FROM notifications 
+              WHERE employee_id = ? AND employer_id = ? 
+              AND DATE(created_at) = ? 
+              AND message LIKE ?";
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("iiss", $employee_id, $employer_id, $date, $message_pattern);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->num_rows > 0;
+}
+
+// Function to create absent records and send notifications
+function processAbsentEmployees() {
+    global $conn, $date;
+    
+    // SQL query to get the absent employees
+    $query = "SELECT a.employee_id, el.username, el.employer_id, pi.email as employer_email
+              FROM attendance a
+              JOIN employeelogin el ON a.employee_id = el.ID
+              LEFT JOIN employeelogin emp ON el.employer_id = emp.ID
+              LEFT JOIN personal_information pi ON emp.ID = pi.personal_id
+              WHERE a.date = ? AND a.status = 'absent'
+              LIMIT 1";
+    
+    $stmt = $conn->prepare($query);
+    
+    if (!$stmt) {
+        // Output the specific error message from MySQL
+        echo "✗ Error preparing query: " . $conn->error . "\n";
+        return;
+    }
+
+    $stmt->bind_param("s", $date);  // Bind date parameter
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($row = $result->fetch_assoc()) {
+        // Proceed with creating the notification
+        $message = "TEST NOTIFICATION: {$row['username']} is marked as absent for testing purposes";
+        
+        // Insert system notification
+        $notifyQuery = "INSERT INTO notifications (employee_id, employer_id, message, status, created_at) 
+                       VALUES (?, ?, ?, 'unread', NOW())";
+        $notifyStmt = $conn->prepare($notifyQuery);
+        
+        if (!$notifyStmt) {
+            echo "✗ Error preparing notification query: " . $conn->error . "\n";
+            return;
+        }
+        
+        $notifyStmt->bind_param("iis", $row['employee_id'], $row['employer_id'], $message);
+        
+        if ($notifyStmt->execute()) {
+            echo "✓ Notification created successfully\n";
+            
+            // Send email notification if employer email exists
+            if ($row['employer_email']) {
+                sendNotification($row['employer_email'], $row['username'], $message);
+                echo "✓ Email notification sent to: {$row['employer_email']}\n";
+            } else {
+                echo "! No employer email found\n";
+            }
+        } else {
+            echo "✗ Error creating notification: " . $notifyStmt->error . "\n";
+        }
+
+        $notifyStmt->close();
+    }
+    $stmt->close();
+}
+
+
+// Function to send late clock-in notifications
+function checkLateClockIn($employee_id, $clock_in_time) {
+    global $date;
+    
+    $clock_in_cutoff = strtotime($date . ' 09:00:00');
+    $actual_clock_in = strtotime($clock_in_time);
+    
+    if ($actual_clock_in > $clock_in_cutoff) {
+        $employee_name = getEmployeeName($employee_id);
+        $employer_info = getEmployerInfo($employee_id);
+        
+        if ($employer_info && $employer_info['employer_id'] && $employer_info['employer_email']) {
+            $late_minutes = round(($actual_clock_in - $clock_in_cutoff) / 60);
+            $notification_message = "$employee_name clocked in late at " . 
+                                  date('g:i A', $actual_clock_in) . 
+                                  " (${late_minutes} minutes after 9:00 AM)";
+            
+            $message_pattern = "%clocked in late%";
+            if (!notificationExistsToday($employee_id, $employer_info['employer_id'], $message_pattern)) {
+                // Insert system notification
+                insertNotification($employee_id, $employer_info['employer_id'], $notification_message);
+                
+                // Send email notification
+                sendNotification($employer_info['employer_email'], $employee_name, $notification_message);
+            }
+        }
+    }
+}
+
+
+// Function to send early clock-out notifications
+function checkEarlyClockOut($employee_id, $clock_out_time) {
+    global $date;
+    
+    $clock_out_cutoff = strtotime($date . ' 18:00:00');
+    $actual_clock_out = strtotime($clock_out_time);
+    
+    if ($actual_clock_out < $clock_out_cutoff) {
+        $employee_name = getEmployeeName($employee_id);
+        $employer_info = getEmployerInfo($employee_id);
+        
+        if ($employer_info && $employer_info['employer_id'] && $employer_info['employer_email']) {
+            $early_minutes = round(($clock_out_cutoff - $actual_clock_out) / 60);
+            $notification_message = "$employee_name clocked out early at " . 
+                                  date('g:i A', $actual_clock_out) . 
+                                  " (${early_minutes} minutes before 6:00 PM)";
+            
+            $message_pattern = "%clocked out early%";
+            if (!notificationExistsToday($employee_id, $employer_info['employer_id'], $message_pattern)) {
+                // Insert system notification
+                insertNotification($employee_id, $employer_info['employer_id'], $notification_message);
+                
+                // Send email notification
+                sendNotification($employer_info['employer_email'], $employee_name, $notification_message);
+            }
+        }
+    }
+}
+
+
+// Run the absent employee check every time the page loads (after 9:15 AM)
+processAbsentEmployees();
+
 // Handle Clock In
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_in'])) {
-  $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
-
-  $stmt = $con->prepare($query);
-  $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
-  
-  if (!$stmt->execute()) {
-      die("Error clocking in: " . $stmt->error);
-  }
+    // First, check if there's an absent record for today and update it
+    $checkAbsentQuery = "SELECT * FROM attendance WHERE employee_id = ? AND date = ? AND status = 'absent'";
+    $checkAbsentStmt = $conn->prepare($checkAbsentQuery);
+    $checkAbsentStmt->bind_param("is", $employee_id, $date);
+    $checkAbsentStmt->execute();
+    $absentResult = $checkAbsentStmt->get_result();
+    
+    if ($absentResult->num_rows > 0) {
+        // Update the absent record to present with clock in time
+        $query = "UPDATE attendance SET clock_in = ?, status = ?, ip_address = ?, location_coordinates = ? 
+                  WHERE employee_id = ? AND date = ?";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("sssssi", $time_now, $status, $ip_address, $location_coordinates, $employee_id, $date);
+    } else {
+        // Insert new record
+        $query = "INSERT INTO attendance (employee_id, date, clock_in, status, ip_address, location_coordinates)
+                  VALUES (?, ?, ?, ?, ?, ?)
+                  ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), 
+                  ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
+        $stmt = $conn->prepare($query);
+        $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
+    }
+    
+    if ($stmt->execute()) {
+        // Check for late clock-in and send notification
+        checkLateClockIn($employee_id, $time_now);
+    } else {
+        die("Error clocking in: " . $stmt->error);
+    }
 }
 
 // Handle Clock Out
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_out'])) {
-  // Step 1: Check if user already clocked out
-  $checkQuery = "SELECT clock_out FROM attendance WHERE employee_id = ? AND date = ?";
-  $checkStmt = $con->prepare($checkQuery);
-  $checkStmt->bind_param("is", $employee_id, $date);
-  $checkStmt->execute();
-  $result = $checkStmt->get_result();
+    $checkQuery = "SELECT clock_out FROM attendance WHERE employee_id = ? AND date = ?";
+    $checkStmt = $conn->prepare($checkQuery);
+    $checkStmt->bind_param("is", $employee_id, $date);
+    $checkStmt->execute();
+    $result = $checkStmt->get_result();
 
-  if ($result && $row = $result->fetch_assoc()) {
-      if (empty($row['clock_out'])) {
-          // Step 2: Only update if not already clocked out
-          $updateQuery = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
-          $updateStmt = $con->prepare($updateQuery);
-          $updateStmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
-          $updateStmt->execute();
-      } else {
-          // Optional: log or ignore duplicate attempt
-          // echo "Already clocked out!";
-      }
-  }
+    if ($result && $row = $result->fetch_assoc()) {
+        if (empty($row['clock_out'])) {
+            // Update clock-out time
+            $updateQuery = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
+            $updateStmt = $conn->prepare($updateQuery);
+            $updateStmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
+            
+            if ($updateStmt->execute()) {
+                // Check for early clock-out and send notification
+                checkEarlyClockOut($employee_id, $time_now);
+            }
+        }
+    }
 }
+
 // ✅ Fetch today's attendance
 $query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
-$stmt = $con->prepare($query);
+$stmt = $conn->prepare($query);
 $stmt->bind_param("is", $employee_id, $date);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -62,12 +280,13 @@ $attendance = $result->fetch_assoc();
 // ✅ Define flags to control UI logic
 $hasClockedIn = false;
 $hasClockedOut = false;
+$isAbsent = false;
 
 if ($attendance) {
     $hasClockedIn = !empty($attendance['clock_in']);
     $hasClockedOut = !empty($attendance['clock_out']);
+    $isAbsent = ($attendance['status'] === 'absent' && empty($attendance['clock_in']));
 }
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -331,16 +550,50 @@ if ($attendance) {
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
   <script>
-    document.addEventListener("DOMContentLoaded", function () {
-      const durationElement = document.getElementById("duration");
-      if (!durationElement) return;
+document.addEventListener("DOMContentLoaded", function () {
+    const employeeId = <?php echo json_encode($employee_id); ?>;
+    const durationElement = document.getElementById("duration");
+    if (!durationElement) return;
 
-      const clockIn = new Date(durationElement.dataset.clockin).getTime();
-      const clockOutAttr = durationElement.dataset.clockout;
-      const clockOut = clockOutAttr ? new Date(clockOutAttr).getTime() : null;
+    // Get clock in/out times from PHP data attributes
+    const clockInTime = durationElement.dataset.clockin;
+    const clockOutTime = durationElement.dataset.clockout;
 
-      function updateDuration() {
-        const now = clockOut || new Date().getTime();
+    // Store times in localStorage when page loads if they exist
+    if (clockInTime) {
+        localStorage.setItem(`clockInTime_${employeeId}`, clockInTime);
+    }
+    if (clockOutTime) {
+        localStorage.setItem(`clockOutTime_${employeeId}`, clockOutTime);
+    }
+
+    // Add event listeners to the form buttons
+    const checkInForm = document.querySelector('form button[name="check_in"]');
+    const checkOutForm = document.querySelector('form button[name="check_out"]');
+
+    if (checkInForm) {
+        checkInForm.closest('form').addEventListener('submit', function() {
+            const currentTime = new Date().toISOString();
+            localStorage.setItem(`clockInTime_${employeeId}`, currentTime);
+        });
+    }
+
+    if (checkOutForm) {
+        checkOutForm.closest('form').addEventListener('submit', function() {
+            const currentTime = new Date().toISOString();
+            localStorage.setItem(`clockOutTime_${employeeId}`, currentTime);
+        });
+    }
+
+    // Timer update function
+    function updateDuration() {
+        const clockInTimeStored = localStorage.getItem(`clockInTime_${employeeId}`);
+        const clockOutTimeStored = localStorage.getItem(`clockOutTime_${employeeId}`);
+        
+        if (!clockInTimeStored) return;
+
+        const clockIn = new Date(clockInTimeStored).getTime();
+        const now = clockOutTimeStored ? new Date(clockOutTimeStored).getTime() : new Date().getTime();
         const diff = now - clockIn;
 
         const hours = String(Math.floor(diff / (1000 * 60 * 60))).padStart(2, '0');
@@ -349,13 +602,124 @@ if ($attendance) {
 
         durationElement.textContent = `${hours}:${minutes}:${seconds}`;
 
-        if (clockOut) clearInterval(timer); // stop if already clocked out
-      }
+        if (!clockOutTimeStored) {
+            requestAnimationFrame(updateDuration);
+        }
+    }
 
-      updateDuration();
-      const timer = setInterval(updateDuration, 1000);
+    // Start timer if checked in
+    if (localStorage.getItem(`clockInTime_${employeeId}`)) {
+        updateDuration();
+    }
+});
+
+function fetchNotifications() {
+  fetch('fetch_notifications.php')
+    .then(response => response.json())
+    .then(data => {
+      updateNotificationUI(data);
+
+      if (data.length > 0) {
+        data.forEach((notification, index) => {
+          setTimeout(() => {
+            displayNotificationToast(notification.message);
+          }, index * 500);
+        });
+      }
+    })
+    .catch(error => console.error('Error fetching notifications:', error));
+}
+
+function updateNotificationUI(notifications) {
+  const countElement = document.getElementById('notificationCount');
+  const headerCountElement = document.getElementById('notificationHeaderCount');
+  const listElement = document.getElementById('notificationList');
+  
+  const count = notifications.length;
+  
+  if (count > 0) {
+    countElement.textContent = count;
+    countElement.style.display = 'block';
+    headerCountElement.textContent = count;
+    
+    listElement.innerHTML = '';
+    
+    notifications.forEach(notification => {
+      const notificationItem = document.createElement('li');
+      notificationItem.innerHTML = `
+        <a class="dropdown-item">
+          <i class="bi bi-exclamation-circle text-warning"></i>
+          <div>
+            <h4>Attendance Alert</h4>
+            <p>${notification.message}</p>
+            <p>${new Date(notification.created_at).toLocaleString()}</p>
+          </div>
+        </a>
+      `;
+      listElement.appendChild(notificationItem);
     });
-</script>
+    
+    const divider = document.createElement('li');
+    divider.innerHTML = '<hr class="dropdown-divider">';
+    listElement.appendChild(divider);
+    
+    const footer = document.createElement('li');
+    footer.innerHTML = '<a class="dropdown-item dropdown-footer" href="#" onclick="markAllAsRead()">Mark all as read</a>';
+    listElement.appendChild(footer);
+  } else {
+    countElement.style.display = 'none';
+    headerCountElement.textContent = '0';
+    listElement.innerHTML = '<li><a class="dropdown-item">No new notifications</a></li>';
+  }
+}
+
+    function displayNotificationToast(message) {
+      const notificationDiv = document.createElement('div');
+      notificationDiv.classList.add('notification');
+      notificationDiv.innerHTML = `
+        <strong>Attendance Alert</strong><br>
+        ${message}
+        <button type="button" class="btn-close" onclick="this.parentElement.remove()" style="float: right; margin-top: -5px;"></button>
+      `;
+
+      document.body.appendChild(notificationDiv);
+
+      setTimeout(() => {
+        if (notificationDiv.parentElement) {
+          notificationDiv.remove();
+        }
+      }, 8000);
+    }
+
+    function markAllAsRead() {
+      fetch('mark_notifications_read.php', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById('notificationCount').style.display = 'none';
+          document.getElementById('notificationHeaderCount').textContent = '0';
+          document.getElementById('notificationList').innerHTML = '<li><a class="dropdown-item">No new notifications</a></li>';
+        }
+      })
+      .catch(error => console.error('Error marking notifications as read:', error));
+    }
+
+    // Fetch notifications every 30 seconds
+    setInterval(fetchNotifications, 30000);
+
+    // Initial fetch when page loads
+    fetchNotifications();
+
+    // Refresh page every 5 minutes to check for absent status updates
+    setInterval(() => {
+      window.location.reload();
+    }, 300000);
+  </script>
 </body>
 
 </html>

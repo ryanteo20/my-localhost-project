@@ -6,17 +6,17 @@ date_default_timezone_set("Asia/Kuala_Lumpur");
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-function handleRegistration($con) {
+function handleRegistration($conn) {
   if (isset($_REQUEST['username'], $_REQUEST['password'], $_REQUEST['role'])) {
-      $username = mysqli_real_escape_string($con, $_REQUEST['username']);
-      $password = mysqli_real_escape_string($con, $_REQUEST['password']);
+      $username = mysqli_real_escape_string($conn, $_REQUEST['username']);
+      $password = mysqli_real_escape_string($conn, $_REQUEST['password']);
       $hashed_password = md5($password);
       $reg_date = date("Y-m-d H:i:s");
-      $role = mysqli_real_escape_string($con, $_REQUEST['role']);
+      $role = mysqli_real_escape_string($conn, $_REQUEST['role']);
       $first_login = 1;
 
       $check_query = "SELECT * FROM `employeelogin` WHERE username = ?";
-      $check_stmt = mysqli_prepare($con, $check_query);
+      $check_stmt = mysqli_prepare($conn, $check_query);
       mysqli_stmt_bind_param($check_stmt, "s", $username);
       mysqli_stmt_execute($check_stmt);
       $check_result = mysqli_stmt_get_result($check_stmt);
@@ -25,7 +25,7 @@ function handleRegistration($con) {
           $success_message = "Employee already exists.";
       } else {
           $query = "INSERT INTO `employeelogin` (username, password, reg_date, role, first_login) VALUES (?, ?, ?, ?, ?)";
-          $stmt = mysqli_prepare($con, $query);
+          $stmt = mysqli_prepare($conn, $query);
           mysqli_stmt_bind_param($stmt, "ssssi", $username, $hashed_password, $reg_date, $role, $first_login);
           mysqli_stmt_execute($stmt);
 
@@ -36,7 +36,7 @@ function handleRegistration($con) {
   }
 }
 
-$success_message = handleRegistration($con);
+$success_message = handleRegistration($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">

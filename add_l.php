@@ -305,7 +305,7 @@ ini_set('display_errors', 1);
                     $query = "SELECT * FROM leave_info ORDER BY leaveinfo_id DESC LIMIT 1";
 
                     // Execute the query
-                    $result = mysqli_query($con, $query);
+                    $result = mysqli_query($conn, $query);
 
                     // Check if there are any rows returned
                     if (mysqli_num_rows($result) > 0) {
@@ -324,7 +324,7 @@ ini_set('display_errors', 1);
                     }
 
                     // Close the connection
-                    mysqli_close($con);
+                    mysqli_close($conn);
                     ?>
                 </tbody>
             </table>

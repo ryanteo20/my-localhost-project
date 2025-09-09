@@ -2,30 +2,30 @@
 require('database.php');
 require('session.php');
 
-function handlePayrollDetails($con) {
+function handlePayrollDetails($conn) {
   if (isset($_REQUEST['inputS_Type'])) {
       // Retrieve form data
       $salaryType = stripslashes($_REQUEST['inputS_Type']);
-      $salaryType = mysqli_real_escape_string($con, $salaryType);
+      $salaryType = mysqli_real_escape_string($conn, $salaryType);
       $account_name = stripslashes($_REQUEST['inputA_Name']);
-      $account_name = mysqli_real_escape_string($con, $account_name);
+      $account_name = mysqli_real_escape_string($conn, $account_name);
       $account_no = stripslashes($_REQUEST['inputA_No']);
-      $account_no = mysqli_real_escape_string($con, $account_no);
+      $account_no = mysqli_real_escape_string($conn, $account_no);
       $salary = stripslashes($_REQUEST['inputSalary']);
-      $salary = mysqli_real_escape_string($con, $salary);
+      $salary = mysqli_real_escape_string($conn, $salary);
       $bank_name = stripslashes($_REQUEST['inputB_Name']);
-      $bank_name = mysqli_real_escape_string($con, $bank_name);
+      $bank_name = mysqli_real_escape_string($conn, $bank_name);
 
       // SQL statement
       $query = "INSERT INTO `payroll_detail` (salary_type, bank_account_name, bank_account_no, employee_salary, bank_name) 
               VALUES ('$salaryType', '$account_name', '$account_no', '$salary', '$bank_name')";
-      $result = mysqli_query($con, $query);
+      $result = mysqli_query($conn, $query);
 
       // Check if the insertion was successful
       if ($result) {
           return "Payroll details inserted successfully.";
       } else {
-          return "Error: " . mysqli_error($con);
+          return "Error: " . mysqli_error($conn);
       }
   }
 }

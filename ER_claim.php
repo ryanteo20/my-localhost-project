@@ -12,7 +12,7 @@ $user_id = $_SESSION['ID'];
 // Safe: Fetch user's full name from `personal_information`
 $fullname = "Unknown";
 $query = "SELECT full_name FROM personal_information WHERE personal_id = ?";
-$stmt = mysqli_prepare($con, $query);
+$stmt = mysqli_prepare($conn, $query);
 
 if ($stmt) {
     mysqli_stmt_bind_param($stmt, "i", $user_id);
@@ -285,7 +285,7 @@ require 'vendor/autoload.php';
                                 $query_employee_claims = "SELECT COUNT(*) AS total_claims FROM claims WHERE employee_id = ?";
 
                                 // Prepare and bind the query
-                                $stmt = $con->prepare($query_employee_claims);
+                                $stmt = $conn->prepare($query_employee_claims);
                                 $stmt->bind_param("i", $employee_id); // "i" for integer type
 
                                 // Execute the query
@@ -335,7 +335,7 @@ require 'vendor/autoload.php';
                                     $query_pending_review = "SELECT COUNT(*) AS Approve FROM claims WHERE status = 'Approved' AND employee_id = $user_id";
 
                                     // Execute the query
-                                    $result_pending_review = mysqli_query($con, $query_pending_review);
+                                    $result_pending_review = mysqli_query($conn, $query_pending_review);
 
                                     // Check if the query executed successfully
                                     if ($result_pending_review) {

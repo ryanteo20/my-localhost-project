@@ -57,8 +57,8 @@
                 echo "Username from form: " . $_POST['username'];
             
                 // Sanitize and escape input data
-                $password = mysqli_real_escape_string($con, $_POST['password']);
-                $confirmPassword = mysqli_real_escape_string($con, $_POST['confirm_password']);
+                $password = mysqli_real_escape_string($conn, $_POST['password']);
+                $confirmPassword = mysqli_real_escape_string($conn, $_POST['confirm_password']);
             
                 // Check if passwords match
                 if ($password === $confirmPassword) {
@@ -67,7 +67,7 @@
             
                     // Update the user's password in the database
                     $query = "UPDATE employeelogin SET password='$hashedPassword', first_login=0 WHERE username='$_SESSION[username]'";
-                    mysqli_query($con, $query);
+                    mysqli_query($conn, $query);
             
                     header("Location: pages-login.php");
                     exit(); // Ensure that no further code is executed after redirection

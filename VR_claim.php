@@ -264,7 +264,7 @@ ini_set('display_errors', 1);
                             INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
                             WHERE la.leave_review = 'Pending for review'";
 
-                    $stmt = mysqli_prepare($con, $query);
+                    $stmt = mysqli_prepare($conn, $query);
                     $result = mysqli_stmt_execute($stmt);
                     $modalsContent = '';
 
@@ -319,7 +319,7 @@ ini_set('display_errors', 1);
                     }
 
                     mysqli_stmt_close($stmt);
-                    mysqli_close($con);
+                    mysqli_close($conn);
                 ?>
                 </tbody>
                 <?= $modalsContent ?>
@@ -349,7 +349,7 @@ ini_set('display_errors', 1);
                                 INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
                                 WHERE la.leave_review = 'Approve'";
 
-                    $stmt = mysqli_prepare($con, $query);
+                    $stmt = mysqli_prepare($conn, $query);
 
                     if ($stmt) {
                         $result = mysqli_stmt_execute($stmt);
@@ -382,10 +382,10 @@ ini_set('display_errors', 1);
 
                         mysqli_stmt_close($stmt);
                     } else {
-                        echo "Error preparing statement: " . mysqli_error($con);
+                        echo "Error preparing statement: " . mysqli_error($conn);
                     }
 
-                    mysqli_close($con);
+                    mysqli_close($conn);
                     ?>
                         </tbody>
                     </table> 
@@ -414,7 +414,7 @@ ini_set('display_errors', 1);
                             INNER JOIN leave_apply la ON el.ID = la.fk_leaveapply_id
                             WHERE la.leave_review = 'Reject'";
 
-                $stmt = mysqli_prepare($con, $query);
+                $stmt = mysqli_prepare(mysql: $conn, $query);
 
                 if ($stmt) {
                     $result = mysqli_stmt_execute($stmt);
@@ -447,10 +447,10 @@ ini_set('display_errors', 1);
 
                     mysqli_stmt_close($stmt);
                 } else {
-                    echo "Error preparing statement: " . mysqli_error($con);
+                    echo "Error preparing statement: " . mysqli_error($conn);
                 }
 
-                mysqli_close($con);
+                mysqli_close($conn);
                 ?>
                         </tbody>
                     </table>                 

@@ -30,7 +30,7 @@ if (isset($_POST['editdocumentid'], $_POST['editdocumentfile'], $_FILES['editdoc
                 $fileContent = file_get_contents($fileTmpName);
 
                 // Prepare and execute the SQL query using prepared statements to update the specified field
-                $stmt = $con->prepare("UPDATE employee_document SET $documentField = ?, file_name = ?, file_type = ? WHERE document_id = ?");
+                $stmt = $conn->prepare("UPDATE employee_document SET $documentField = ?, file_name = ?, file_type = ? WHERE document_id = ?");
                 $stmt->bind_param('bssi', $null, $fileName, $fileType, $documentid);
 
                 // Send the BLOB data
@@ -56,5 +56,5 @@ if (isset($_POST['editdocumentid'], $_POST['editdocumentfile'], $_FILES['editdoc
     echo "Employee ID, field to update, or new value not provided.";
 }
 
-mysqli_close($con);
+mysqli_close($conn);
 ?>

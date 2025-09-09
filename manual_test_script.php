@@ -30,7 +30,7 @@ function showMenu() {
 }
 
 function checkAttendanceStatus() {
-    global $con, $date;
+    global $conn, $date;
     
     echo "\n=== Current Attendance Status for $date ===\n";
     
@@ -42,7 +42,7 @@ function checkAttendanceStatus() {
               WHERE el.role = 'employee' AND el.status = 'active'
               ORDER BY el.username";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $date);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -65,7 +65,7 @@ function checkAttendanceStatus() {
     echo "\n";
 }
 function manuallyMarkAbsent() {
-    global $con, $date;
+    global $conn, $date;
     
     echo "\n=== Manually Mark Employees as Absent ===\n";
     
@@ -77,10 +77,10 @@ function manuallyMarkAbsent() {
               AND el.status = 'active'
               AND a.employee_id IS NULL";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     
     if (!$stmt) {
-        echo "✗ Error preparing the query: " . $con->error . "\n";
+        echo "✗ Error preparing the query: " . $conn->error . "\n";
         return;
     }
 
@@ -93,10 +93,10 @@ function manuallyMarkAbsent() {
         // Mark as absent
         $insertQuery = "INSERT INTO attendance (employee_id, date, status) 
                         VALUES (?, ?, 'absent')";
-        $insertStmt = $con->prepare($insertQuery);
+        $insertStmt = $conn->prepare($insertQuery);
         
         if (!$insertStmt) {
-            echo "✗ Error preparing the insert query: " . $con->error . "\n";
+            echo "✗ Error preparing the insert query: " . $conn->error . "\n";
             return;
         }
 
@@ -106,7 +106,7 @@ function manuallyMarkAbsent() {
             echo "Marked {$row['username']} (ID: {$row['ID']}) as absent\n";
             $count++;
         } else {
-            echo "✗ Error marking {$row['username']} (ID: {$row['ID']}) as absent: " . $con->error . "\n";
+            echo "✗ Error marking {$row['username']} (ID: {$row['ID']}) as absent: " . $conn->error . "\n";
         }
     }
     
@@ -115,12 +115,12 @@ function manuallyMarkAbsent() {
 
 
 function testNotificationSystem() {
-    global $con, $date;
+    global $conn, $date;
     
     echo "\n=== Testing Notification System ===\n";
     
     // Check if notifications table exists first
-    $tableCheck = $con->query("SHOW TABLES LIKE 'notifications'");
+    $tableCheck = $conn->query("SHOW TABLES LIKE 'notifications'");
     if ($tableCheck->num_rows === 0) {
         echo "✗ Error: 'notifications' table does not exist!\n";
         echo "Please create the notifications table first using the provided SQL.\n";
@@ -136,9 +136,9 @@ function testNotificationSystem() {
               WHERE a.date = ? AND a.status = 'absent'
               LIMIT 1";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     if (!$stmt) {
-        echo "✗ Error preparing first query: " . $con->error . "\n";
+        echo "✗ Error preparing first query: " . $conn->error . "\n";
         return;
     }
     
@@ -158,10 +158,10 @@ function testNotificationSystem() {
         // Insert system notification
         $notifyQuery = "INSERT INTO notifications (employee_id, employer_id, message, status, created_at) 
                        VALUES (?, ?, ?, 'unread', NOW())";
-        $notifyStmt = $con->prepare($notifyQuery);
+        $notifyStmt = $conn->prepare($notifyQuery);
         
         if (!$notifyStmt) {
-            echo "✗ Error preparing notification query: " . $con->error . "\n";
+            echo "✗ Error preparing notification query: " . $conn->error . "\n";
             return;
         }
         
@@ -196,7 +196,7 @@ function testNotificationSystem() {
 
 
 function viewAllEmployees() {
-    global $con;
+    global $conn;
     
     echo "\n=== All Active Employees ===\n";
     
@@ -209,10 +209,10 @@ $query = "SELECT el.ID, el.username, pi.email, el.employer_id, el.role, el.statu
 
 
     
-    $result = $con->query($query);
+    $result = $conn->query($query);
     
     if (!$result) {
-        echo "✗ Error: " . $con->error . "\n";
+        echo "✗ Error: " . $conn->error . "\n";
         return;
     }
     
@@ -233,7 +233,7 @@ $query = "SELECT el.ID, el.username, pi.email, el.employer_id, el.role, el.statu
 
 
 function viewTodayAttendance() {
-    global $con, $date;
+    global $conn, $date;
     
     echo "\n=== Today's Attendance Records ===\n";
     
@@ -243,7 +243,7 @@ function viewTodayAttendance() {
               WHERE a.date = ?
               ORDER BY el.username";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $date);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -266,7 +266,7 @@ function viewTodayAttendance() {
 }
 
 function clearTodayAttendance() {
-    global $con, $date;
+    global $conn, $date;
     
     echo "\n=== Clear Today's Attendance (FOR TESTING ONLY) ===\n";
     echo "This will delete all attendance records for $date\n";
@@ -276,7 +276,7 @@ function clearTodayAttendance() {
     
     if ($confirmation === 'YES') {
         $query = "DELETE FROM attendance WHERE date = ?";
-        $stmt = $con->prepare($query);
+        $stmt = $conn->prepare($query);
         $stmt->bind_param("s", $date);
         
         if ($stmt->execute()) {
@@ -310,7 +310,7 @@ function sendTestEmail() {
 }
 
 function viewNotifications() {
-    global $con, $date;
+    global $conn, $date;
     
     echo "\n=== Recent Notifications ===\n";
     
@@ -323,7 +323,7 @@ function viewNotifications() {
               ORDER BY n.created_at DESC
               LIMIT 20";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $date);
     $stmt->execute();
     $result = $stmt->get_result();

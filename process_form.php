@@ -26,9 +26,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         if (move_uploaded_file($_FILES["file"]["tmp_name"], $targetFilePath)) {
             // If file uploaded successfully, include it in the database query
             $sql = "INSERT INTO leave_apply (leave_type, leave_datestart, leave_dateend, leave_length, leave_reason, leave_document, apply_date, fk_leaveapply_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-            $stmt = $con->prepare($sql);
+            $stmt = $conn->prepare($sql);
             if ($stmt === false) {
-                echo 'Prepare error: ' . $con->error;
+                echo 'Prepare error: ' . $conn->error;
                 exit;
             }
 
@@ -37,7 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Inside process_leave.php
             if ($stmt->affected_rows > 0) {
                 $stmt->close();
-                $con->close();
+                $conn->close();
                 $_SESSION['success_message'] = "Successfully applied for leave!";
                 header("Location: apply_leave.php"); // Redirect to apply_leave.php to show the message
                 exit();
@@ -51,9 +51,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     } else {
         // If no file uploaded, exclude leave_document from the database query
         $sql = "INSERT INTO leave_apply (leave_type, leave_datestart, leave_dateend, leave_length, leave_reason, apply_date, fk_leaveapply_id) VALUES (?, ?, ?, ?, ?, ?, ?)";
-        $stmt = $con->prepare($sql);
+        $stmt = $conn->prepare($sql);
         if ($stmt === false) {
-            echo 'Prepare error: ' . $con->error;
+            echo 'Prepare error: ' . $conn->error;
             exit;
         }
 
@@ -62,7 +62,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         // Inside process_leave.php
         if ($stmt->affected_rows > 0) {
             $stmt->close();
-            $con->close();
+            $conn->close();
             $_SESSION['success_message'] = "Successfully applied for leave!";
             header("Location: apply_leave.php"); // Redirect to apply_leave.php to show the message
             exit();
@@ -72,6 +72,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $stmt->close();
     }
 
-    $con->close();
+    $conn->close();
 }
 ?>

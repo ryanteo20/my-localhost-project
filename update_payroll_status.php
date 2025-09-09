@@ -22,7 +22,7 @@ if ($employee_id && $month && $year) {
     ";
 
     // Prepare and bind the query parameters
-    if ($stmt = mysqli_prepare($con, $update_query)) {
+    if ($stmt = mysqli_prepare($conn, $update_query)) {
         mysqli_stmt_bind_param($stmt, "iii", $employee_id, $month, $year);
 
         // Execute the query
@@ -30,14 +30,14 @@ if ($employee_id && $month && $year) {
             echo 'Status updated successfully';
         } else {
             // Log any errors to troubleshoot
-            error_log('Error executing query: ' . mysqli_error($con));
+            error_log('Error executing query: ' . mysqli_error($conn));
             echo 'Error updating status';
         }
 
         mysqli_stmt_close($stmt);
     } else {
         // Log errors if the query preparation fails
-        error_log('Error preparing the query: ' . mysqli_error($con));
+        error_log('Error preparing the query: ' . mysqli_error($conn));
         echo 'Error preparing query';
     }
 } else {
@@ -45,5 +45,5 @@ if ($employee_id && $month && $year) {
 }
 
 // Close the database connection
-mysqli_close($con);
+mysqli_close($conn);
 ?>

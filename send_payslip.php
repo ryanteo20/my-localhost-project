@@ -34,7 +34,7 @@ $query = "SELECT p.transaction_id, p.employee_id, pi.full_name, pi.email, pi.ic,
            LEFT JOIN employment_detail ed ON p.employee_id = ed.employment_id
            WHERE p.employee_id = ? AND MONTH(p.pay_period_start) = ? AND YEAR(p.pay_period_start) = ? AND p.status = 'confirmed'";
 
-$stmt = mysqli_prepare($con, $query);
+$stmt = mysqli_prepare($conn, $query);
 mysqli_stmt_bind_param($stmt, "iii", $employee_id, $month, $year);
 mysqli_stmt_execute($stmt);
 $result = mysqli_stmt_get_result($stmt);

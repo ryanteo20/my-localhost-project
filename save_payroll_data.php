@@ -34,10 +34,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  created_at, updated_at) 
               VALUES 
                 (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-    $stmt = mysqli_prepare($con, $query);
+    $stmt = mysqli_prepare($conn, $query);
     
     if ($stmt === false) {
-        echo json_encode(['success' => false, 'message' => 'Database error: ' . mysqli_error($con)]);
+        echo json_encode(['success' => false, 'message' => 'Database error: ' . mysqli_error($conn)]);
         exit;
     }
 
@@ -48,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (mysqli_stmt_execute($stmt)) {
         echo json_encode(['success' => true, 'message' => 'Payroll data saved successfully']);
     } else {
-        echo json_encode(['success' => false, 'message' => 'Error saving payroll data: ' . mysqli_error($con)]);
+        echo json_encode(['success' => false, 'message' => 'Error saving payroll data: ' . mysqli_error($conn)]);
     }
 
     mysqli_stmt_close($stmt);

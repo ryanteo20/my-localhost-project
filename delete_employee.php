@@ -5,20 +5,20 @@ require('database.php');
 // Check if the employee ID is provided
 if (isset($_POST['employeeId'])) {
     // Sanitize the input to prevent SQL injection
-    $employeeId = mysqli_real_escape_string($con, $_POST['employeeId']);
+    $employeeId = mysqli_real_escape_string($conn, $_POST['employeeId']);
     
     // Prepare the SQL query to delete the employee
     $query = "DELETE FROM employeelogin WHERE ID = '$employeeId'";
     
     // Execute the query
-    if (mysqli_query($con, $query)) {
+    if (mysqli_query($conn, $query)) {
         // Deletion successful
-        mysqli_close($con);
+        mysqli_close($conn);
         // Return success response
         echo json_encode(array("status" => "success"));
     } else {
         // Deletion failed
-        echo json_encode(array("status" => "error", "message" => "Error deleting employee: " . mysqli_error($con)));
+        echo json_encode(array("status" => "error", "message" => "Error deleting employee: " . mysqli_error($conn)));
     }
 } else {
     // No employee ID provided

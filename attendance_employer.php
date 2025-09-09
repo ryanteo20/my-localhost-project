@@ -16,18 +16,18 @@ $location_coordinates = null;
 
 // Function to insert notification into the database
 function insertNotification($employee_id, $employer_id, $message) {
-    global $con;
+    global $conn;
     $query = "INSERT INTO notifications (employee_id, employer_id, message, status, created_at) VALUES (?, ?, ?, 'unread', NOW())";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("iis", $employee_id, $employer_id, $message);
     return $stmt->execute();
 }
 
 // Function to get employee name
 function getEmployeeName($employee_id) {
-    global $con;
+    global $conn;
     $query = "SELECT username FROM employeelogin WHERE ID = ?";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $employee_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -38,7 +38,7 @@ function getEmployeeName($employee_id) {
 // Function to get employer ID and email for an employee
 // Function to get employer ID and email for an employee
 function getEmployerInfo($employee_id) {
-    global $con;
+    global $conn;
     
     // SQL query to get employer info
     $query = "SELECT el.employer_id, e.email as employer_email 
@@ -47,11 +47,11 @@ function getEmployerInfo($employee_id) {
               WHERE el.ID = ?";
     
     // Prepare the query
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     
     if (!$stmt) {
         // If the prepare statement fails, output the specific MySQL error
-        echo "✗ Error preparing query: " . $con->error . "\n";
+        echo "✗ Error preparing query: " . $conn->error . "\n";
         return null;
     }
 
@@ -79,12 +79,12 @@ function getEmployerInfo($employee_id) {
 
 // Function to check if notification already exists today
 function notificationExistsToday($employee_id, $employer_id, $message_pattern) {
-    global $con, $date;
+    global $conn, $date;
     $query = "SELECT ID FROM notifications 
               WHERE employee_id = ? AND employer_id = ? 
               AND DATE(created_at) = ? 
               AND message LIKE ?";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("iiss", $employee_id, $employer_id, $date, $message_pattern);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -93,7 +93,7 @@ function notificationExistsToday($employee_id, $employer_id, $message_pattern) {
 
 // Function to create absent records and send notifications
 function processAbsentEmployees() {
-    global $con, $date;
+    global $conn, $date;
     
     // SQL query to get the absent employees
     $query = "SELECT a.employee_id, el.username, el.employer_id, pi.email as employer_email
@@ -104,11 +104,11 @@ function processAbsentEmployees() {
               WHERE a.date = ? AND a.status = 'absent'
               LIMIT 1";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     
     if (!$stmt) {
         // Output the specific error message from MySQL
-        echo "✗ Error preparing query: " . $con->error . "\n";
+        echo "✗ Error preparing query: " . $conn->error . "\n";
         return;
     }
 
@@ -123,10 +123,10 @@ function processAbsentEmployees() {
         // Insert system notification
         $notifyQuery = "INSERT INTO notifications (employee_id, employer_id, message, status, created_at) 
                        VALUES (?, ?, ?, 'unread', NOW())";
-        $notifyStmt = $con->prepare($notifyQuery);
+        $notifyStmt = $conn->prepare($notifyQuery);
         
         if (!$notifyStmt) {
-            echo "✗ Error preparing notification query: " . $con->error . "\n";
+            echo "✗ Error preparing notification query: " . $conn->error . "\n";
             return;
         }
         
@@ -219,7 +219,7 @@ processAbsentEmployees();
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_in'])) {
     // First, check if there's an absent record for today and update it
     $checkAbsentQuery = "SELECT * FROM attendance WHERE employee_id = ? AND date = ? AND status = 'absent'";
-    $checkAbsentStmt = $con->prepare($checkAbsentQuery);
+    $checkAbsentStmt = $conn->prepare($checkAbsentQuery);
     $checkAbsentStmt->bind_param("is", $employee_id, $date);
     $checkAbsentStmt->execute();
     $absentResult = $checkAbsentStmt->get_result();
@@ -228,7 +228,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_in'])) {
         // Update the absent record to present with clock in time
         $query = "UPDATE attendance SET clock_in = ?, status = ?, ip_address = ?, location_coordinates = ? 
                   WHERE employee_id = ? AND date = ?";
-        $stmt = $con->prepare($query);
+        $stmt = $conn->prepare($query);
         $stmt->bind_param("sssssi", $time_now, $status, $ip_address, $location_coordinates, $employee_id, $date);
     } else {
         // Insert new record
@@ -236,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_in'])) {
                   VALUES (?, ?, ?, ?, ?, ?)
                   ON DUPLICATE KEY UPDATE clock_in = VALUES(clock_in), status = VALUES(status), 
                   ip_address = VALUES(ip_address), location_coordinates = VALUES(location_coordinates)";
-        $stmt = $con->prepare($query);
+        $stmt = $conn->prepare($query);
         $stmt->bind_param("isssss", $employee_id, $date, $time_now, $status, $ip_address, $location_coordinates);
     }
     
@@ -251,7 +251,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_in'])) {
 // Handle Clock Out
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_out'])) {
     $checkQuery = "SELECT clock_out FROM attendance WHERE employee_id = ? AND date = ?";
-    $checkStmt = $con->prepare($checkQuery);
+    $checkStmt = $conn->prepare($checkQuery);
     $checkStmt->bind_param("is", $employee_id, $date);
     $checkStmt->execute();
     $result = $checkStmt->get_result();
@@ -260,7 +260,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_out'])) {
         if (empty($row['clock_out'])) {
             // Update clock-out time
             $updateQuery = "UPDATE attendance SET clock_out = ?, ip_address = ? WHERE employee_id = ? AND date = ?";
-            $updateStmt = $con->prepare($updateQuery);
+            $updateStmt = $conn->prepare($updateQuery);
             $updateStmt->bind_param("ssis", $time_now, $ip_address, $employee_id, $date);
             
             if ($updateStmt->execute()) {
@@ -273,7 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['check_out'])) {
 
 // ✅ Fetch today's attendance
 $query = "SELECT * FROM attendance WHERE employee_id = ? AND date = ?";
-$stmt = $con->prepare($query);
+$stmt = $conn->prepare($query);
 $stmt->bind_param("is", $employee_id, $date);
 $stmt->execute();
 $result = $stmt->get_result();

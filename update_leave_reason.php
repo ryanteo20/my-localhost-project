@@ -11,7 +11,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         require('database.php'); // Include database connection
 
         $query = "UPDATE leave_apply SET leave_reason = ? WHERE leave_id = ?";
-        $stmt = mysqli_prepare($con, $query);
+        $stmt = mysqli_prepare($conn, $query);
         
         if ($stmt) {
             mysqli_stmt_bind_param($stmt, "si", $reason, $leaveId);
@@ -28,10 +28,10 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             mysqli_stmt_close($stmt);
         } else {
             // Error preparing statement
-            echo "Error preparing statement: " . mysqli_error($con);
+            echo "Error preparing statement: " . mysqli_error($conn);
         }
 
-        mysqli_close($con);
+        mysqli_close($conn);
     } else {
         // Parameters not set
         echo "Error: leaveId and reason parameters are required.";

@@ -25,14 +25,14 @@ function logMessage($message) {
 
 // Function to insert notification into the database
 function insertNotification($employee_id, $employer_id, $message) {
-    global $con;
+    global $conn;
     
     $query = "INSERT INTO notifications (employee_id, employer_id, message, status, created_at) 
               VALUES (?, ?, ?, 'unread', NOW())";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     
     if (!$stmt) {
-        logMessage("Error preparing notification query: " . $con->error);
+        logMessage("Error preparing notification query: " . $conn->error);
         return false;
     }
     
@@ -50,13 +50,13 @@ function insertNotification($employee_id, $employer_id, $message) {
 
 // Function to check if notification already exists today
 function notificationExistsToday($employee_id, $employer_id, $message_pattern) {
-    global $con, $date;
+    global $conn, $date;
     
     $query = "SELECT ID FROM notifications 
               WHERE employee_id = ? AND employer_id = ? 
               AND DATE(created_at) = ? 
               AND message LIKE ?";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("iiss", $employee_id, $employer_id, $date, $message_pattern);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -65,10 +65,10 @@ function notificationExistsToday($employee_id, $employer_id, $message_pattern) {
 
 // Function to get employer email
 function getEmployerEmail($employer_id) {
-    global $con;
+    global $conn;
     
     $query = "SELECT email FROM employeelogin WHERE ID = ? AND role IN ('employer', 'admin')";
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("i", $employer_id);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -79,7 +79,7 @@ function getEmployerEmail($employer_id) {
 
 // MAIN FUNCTION: Mark employees as absent and send notifications
 function markAbsentEmployees() {
-    global $con, $date;
+    global $conn, $date;
     
     logMessage("Starting absent employee check for $date");
     
@@ -91,7 +91,7 @@ function markAbsentEmployees() {
               AND el.status = 'active'
               AND a.employee_id IS NULL";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $date);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -110,7 +110,7 @@ function markAbsentEmployees() {
         $insertQuery = "INSERT INTO attendance (employee_id, date, status, created_at) 
                        VALUES (?, ?, 'absent', NOW())
                        ON DUPLICATE KEY UPDATE status = 'absent'";
-        $insertStmt = $con->prepare($insertQuery);
+        $insertStmt = $conn->prepare($insertQuery);
         $insertStmt->bind_param("is", $employee_id, $date);
         
         if ($insertStmt->execute()) {
@@ -157,7 +157,7 @@ function markAbsentEmployees() {
 
 // Function to check for late clock-ins
 function checkLateClockIns() {
-    global $con, $date;
+    global $conn, $date;
     
     logMessage("Checking for late clock-ins for $date");
     
@@ -169,7 +169,7 @@ function checkLateClockIns() {
               AND TIME(a.clock_in) > '09:00:00'
               AND el.status = 'active'";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $date);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -204,7 +204,7 @@ function checkLateClockIns() {
 
 // Function to check for early clock-outs
 function checkEarlyClockOuts() {
-    global $con, $date;
+    global $conn, $date;
     
     logMessage("Checking for early clock-outs for $date");
     
@@ -216,7 +216,7 @@ function checkEarlyClockOuts() {
               AND TIME(a.clock_out) < '18:00:00'
               AND el.status = 'active'";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $date);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -251,7 +251,7 @@ function checkEarlyClockOuts() {
 
 // Function to check for missing clock-outs
 function checkMissingClockOuts() {
-    global $con, $date;
+    global $conn, $date;
     
     logMessage("Checking for missing clock-outs for $date");
     
@@ -263,7 +263,7 @@ function checkMissingClockOuts() {
               AND (a.clock_out IS NULL OR a.clock_out = '')
               AND el.status = 'active'";
     
-    $stmt = $con->prepare($query);
+    $stmt = $conn->prepare($query);
     $stmt->bind_param("s", $date);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -293,7 +293,7 @@ function checkMissingClockOuts() {
 
 // Function to generate daily attendance report
 function generateDailyReport() {
-    global $con, $date;
+    global $conn, $date;
     
     logMessage("Generating daily attendance report for $date");
     
@@ -308,7 +308,7 @@ function generateDailyReport() {
                     LEFT JOIN attendance a ON el.ID = a.employee_id AND a.date = ?
                     WHERE el.role = 'employee' AND el.status = 'active'";
     
-    $stmt = $con->prepare($stats_query);
+    $stmt = $conn->prepare($stats_query);
     $stmt->bind_param("s", $date);
     $stmt->execute();
     $stats = $stmt->get_result()->fetch_assoc();
@@ -324,7 +324,7 @@ function generateDailyReport() {
     $employers_query = "SELECT DISTINCT ID, email, username as company_name 
                        FROM employeelogin 
                        WHERE role IN ('employer', 'admin') AND status = 'active'";
-    $employers_result = $con->query($employers_query);
+    $employers_result = $conn->query($employers_query);
     
     while ($employer = $employers_result->fetch_assoc()) {
         sendDailyReportToEmployer($employer, $stats);
@@ -333,7 +333,7 @@ function generateDailyReport() {
 
 // Function to send daily report email
 function sendDailyReportToEmployer($employer, $stats) {
-    global $con, $date;
+    global $conn, $date;
     
     $subject = "Daily Attendance Report - " . date('F j, Y', strtotime($date));
     

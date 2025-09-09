@@ -31,7 +31,7 @@ if ($status === 'Approved') {
     $sql = "UPDATE claims 
             SET status = ?, approved_at = ?, rejection_reason = NULL 
             WHERE claim_id = ?";
-    $stmt = mysqli_prepare($con, $sql) or die("Prepare failed: " . mysqli_error($con));
+    $stmt = mysqli_prepare($conn, $sql) or die("Prepare failed: " . mysqli_error($conn));
     
     // Bind 3 parameters: status, approved_at, claim_id
     mysqli_stmt_bind_param($stmt, "ssi", $status, $approved_at, $claim_id);
@@ -41,7 +41,7 @@ if ($status === 'Approved') {
     $sql = "UPDATE claims 
             SET status = ?, rejection_reason = ? 
             WHERE claim_id = ?";
-    $stmt = mysqli_prepare($con, $sql) or die("Prepare failed: " . mysqli_error($con));
+    $stmt = mysqli_prepare($conn, $sql) or die("Prepare failed: " . mysqli_error($conn));
     mysqli_stmt_bind_param($stmt, "ssi", $status, $reason, $claim_id);
 }
 
@@ -53,4 +53,4 @@ if (mysqli_stmt_execute($stmt)) {
 }
 
 mysqli_stmt_close($stmt);
-mysqli_close($con);
+mysqli_close($conn);

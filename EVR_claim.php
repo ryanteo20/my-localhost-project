@@ -228,7 +228,7 @@ ini_set('display_errors', 1);
                     GROUP BY el.username, la.claim_id, la.category, la.transaction_date, la.amount, la.invoice_number, la.notes, la.attachment, la.status, la.created_at, la.rejection_reason, la.approved_at
                 ";
 
-                $stmt = mysqli_prepare($con, $query);
+                $stmt = mysqli_prepare($conn, $query);
                 mysqli_stmt_bind_param($stmt, "i", $user_id);  // Bind the user ID to the query
                 $result = mysqli_stmt_execute($stmt);
                 ?>
@@ -282,7 +282,7 @@ ini_set('display_errors', 1);
                         echo "Error executing query: " . mysqli_stmt_error($stmt);
                     }
                     mysqli_stmt_close($stmt);
-                    mysqli_close($con);
+                    mysqli_close($conn);
                     ?>
                 </tbody>
             </table>

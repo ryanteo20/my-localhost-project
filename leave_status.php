@@ -238,7 +238,7 @@ ini_set('display_errors', 1);
                             WHERE el.ID = ?";
 
                     // Prepare the statement
-                    $stmt = mysqli_prepare($con, $query);
+                    $stmt = mysqli_prepare($conn, $query);
 
                     // Bind the user session ID parameter
                     mysqli_stmt_bind_param($stmt, "s", $userSessionID);
@@ -279,7 +279,7 @@ ini_set('display_errors', 1);
                     mysqli_stmt_close($stmt);
 
                     // Close the database connection
-                    mysqli_close($con);
+                    mysqli_close($conn);
                     ?>
                 </tbody>
                 </table>

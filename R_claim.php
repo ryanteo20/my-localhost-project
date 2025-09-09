@@ -12,7 +12,7 @@ $user_id = $_SESSION['ID'];
 // Safe: Fetch user's full name from `personal_information`
 $fullname = "Unknown";
 $query = "SELECT full_name FROM personal_information WHERE personal_id = ?";
-$stmt = mysqli_prepare($con, $query);
+$stmt = mysqli_prepare($conn, $query);
 
 if ($stmt) {
     mysqli_stmt_bind_param($stmt, "i", $user_id);
@@ -324,7 +324,7 @@ require 'vendor/autoload.php';
                                 $query_pending_review = "SELECT COUNT(*) AS pending FROM claims WHERE status = 'Pending'";
 
                                 // Execute the query
-                                $result_pending_review = mysqli_query($con, $query_pending_review);
+                                $result_pending_review = mysqli_query($conn, $query_pending_review);
 
                                 // Check if the query executed successfully
                                 if ($result_pending_review) {
@@ -380,7 +380,7 @@ require 'vendor/autoload.php';
                                             ";
 
                                             // Execute the query
-                                            $result_current_month_approve = mysqli_query($con, $query_current_month_approve);
+                                            $result_current_month_approve = mysqli_query($conn, $query_current_month_approve);
 
                                             // Check if the query executed successfully
                                             if ($result_current_month_approve) {
@@ -392,7 +392,7 @@ require 'vendor/autoload.php';
 
                                             } else {
                                                 // Error handling if the query fails
-                                                $approveCount = "Error: " . mysqli_error($con);
+                                                $approveCount = "Error: " . mysqli_error($conn);
                                             }
 
                                             // Output the total number of approved claims this month within the card

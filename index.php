@@ -23,7 +23,7 @@ if ($current_month == 1) {
 
 // Query for total approved leave in the current month
 $query_current_approved_leave = "SELECT COUNT(*) AS current_approved_leave FROM leave_apply WHERE leave_review = 'Approved' AND MONTH(leave_datestart) = ? AND YEAR(leave_datestart) = ?";
-$stmt = $con->prepare($query_current_approved_leave);
+$stmt = $conn->prepare($query_current_approved_leave);
 $stmt->bind_param("ii", $current_month, $current_year);
 $stmt->execute();
 $current_approved_leave_result = $stmt->get_result()->fetch_assoc();
@@ -31,7 +31,7 @@ $current_approved_leave = $current_approved_leave_result['current_approved_leave
 
 // Query for total approved leave in the previous month
 $query_previous_approved_leave = "SELECT COUNT(*) AS previous_approved_leave FROM leave_apply WHERE leave_review = 'Approved' AND MONTH(leave_datestart) = ? AND YEAR(leave_datestart) = ?";
-$stmt = $con->prepare($query_previous_approved_leave);
+$stmt = $conn->prepare($query_previous_approved_leave);
 $stmt->bind_param("ii", $previous_month, $previous_year);
 $stmt->execute();
 $previous_approved_leave_result = $stmt->get_result()->fetch_assoc();
@@ -39,7 +39,7 @@ $previous_approved_leave = $previous_approved_leave_result['previous_approved_le
 
 // Query for total approved claims in the current month
 $query_current_approved_claims = "SELECT COUNT(*) AS current_approved_claims FROM claims WHERE status = 'Approved' AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?";
-$stmt = $con->prepare($query_current_approved_claims);
+$stmt = $conn->prepare($query_current_approved_claims);
 $stmt->bind_param("ii", $current_month, $current_year);
 $stmt->execute();
 $current_approved_claims_result = $stmt->get_result()->fetch_assoc();
@@ -47,7 +47,7 @@ $current_approved_claims = $current_approved_claims_result['current_approved_cla
 
 // Query for total approved claims in the previous month
 $query_previous_approved_claims = "SELECT COUNT(*) AS previous_approved_claims FROM claims WHERE status = 'Approved' AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?";
-$stmt = $con->prepare($query_previous_approved_claims);
+$stmt = $conn->prepare($query_previous_approved_claims);
 $stmt->bind_param("ii", $previous_month, $previous_year);
 $stmt->execute();
 $previous_approved_claims_result = $stmt->get_result()->fetch_assoc();
@@ -321,7 +321,7 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
                   <?php
                   require('database.php');
                   $query = "SELECT COUNT(*) AS total_employees FROM employeelogin";
-                  $result = mysqli_query($con, $query);
+                  $result = mysqli_query($conn, $query);
                   if ($result) {
                       $row = mysqli_fetch_assoc($result);
                       $totalEmployees = $row['total_employees'];
@@ -350,7 +350,7 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
                   <?php
                   require('database.php');
                   $query_pending_review = "SELECT COUNT(*) AS pending_review FROM leave_apply WHERE leave_review = 'Pending for review'";
-                  $result_pending_review = mysqli_query($con, $query_pending_review);
+                  $result_pending_review = mysqli_query($conn, $query_pending_review);
                   if ($result_pending_review) {
                       $row_pending_review = mysqli_fetch_assoc($result_pending_review);
                       $pendingReview = $row_pending_review['pending_review'];
@@ -381,7 +381,7 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
                   <?php
                   require('database.php');
                   $query_pending_claims = "SELECT COUNT(*) AS pending_claims FROM claims WHERE status = 'Pending'";
-                  $result_pending_claims = mysqli_query($con, $query_pending_claims);
+                  $result_pending_claims = mysqli_query($conn, $query_pending_claims);
                   if ($result_pending_claims) {
                       $row_pending_claims = mysqli_fetch_assoc($result_pending_claims);
                       $pendingClaims = $row_pending_claims['pending_claims'];

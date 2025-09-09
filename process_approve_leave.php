@@ -17,12 +17,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $query = "UPDATE leave_apply SET leave_review = ?, rejection_reason = ? WHERE leave_id = ?";
 
     // Prepare the statement
-    $stmt = mysqli_prepare($con, $query);
+    $stmt = mysqli_prepare($conn, $query);
 
     // Check if the statement preparation was successful
     if ($stmt === false) {
         // Output error and stop execution
-        echo "Error preparing the statement: " . mysqli_error($con);
+        echo "Error preparing the statement: " . mysqli_error($conn);
         exit;
     }
 
@@ -38,6 +38,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Close the statement and the connection
     mysqli_stmt_close($stmt);
-    mysqli_close($con);
+    mysqli_close($conn);
 }
 ?>

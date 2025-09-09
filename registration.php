@@ -10,15 +10,15 @@
 
             if (isset($_REQUEST['username'])){
                 $username = stripslashes($_REQUEST['username']);
-                $username = mysqli_real_escape_string($con,$username);
+                $username = mysqli_real_escape_string($conn,$username);
                 $password = stripslashes($_REQUEST['password']);
-                $password = mysqli_real_escape_string($con,$password);
+                $password = mysqli_real_escape_string($conn,$password);
                 $reg_date = date("Y-m-d H:i:s");
 
             $query = "INSERT into `employeelogin` (username, password, reg_date)
             VALUES ('$username', '".md5($password)."','$reg_date')";
             
-            $result = mysqli_query($con,$query);
+            $result = mysqli_query($conn,$query);
 
             if($result){
             echo "<div class='form'>

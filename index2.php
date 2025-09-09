@@ -253,11 +253,11 @@ if ($_SESSION['role'] != 'Employee') {
                             $query = "SELECT annual_leave, annual_leavetaken FROM leave_info WHERE leaveinfo_id = ?";
 
                             // Use prepared statement to prevent SQL injection
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             if (!$stmt) {
                                 // Handle the error if the statement preparation fails
-                                exit("Error: " . mysqli_error($con));
+                                exit("Error: " . mysqli_error($conn));
                             }
 
                             // Bind the session ID parameter
@@ -265,7 +265,7 @@ if ($_SESSION['role'] != 'Employee') {
 
                             if (!$success) {
                                 // Handle the error if binding parameters fails
-                                exit("Error binding parameters: " . mysqli_error($con));
+                                exit("Error binding parameters: " . mysqli_error($conn));
                             }
 
                             // Execute the query
@@ -273,7 +273,7 @@ if ($_SESSION['role'] != 'Employee') {
 
                             if (!$success) {
                                 // Handle the error if execution fails
-                                exit("Error executing query: " . mysqli_error($con));
+                                exit("Error executing query: " . mysqli_error($conn));
                             }
 
                             // Bind the result variables
@@ -292,7 +292,7 @@ if ($_SESSION['role'] != 'Employee') {
                             echo "<h6>$remainingAnnualLeave</h6>";
 
                             // Close the database connection
-                            mysqli_close($con);
+                            mysqli_close($conn);
                             ?>
                           </div>
                       </div>
@@ -336,11 +336,11 @@ if ($_SESSION['role'] != 'Employee') {
                                             
 
                             // Use prepared statement to prevent SQL injection
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             if (!$stmt) {
                                 // Handle the error if the statement preparation fails
-                                exit("Error: " . mysqli_error($con));
+                                exit("Error: " . mysqli_error($conn));
                             }
 
                             // Bind the session ID parameter
@@ -348,7 +348,7 @@ if ($_SESSION['role'] != 'Employee') {
 
                             if (!$success) {
                                 // Handle the error if binding parameters fails
-                                exit("Error binding parameters: " . mysqli_error($con));
+                                exit("Error binding parameters: " . mysqli_error($conn));
                             }
 
                             // Execute the query
@@ -356,7 +356,7 @@ if ($_SESSION['role'] != 'Employee') {
 
                             if (!$success) {
                                 // Handle the error if execution fails
-                                exit("Error executing query: " . mysqli_error($con));
+                                exit("Error executing query: " . mysqli_error($conn));
                             }
 
                             // Bind the result variables
@@ -375,7 +375,7 @@ if ($_SESSION['role'] != 'Employee') {
                             echo "<h6>$remainingSickLeave</h6>";
 
                             // Close the database connection
-                            mysqli_close($con);
+                            mysqli_close($conn);
                             ?>
                           </div>
                         </div>
@@ -418,11 +418,11 @@ if ($_SESSION['role'] != 'Employee') {
                                             
 
                             // Use prepared statement to prevent SQL injection
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             if (!$stmt) {
                                 // Handle the error if the statement preparation fails
-                                exit("Error: " . mysqli_error($con));
+                                exit("Error: " . mysqli_error($conn));
                             }
 
                             // Bind the session ID parameter
@@ -430,7 +430,7 @@ if ($_SESSION['role'] != 'Employee') {
 
                             if (!$success) {
                                 // Handle the error if binding parameters fails
-                                exit("Error binding parameters: " . mysqli_error($con));
+                                exit("Error binding parameters: " . mysqli_error($conn));
                             }
 
                             // Execute the query
@@ -438,7 +438,7 @@ if ($_SESSION['role'] != 'Employee') {
 
                             if (!$success) {
                                 // Handle the error if execution fails
-                                exit("Error executing query: " . mysqli_error($con));
+                                exit("Error executing query: " . mysqli_error($conn));
                             }
 
                             // Bind the result variables
@@ -457,7 +457,7 @@ if ($_SESSION['role'] != 'Employee') {
                             echo "<h6>$remainingHospitalizationLeave</h6>";
 
                             // Close the database connection
-                            mysqli_close($con);
+                            mysqli_close($conn);
                             ?>
                             </div>
                         </div>

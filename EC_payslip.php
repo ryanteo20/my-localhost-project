@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                   AND MONTH(pt.pay_period_start) = ? 
                   AND YEAR(pt.pay_period_start) = ?
                   ORDER BY pt.payment_date DESC";
-        $stmt = mysqli_prepare($con, $query);
+        $stmt = mysqli_prepare($conn, $query);
         mysqli_stmt_bind_param($stmt, "iii", $employee_id, $month, $year);
         mysqli_stmt_execute($stmt);
         $result = mysqli_stmt_get_result($stmt);

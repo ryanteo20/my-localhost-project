@@ -280,9 +280,9 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                     WHERE cr.status = 'Pending'$dateFilterSQL";
 
 
-                    $stmt = mysqli_prepare($con, $query);
+                    $stmt = mysqli_prepare($conn, $query);
                     if (!$stmt) {
-                        die("Query prepare failed: " . mysqli_error($con));
+                        die("Query prepare failed: " . mysqli_error($conn));
                     }
                     $result = mysqli_stmt_execute($stmt);
                     $modalsContent = '';
@@ -338,7 +338,7 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                     }
 
                     mysqli_stmt_close($stmt);
-                    mysqli_close($con);
+                    mysqli_close($conn);
                 ?>
                 </tbody>
                 <?= $modalsContent ?>
@@ -369,7 +369,7 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                     INNER JOIN claims cr ON el.ID = cr.employee_id
                     WHERE cr.status = 'Approved'$dateFilterSQL";
 
-                    $stmt = mysqli_prepare($con, $query);
+                    $stmt = mysqli_prepare($conn, $query);
 
                     if ($stmt) {
                         $result = mysqli_stmt_execute($stmt);
@@ -407,10 +407,10 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
 
                         mysqli_stmt_close($stmt);
                     } else {
-                        echo "Error preparing statement: " . mysqli_error($con);
+                        echo "Error preparing statement: " . mysqli_error($conn);
                     }
 
-                    mysqli_close($con);
+                    mysqli_close($conn);
                     ?>
                         </tbody>
                     </table> 
@@ -439,7 +439,7 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                                 INNER JOIN claims cr ON el.ID = cr.employee_id
                                 WHERE cr.status = 'Rejected'$dateFilterSQL";
 
-                            $stmt = mysqli_prepare($con, $query);
+                            $stmt = mysqli_prepare($conn, $query);
 
                             if ($stmt) {
                                 $result = mysqli_stmt_execute($stmt);
@@ -476,10 +476,10 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
 
                                 mysqli_stmt_close($stmt);
                             } else {
-                                echo "Error preparing statement: " . mysqli_error($con);
+                                echo "Error preparing statement: " . mysqli_error($conn);
                             }
 
-                            mysqli_close($con);
+                            mysqli_close($conn);
                             ?>
                         </tbody>
                     </table>                 

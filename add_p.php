@@ -2,45 +2,45 @@
 require('database.php');
 require('session.php');
 
-function handlePersonalInformation($con) {
+function handlePersonalInformation($conn) {
   if (isset($_REQUEST['inputName5'])) {
       // Retrieve form data
       $fullName = stripslashes($_REQUEST['inputName5']);
-      $fullName = mysqli_real_escape_string($con, $fullName);
+      $fullName = mysqli_real_escape_string($conn, $fullName);
       $email = stripslashes($_REQUEST['inputEmail5']);
-      $email = mysqli_real_escape_string($con, $email);
+      $email = mysqli_real_escape_string($conn, $email);
       $phoneNumber = stripslashes($_REQUEST['inputNumber5']);
-      $phoneNumber= mysqli_real_escape_string($con, $phoneNumber);
+      $phoneNumber= mysqli_real_escape_string($conn, $phoneNumber);
       $ic = stripslashes($_REQUEST['inputIC5']);
-      $ic= mysqli_real_escape_string($con, $ic);
+      $ic= mysqli_real_escape_string($conn, $ic);
       $address = stripslashes($_REQUEST['inputAddress5']);
-      $address = mysqli_real_escape_string($con, $address);
+      $address = mysqli_real_escape_string($conn, $address);
       $address2 = stripslashes($_REQUEST['inputAddress2']);
-      $address2 = mysqli_real_escape_string($con, $address2);
+      $address2 = mysqli_real_escape_string($conn, $address2);
       $zip = stripslashes($_REQUEST['inputZip']);
-      $zip = mysqli_real_escape_string($con, $zip);
+      $zip = mysqli_real_escape_string($conn, $zip);
       $city = stripslashes($_REQUEST['inputCity']);
-      $city = mysqli_real_escape_string($con, $city);
+      $city = mysqli_real_escape_string($conn, $city);
       $state = stripslashes($_REQUEST['inputState']);
-      $state = mysqli_real_escape_string($con, $state);
+      $state = mysqli_real_escape_string($conn, $state);
       $race = stripslashes($_REQUEST['inputRace']);
-      $race = mysqli_real_escape_string($con, $race);
+      $race = mysqli_real_escape_string($conn, $race);
       $religion = stripslashes($_REQUEST['inputReligion']);
-      $religion = mysqli_real_escape_string($con, $religion);
+      $religion = mysqli_real_escape_string($conn, $religion);
       $marital = stripslashes($_REQUEST['inputMarital']);
-      $marital = mysqli_real_escape_string($con, $marital);
+      $marital = mysqli_real_escape_string($conn, $marital);
       $gender = stripslashes($_REQUEST['inputGender']);
-      $gender = mysqli_real_escape_string($con, $gender);
+      $gender = mysqli_real_escape_string($conn, $gender);
 
       // SQL statement
       $query = "INSERT INTO `personal_information` (full_name, email, phone_number, ic, address, address2, zip, city, state, race, religion, marital, gender) 
       VALUES ('$fullName', '$email', '$phoneNumber', '$ic', '$address', '$address2', '$zip', '$city', '$state', '$race', '$religion', '$marital', '$gender')";
-      $result = mysqli_query($con, $query);
+      $result = mysqli_query($conn, $query);
 
       if ($result) {
           return "Personal information saved successfully.";
       } else {
-          return "Error: " . mysqli_error($con);
+          return "Error: " . mysqli_error($conn);
       }
   }
 }

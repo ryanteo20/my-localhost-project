@@ -277,7 +277,7 @@ if (empty($current_user_id)) {
                 WHERE la.leave_review = 'Pending for review'
                 ORDER BY la.apply_date DESC";
 
-                $stmt = mysqli_prepare($con, $query);
+                $stmt = mysqli_prepare($conn, $query);
                 if ($stmt) {
                     $result = mysqli_stmt_execute($stmt);
                     if ($result) {
@@ -354,7 +354,7 @@ if (empty($current_user_id)) {
                 WHERE la.leave_review = 'Approved'
                 ORDER BY la.apply_date DESC";
 
-                $stmt = mysqli_prepare($con, $query);
+                $stmt = mysqli_prepare($conn, $query);
                 if ($stmt) {
                   $result = mysqli_stmt_execute($stmt);
                   if ($result) {
@@ -408,7 +408,7 @@ if (empty($current_user_id)) {
                 WHERE la.leave_review = 'Rejected'
                 ORDER BY la.apply_date DESC";
 
-                $stmt = mysqli_prepare($con, $query);
+                $stmt = mysqli_prepare($conn, $query);
                 if ($stmt) {
                   $result = mysqli_stmt_execute($stmt);
                   if ($result) {
