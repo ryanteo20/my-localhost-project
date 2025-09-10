@@ -53,21 +53,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 break;
 
             case 'toggle_status':
-                $position_id = (int)$_POST['position_id'];
-                $result = togglePositionStatus($position_id);
-                if ($result['success']) {
+                if (isset($_POST['position_id'])) {
+                    $position_id = (int)$_POST['position_id'];
+                    $result = togglePositionStatus($position_id);
+                    header('Content-Type: application/json');
                     echo json_encode($result);
                     exit;
                 }
                 break;
                 
             case 'delete_position':
-                $position_id = (int)$_GET['id'];
-                $query = "DELETE FROM job_positions WHERE id = $position_id";
-                if (mysqli_query($conn, $query)) {
-                    $success_message = "Position deleted successfully!";
-                } else {
-                    $error_message = "Error deleting position: " . mysqli_error($conn);
+                if (isset($_POST['position_id'])) {
+                    $position_id = (int)$_POST['position_id'];
+                    $query = "DELETE FROM job_positions WHERE id = ?";
+                    $stmt = $conn->prepare($query);
+                    $stmt->bind_param("i", $position_id);
+                    if ($stmt->execute()) {
+                        echo json_encode(['success' => true]);
+                    } else {
+                        echo json_encode(['success' => false, 'message' => 'Database error']);
+                    }
+                    exit;
                 }
                 break;
         }
@@ -85,22 +91,29 @@ if (isset($_GET['action']) && $_GET['action'] == 'delete' && isset($_GET['id']))
     }
 }
 
-// Fetch job positions with error handling
 $search = isset($_GET['search']) ? mysqli_real_escape_string($conn, $_GET['search']) : '';
-$search_condition = $search ? "WHERE job_title LIKE '%$search%' OR application_email LIKE '%$search%'" : '';
 
-$query = "SELECT * FROM job_positions $search_condition ORDER BY created_date DESC";
+// Build the WHERE clause properly
+$where_clause = '';
+if ($search) {
+    $where_clause = "WHERE jp.job_title LIKE '%$search%' OR jp.application_email LIKE '%$search%'";
+}
+
+$query = "SELECT jp.*, 
+    (SELECT COUNT(*) FROM job_applications ja WHERE ja.position_id = jp.id) as applications 
+    FROM job_positions jp 
+    $where_clause
+    ORDER BY jp.created_date DESC";
+
 $result = mysqli_query($conn, $query);
-$job_positions = [];
 
+// Add this line to fetch all results into an array:
+$job_positions = [];
 if ($result) {
     while ($row = mysqli_fetch_assoc($result)) {
         $job_positions[] = $row;
     }
-} else {
-    $error_message = "Error fetching job positions: " . mysqli_error($conn);
 }
-
 function togglePositionStatus($position_id) {
     global $conn;
     
@@ -110,18 +123,21 @@ function togglePositionStatus($position_id) {
     $stmt->bind_param("i", $position_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    $row = $result->fetch_assoc();
     
-    // Toggle the status
-    $new_status = ($row['status'] == 'active') ? 'inactive' : 'active';
-    
-    // Update the status
-    $update_query = "UPDATE job_positions SET status = ? WHERE id = ?";
-    $update_stmt = $conn->prepare($update_query);
-    $update_stmt->bind_param("si", $new_status, $position_id);
-    
-    if ($update_stmt->execute()) {
-        return ["success" => true, "new_status" => $new_status];
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        
+        // Toggle the status
+        $new_status = ($row['status'] == 'active') ? 'inactive' : 'active';
+        
+        // Update the status
+        $update_query = "UPDATE job_positions SET status = ? WHERE id = ?";
+        $update_stmt = $conn->prepare($update_query);
+        $update_stmt->bind_param("si", $new_status, $position_id);
+        
+        if ($update_stmt->execute()) {
+            return ["success" => true, "new_status" => $new_status];
+        }
     }
     return ["success" => false];
 }
@@ -744,10 +760,13 @@ function togglePositionStatus($position_id) {
                 </div>
               </div>
               <div class="col-6">
-                <div class="job-stats">
-                  <div class="stat-number"><?php echo $position['applications']; ?></div>
-                  <div class="stat-label">Application<?php echo $position['applications'] != 1 ? 's' : ''; ?></div>
-                </div>
+                  <div class="job-stats">
+                      <div class="stat-number"><?php 
+                          $app_count = isset($position['applications']) ? (int)$position['applications'] : 0;
+                          echo $app_count; 
+                      ?></div>
+                      <div class="stat-label">Application<?php echo $app_count != 1 ? 's' : ''; ?></div>
+                  </div>
               </div>
             </div>
 
@@ -856,38 +875,20 @@ function togglePositionStatus($position_id) {
   <script src="assets/js/main.js"></script>
 
   <script>
-    function editPosition(positionId) {
-      // Implement edit position functionality
-      alert('Edit position functionality - Position ID: ' + positionId);
-    }
+function editPosition(positionId) {
+    alert('Edit position functionality - Position ID: ' + positionId);
+}
 
-    function viewApplications(positionId) {
-      // Implement view applications functionality
-      alert('View applications functionality - Position ID: ' + positionId);
-    }
+function viewApplications(positionId) {
+    alert('View applications functionality - Position ID: ' + positionId);
+}
 
-    function deletePosition(positionId) {
-      if (confirm('Are you sure you want to delete this job position?')) {
-        // Implement delete position functionality
-        window.location.href = 'recruitment_process.php?action=delete&id=' + positionId;
-      }
-    }
-
-    // Clear form when modal is closed
-    document.getElementById('createPositionModal').addEventListener('hidden.bs.modal', function () {
-      document.querySelector('#createPositionModal form').reset();
-    });
-
-    // Add this to your existing <script> section
-
-function toggleStatus(positionId, button) {
-    if (confirm('Are you sure you want to change the status of this position?')) {
-        // Create form data
+function deletePosition(positionId) {
+    if (confirm('Are you sure you want to delete this job position? This action cannot be undone.')) {
         const formData = new FormData();
-        formData.append('action', 'toggle_status');
+        formData.append('action', 'delete_position');
         formData.append('position_id', positionId);
 
-        // Send AJAX request
         fetch('recruitment_process.php', {
             method: 'POST',
             body: formData
@@ -895,28 +896,18 @@ function toggleStatus(positionId, button) {
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                // Update the status badge
-                const statusBadge = button.closest('.job-card').querySelector('.status-badge');
-                statusBadge.textContent = data.new_status.charAt(0).toUpperCase() + data.new_status.slice(1);
-                statusBadge.className = `status-badge status-${data.new_status}`;
-                
-                // Update the button text
-                button.innerHTML = `<i class="bi bi-toggle-on"></i> ${data.new_status.charAt(0).toUpperCase() + data.new_status.slice(1)}`;
-                
-                // Show success message
-                alert('Status updated successfully!');
+                alert('Position deleted successfully!');
+                location.reload(); // Refresh the page to show updated list
             } else {
-                alert('Failed to update status. Please try again.');
+                alert('Failed to delete position: ' + (data.message || 'Unknown error'));
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while updating the status.');
+            alert('An error occurred while deleting the position.');
         });
     }
 }
-
-// Add to the existing <script> section
 
 function toggleStatus(positionId, button) {
     if (confirm('Are you sure you want to change the status of this position?')) {
@@ -937,7 +928,7 @@ function toggleStatus(positionId, button) {
                 statusBadge.textContent = data.new_status.charAt(0).toUpperCase() + data.new_status.slice(1);
                 statusBadge.className = `status-badge status-${data.new_status}`;
                 
-                // Update the button text
+                // Update the toggle button text
                 button.innerHTML = `<i class="bi bi-toggle-on"></i> ${data.new_status.charAt(0).toUpperCase() + data.new_status.slice(1)}`;
                 
                 // Update the Job Page button state
@@ -946,7 +937,10 @@ function toggleStatus(positionId, button) {
                     jobPageButton.classList.add('disabled');
                     jobPageButton.style.opacity = '0.6';
                     jobPageButton.style.cursor = 'not-allowed';
-                    jobPageButton.onclick = function(e) { return false; };
+                    jobPageButton.onclick = function(e) { 
+                        e.preventDefault(); 
+                        return false; 
+                    };
                 } else {
                     jobPageButton.classList.remove('disabled');
                     jobPageButton.style.opacity = '';
@@ -954,7 +948,6 @@ function toggleStatus(positionId, button) {
                     jobPageButton.onclick = null;
                 }
                 
-                // Show success message
                 alert('Status updated successfully!');
             } else {
                 alert('Failed to update status. Please try again.');
@@ -965,6 +958,38 @@ function toggleStatus(positionId, button) {
             alert('An error occurred while updating the status.');
         });
     }
+}
+
+// Clear form when modal is closed
+document.getElementById('createPositionModal').addEventListener('hidden.bs.modal', function () {
+    document.querySelector('#createPositionModal form').reset();
+});
+
+
+function updateApplicationCount(positionId) {
+    fetch('update_application_count.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            position_id: positionId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Update the applications count display
+            const statsElement = document.querySelector(`[data-position-id="${positionId}"] .stat-number`);
+            if (statsElement) {
+                statsElement.textContent = data.count;
+                // Update plural/singular for "Application(s)"
+                const labelElement = statsElement.nextElementSibling;
+                labelElement.textContent = `Application${data.count !== 1 ? 's' : ''}`;
+            }
+        }
+    })
+    .catch(error => console.error('Error:', error));
 }
   </script>
 
