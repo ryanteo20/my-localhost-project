@@ -350,6 +350,37 @@ textarea.form-control.border-0:focus {
 .add-position-btn:hover {
     background: #364ed9;
 }
+
+.candidate-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 10px;
+}
+
+.rating-stars {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.rating-stars i {
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.rating-stars i:hover {
+    transform: scale(1.2);
+}
+
+.text-warning {
+    color: #ffc107 !important;
+}
+
+.text-muted {
+    color: #6c757d !important;
+}
 </style>
 </head>
 
@@ -595,13 +626,24 @@ textarea.form-control.border-0:focus {
                                             foreach ($applications_by_stage[$stage] as $application):
                                     ?>
                                     <div class="candidate-card" draggable="true" data-id="<?php echo $application['id']; ?>">
-                                        <div class="candidate-name"><?php echo htmlspecialchars($application['candidate_name']); ?></div>
+                                    <div class="candidate-name"><strong><?php echo htmlspecialchars($application['candidate_name']); ?></strong></div>
                                         <div class="candidate-meta">
                                             <span class="position"><?php echo htmlspecialchars($application['job_title']); ?></span>
                                         </div>
-                                        <div class="candidate-actions mt-2">
-                                            <button class="btn btn-sm btn-primary view-candidate" data-id="<?php echo $application['id']; ?>">View</button>
-                                            <button class="btn btn-sm btn-secondary message-candidate" data-id="<?php echo $application['id']; ?>">Message</button>
+                                        <div class="candidate-actions mt-2 d-flex align-items-center justify-content-between">
+                                            <button class="btn btn-sm btn-primary view-candidate" data-id="<?php echo $application['id']; ?>">Edit</button>
+                                            <div class="rating-stars ms-2" data-candidate-id="<?php echo $application['id']; ?>">
+                                                <?php
+                                                $rating = isset($application['rating']) ? (int)$application['rating'] : 0;
+                                                for ($i = 1; $i <= 3; $i++) {
+                                                    if ($i <= $rating) {
+                                                        echo '<i class="bi bi-star-fill text-warning" data-rating="' . $i . '"></i>';
+                                                    } else {
+                                                        echo '<i class="bi bi-star text-muted" data-rating="' . $i . '"></i>';
+                                                    }
+                                                }
+                                                ?>
+                                            </div>
                                         </div>
                                     </div>
                                     <?php 
@@ -629,111 +671,83 @@ textarea.form-control.border-0:focus {
       <form id="addCandidateForm">
         <div class="modal-body">
           <div class="row">
-            <!-- Left Column - Form Fields (Now Larger) -->
+            <!-- Left Column - Form Fields -->
             <div class="col-md-8">
               <div class="card">
                 <div class="card-body">
+                  <!-- Job Position Field First -->
+                  <div class="mb-3">
+                    <label class="form-label">Job Position</label>
+                    <select class="form-control" id="jobPosition" required>
+                      <option value="" disabled selected>Select Position</option>
+                      <?php
+                      $query = "SELECT id, job_title FROM job_positions WHERE status = 'active' ORDER BY job_title";
+                      $result = mysqli_query($conn, $query);
+                      
+                      if ($result && mysqli_num_rows($result) > 0) {
+                          while($row = mysqli_fetch_assoc($result)) {
+                              echo "<option value='".$row['id']."'>".$row['job_title']."</option>";
+                          }
+                      }
+                      ?>
+                    </select>
+                  </div>
+
                   <!-- Name Field -->
                   <div class="mb-3">
-                    <label class="form-label">Name</label>
-                    <input type="text" class="form-control" id="candidateName" placeholder="e.g. John Doe" required>
+                    <label class="form-label">Candidate Name</label>
+                    <input type="text" class="form-control" id="candidateName" required>
                   </div>
 
                   <!-- Email Field -->
                   <div class="mb-3">
                     <label class="form-label">Email</label>
-                    <input type="email" class="form-control" id="candidateEmail" placeholder="e.g. john.doe@example.com" required>
+                    <input type="email" class="form-control" id="candidateEmail" required>
                   </div>
 
-                  <!-- Phone Field -->
+                  <!-- Rating Field -->
                   <div class="mb-3">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" class="form-control" id="candidatePhone" required>
+                    <label class="form-label">Initial Rating (0-5)</label>
+                    <input type="number" class="form-control" id="candidateRating" min="0" max="5" value="0">
                   </div>
 
-                  <!-- Job Position Field with PHP -->
-                  <div class="mb-3">
-                    <label class="form-label">Job Position</label>
-                    <select class="form-control" id="jobPosition" required>
-                        <option value="" disabled selected>Select Position</option>
-                        <?php
-                        $query = "SELECT id, job_title FROM job_positions WHERE status = 'active' ORDER BY job_title";
-                        $result = mysqli_query($conn, $query);
-                        
-                        if ($result && mysqli_num_rows($result) > 0) {
-                            while($row = mysqli_fetch_assoc($result)) {
-                                echo "<option value='".$row['id']."'>".$row['job_title']."</option>";
-                            }
-                        }
-                        ?>
-                    </select>
-                  </div>
-
-                  <!-- Tags -->
-                  <div class="mb-3">
-                    <label class="form-label">Tags</label>
-                    <input type="text" class="form-control" id="tags" placeholder="e.g. Trainee">
-                  </div>
-
-                  <!-- Recruiter Info -->
-                  <div class="mb-3">
-                    <label class="form-label">Recruiter</label>
-                    <div class="d-flex align-items-center">
-                      <img src="assets/img/profile-img.jpg" class="rounded-circle me-2" width="32" height="32">
-                      <span><?php echo $_SESSION['username']; ?></span>
-                    </div>
-                  </div>
+                  <!-- Hidden Stage Field -->
+                  <input type="hidden" id="candidateStage" value="New">
                 </div>
               </div>
             </div>
 
-            <!-- Right Column - Files Section (Now Smaller) -->
+            <!-- Right Column - Files Section -->
             <div class="col-md-4">
               <div class="card">
                 <div class="card-body">
-                  <h6 class="card-title">Files</h6>
+                  <h6 class="card-title">Resume</h6>
                   <div class="border rounded p-3 text-center">
                     <i class="bi bi-cloud-arrow-up fs-3"></i>
-                    <p class="mt-2">Drag & drop or click to attach files</p>
-                    <input type="file" class="form-control" id="resume" multiple>
+                    <p class="mt-2">Drag & drop or click to attach resume</p>
+                    <input type="file" class="form-control" id="resume" accept=".pdf,.doc,.docx">
                   </div>
                   <div class="mt-3">
                     <small class="text-muted">Supported formats: PDF, DOC, DOCX</small>
+                    <small class="text-muted d-block">Max file size: 5MB</small>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Notes Tabs (Now with Larger Textbox) -->
+          <!-- Notes Section -->
           <div class="row mt-3">
             <div class="col-12">
-              <ul class="nav nav-tabs" role="tablist">
-                <li class="nav-item">
-                  <a class="nav-link active" data-bs-toggle="tab" href="#notesTab">Note</a>
-                </li>
-                <li class="nav-item">
-                  <a class="nav-link" data-bs-toggle="tab" href="#detailsTab">Details</a>
-                </li>
-                <li class="nav-item">
-                  <a class="nav-link" data-bs-toggle="tab" href="#skillsTab">Skills</a>
-                </li>
-              </ul>
-              <div class="tab-content p-3 border border-top-0">
-                <div class="tab-pane fade show active" id="notesTab">
-                  <textarea class="form-control border-0" id="candidateNotes" rows="6" 
-                    style="min-height: 150px; resize: vertical;" 
-                    placeholder="Add private notes about this applicant..."></textarea>
-                </div>
-                <div class="tab-pane fade" id="detailsTab">
-                  <textarea class="form-control border-0" rows="6" 
-                    style="min-height: 150px; resize: vertical;"
-                    placeholder="Add additional candidate details here..."></textarea>
-                </div>
-                <div class="tab-pane fade" id="skillsTab">
-                  <textarea class="form-control border-0" rows="6" 
-                    style="min-height: 150px; resize: vertical;"
-                    placeholder="List candidate skills and qualifications here..."></textarea>
+              <div class="card">
+                <div class="card-body">
+                  <h6 class="card-title">Additional Information</h6>
+                  <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" id="candidateNotes" rows="4" 
+                      style="min-height: 120px; resize: vertical;" 
+                      placeholder="Add any additional notes about the candidate..."></textarea>
+                  </div>
                 </div>
               </div>
             </div>
@@ -747,10 +761,8 @@ textarea.form-control.border-0:focus {
     </div>
   </div>
 </div>
-
-<!-- Add this just before the closing </main> tag in job_page.php -->
-
 <!-- View/Edit Candidate Modal -->
+<!-- Edit Candidate Modal -->
 <div class="modal fade" id="viewCandidateModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered modal-lg">
     <div class="modal-content">
@@ -766,24 +778,11 @@ textarea.form-control.border-0:focus {
             <div class="col-md-8">
               <div class="card">
                 <div class="card-body">
-                  <div class="mb-3">
-                    <label class="form-label">Name</label>
-                    <input type="text" class="form-control" id="editCandidateName" required>
-                  </div>
-
-                  <div class="mb-3">
-                    <label class="form-label">Email</label>
-                    <input type="email" class="form-control" id="editCandidateEmail" required>
-                  </div>
-
-                  <div class="mb-3">
-                    <label class="form-label">Phone</label>
-                    <input type="tel" class="form-control" id="editCandidatePhone" required>
-                  </div>
-
+                  <!-- Job Position Field First -->
                   <div class="mb-3">
                     <label class="form-label">Job Position</label>
                     <select class="form-control" id="editJobPosition" required>
+                      <option value="" disabled>Select Position</option>
                       <?php
                       $query = "SELECT id, job_title FROM job_positions WHERE status = 'active' ORDER BY job_title";
                       $result = mysqli_query($conn, $query);
@@ -797,11 +796,25 @@ textarea.form-control.border-0:focus {
                     </select>
                   </div>
 
+                  <!-- Name Field -->
                   <div class="mb-3">
-                    <label class="form-label">Tags</label>
-                    <input type="text" class="form-control" id="editTags">
+                    <label class="form-label">Candidate Name</label>
+                    <input type="text" class="form-control" id="editCandidateName" required>
                   </div>
 
+                  <!-- Email Field -->
+                  <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" class="form-control" id="editCandidateEmail" required>
+                  </div>
+
+                  <!-- Rating Field -->
+                  <div class="mb-3">
+                    <label class="form-label">Rating (0-5)</label>
+                    <input type="number" class="form-control" id="editCandidateRating" min="0" max="5">
+                  </div>
+
+                  <!-- Current Stage -->
                   <div class="mb-3">
                     <label class="form-label">Current Stage</label>
                     <input type="text" class="form-control" id="editStage" readonly>
@@ -814,46 +827,40 @@ textarea.form-control.border-0:focus {
             <div class="col-md-4">
               <div class="card">
                 <div class="card-body">
-                  <h6 class="card-title">Files</h6>
+                  <h6 class="card-title">Resume</h6>
                   <div class="border rounded p-3 text-center">
                     <i class="bi bi-cloud-arrow-up fs-3"></i>
-                    <p class="mt-2">Drag & drop or click to attach files</p>
-                    <input type="file" class="form-control" id="editResume" multiple>
+                    <p class="mt-2">Drag & drop or click to attach resume</p>
+                    <input type="file" class="form-control" id="editResume" accept=".pdf,.doc,.docx">
                   </div>
                   <div class="mt-3">
                     <small class="text-muted">Supported formats: PDF, DOC, DOCX</small>
+                    <small class="text-muted d-block">Max file size: 5MB</small>
+                  </div>
+                  <!-- Current Resume -->
+                  <div id="currentResumeSection" class="mt-3">
+                    <h6 class="text-muted">Current Resume</h6>
+                    <div id="currentResume">
+                      <!-- Will be populated dynamically -->
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Notes Tabs -->
+          <!-- Notes Section -->
           <div class="row mt-3">
             <div class="col-12">
-              <ul class="nav nav-tabs" role="tablist">
-                <li class="nav-item">
-                  <a class="nav-link active" data-bs-toggle="tab" href="#editNotesTab">Notes</a>
-                </li>
-                <li class="nav-item">
-                  <a class="nav-link" data-bs-toggle="tab" href="#editDetailsTab">Details</a>
-                </li>
-                <li class="nav-item">
-                  <a class="nav-link" data-bs-toggle="tab" href="#editSkillsTab">Skills</a>
-                </li>
-              </ul>
-              <div class="tab-content p-3 border border-top-0">
-                <div class="tab-pane fade show active" id="editNotesTab">
-                  <textarea class="form-control border-0" id="editCandidateNotes" rows="6" 
-                    style="min-height: 150px; resize: vertical;"></textarea>
-                </div>
-                <div class="tab-pane fade" id="editDetailsTab">
-                  <textarea class="form-control border-0" id="editDetailsNotes" rows="6" 
-                    style="min-height: 150px; resize: vertical;"></textarea>
-                </div>
-                <div class="tab-pane fade" id="editSkillsTab">
-                  <textarea class="form-control border-0" id="editSkillsNotes" rows="6" 
-                    style="min-height: 150px; resize: vertical;"></textarea>
+              <div class="card">
+                <div class="card-body">
+                  <h6 class="card-title">Additional Information</h6>
+                  <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <textarea class="form-control" id="editCandidateNotes" rows="4" 
+                      style="min-height: 120px; resize: vertical;" 
+                      placeholder="Add any additional notes about the candidate..."></textarea>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1093,7 +1100,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Add this JavaScript code after the existing scripts
-
+// Update the form submission handler
 function handleCandidateFormSubmit(e) {
     e.preventDefault();
     
@@ -1101,9 +1108,8 @@ function handleCandidateFormSubmit(e) {
         position_id: document.getElementById('jobPosition').value,
         candidate_name: document.getElementById('candidateName').value,
         email: document.getElementById('candidateEmail').value,
-        phone: document.getElementById('candidatePhone').value,
-        notes: document.getElementById('candidateNotes').value,
-        tags: document.getElementById('tags').value
+        rating: document.getElementById('candidateRating').value,
+        stage: 'New' // Default stage for new candidates
     };
 
     // Send AJAX request to save candidate
@@ -1186,7 +1192,6 @@ document.addEventListener('click', function(e) {
 });
 
 function openViewCandidateModal(candidateId) {
-    // Fetch candidate details
     fetch('get_candidate.php', {
         method: 'POST',
         headers: {
@@ -1197,17 +1202,14 @@ function openViewCandidateModal(candidateId) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            // Populate the modal with candidate data
             document.getElementById('editCandidateId').value = data.candidate.id;
             document.getElementById('editCandidateName').value = data.candidate.candidate_name;
             document.getElementById('editCandidateEmail').value = data.candidate.email;
-            document.getElementById('editCandidatePhone').value = data.candidate.phone;
             document.getElementById('editJobPosition').value = data.candidate.position_id;
-            document.getElementById('editTags').value = data.candidate.tags;
+            document.getElementById('editCandidateRating').value = data.candidate.rating;
             document.getElementById('editStage').value = data.candidate.stage;
             document.getElementById('editCandidateNotes').value = data.candidate.notes;
             
-            // Show the modal
             const modal = new bootstrap.Modal(document.getElementById('viewCandidateModal'));
             modal.show();
         } else {
@@ -1267,6 +1269,58 @@ function updateCandidateCard(candidateData) {
         card.querySelector('.candidate-name').textContent = candidateData.candidate_name;
         // Update other visible card details as needed
     }
+}
+
+// Add this to your existing <script> section
+
+// Star rating functionality
+document.addEventListener('click', function(e) {
+    if (e.target.closest('.rating-stars i')) {
+        const star = e.target;
+        const ratingContainer = star.closest('.rating-stars');
+        const candidateId = ratingContainer.dataset.candidateId;
+        const newRating = star.dataset.rating;
+        
+        // Update the visual display
+        const stars = ratingContainer.querySelectorAll('i');
+        stars.forEach(s => {
+            const rating = parseInt(s.dataset.rating);
+            if (rating <= newRating) {
+                s.classList.remove('bi-star', 'text-muted');
+                s.classList.add('bi-star-fill', 'text-warning');
+            } else {
+                s.classList.remove('bi-star-fill', 'text-warning');
+                s.classList.add('bi-star', 'text-muted');
+            }
+        });
+
+        // Update the rating in the database
+        updateCandidateRating(candidateId, newRating);
+    }
+});
+
+function updateCandidateRating(candidateId, rating) {
+    fetch('update_candidate_rating.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            candidate_id: candidateId,
+            rating: rating
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            console.error('Error updating rating:', data.message);
+            alert('Error updating rating');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error updating rating');
+    });
 }
 </script>
 </body>

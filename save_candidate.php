@@ -2,7 +2,6 @@
 require('database.php');
 require('session.php');
 
-// Receive JSON data
 $data = json_decode(file_get_contents('php://input'), true);
 
 // Validate input
@@ -12,12 +11,13 @@ if (!isset($data['position_id']) || !isset($data['candidate_name']) || !isset($d
 }
 
 // Prepare SQL statement
-$stmt = $conn->prepare("INSERT INTO job_applications (position_id, candidate_name, email, stage, created_at) VALUES (?, ?, ?, 'New', NOW())");
+$stmt = $conn->prepare("INSERT INTO job_applications (position_id, candidate_name, email, rating, stage, created_at) VALUES (?, ?, ?, ?, 'New', NOW())");
 
-$stmt->bind_param("iss", 
+$stmt->bind_param("issi", 
     $data['position_id'],
     $data['candidate_name'],
-    $data['email']
+    $data['email'],
+    $data['rating']
 );
 
 // Execute the statement
@@ -30,6 +30,7 @@ if ($stmt->execute()) {
         'name' => $data['candidate_name'],
         'email' => $data['email'],
         'position_id' => $data['position_id'],
+        'rating' => $data['rating'],
         'stage' => 'New'
     ];
     
