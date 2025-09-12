@@ -1,0 +1,56 @@
+<?php
+require('database.php');
+require('session.php');
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+$claim_id = $_POST['claim_id'] ?? null;
+$status   = $_POST['status']   ?? null;
+$reason   = $_POST['reason']   ?? null;
+
+if (!$claim_id || !$status) {
+    http_response_code(400);
+    exit("Invalid request: missing claim_id or status.");
+}
+
+if (!in_array($status, ['Approved','Rejected'], true)) {
+    http_response_code(400);
+    exit("Invalid status value.");
+}
+
+if ($status === 'Rejected' && empty($reason)) {
+    http_response_code(400);
+    exit("Rejection reason required.");
+}
+
+if ($status === 'Approved') {
+    // Add approved_at field for Approved claims
+    $approved_at = date('Y-m-d H:i:s');  // Current timestamp
+
+    // Update query with 3 placeholders (status, approved_at, claim_id)
+    $sql = "UPDATE claims 
+            SET status = ?, approved_at = ?, rejection_reason = NULL 
+            WHERE claim_id = ?";
+    $stmt = mysqli_prepare($conn, $sql) or die("Prepare failed: " . mysqli_error($conn));
+    
+    // Bind 3 parameters: status, approved_at, claim_id
+    mysqli_stmt_bind_param($stmt, "ssi", $status, $approved_at, $claim_id);
+
+} else { // Rejected
+    // 3 placeholders (status, rejection_reason, claim_id)
+    $sql = "UPDATE claims 
+            SET status = ?, rejection_reason = ? 
+            WHERE claim_id = ?";
+    $stmt = mysqli_prepare($conn, $sql) or die("Prepare failed: " . mysqli_error($conn));
+    mysqli_stmt_bind_param($stmt, "ssi", $status, $reason, $claim_id);
+}
+
+
+if (mysqli_stmt_execute($stmt)) {
+    echo "Success";
+} else {
+    echo "Database error: " . mysqli_stmt_error($stmt);
+}
+
+mysqli_stmt_close($stmt);
+mysqli_close($conn);

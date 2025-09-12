@@ -38,6 +38,7 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
   <link href="assets/vendor/simple-datatables/style.css" rel="stylesheet">
 
   <link href="assets/css/style.css" rel="stylesheet">
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>

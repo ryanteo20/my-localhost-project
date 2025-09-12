@@ -157,8 +157,8 @@ while ($row = mysqli_fetch_assoc($applications_result)) {
 
 .add-candidate-btn {
     position: fixed;
-    bottom: 30px;
-    right: 30px;
+    bottom: 30px; /* Back to original 30px from bottom */
+    right: 100px; /* Move to the left side of chatbot (chatbot is at right: 20px, so 100px gives good spacing) */
     background: #4154f1;
     color: white;
     border: none;
@@ -169,13 +169,32 @@ while ($row = mysqli_fetch_assoc($applications_result)) {
     display: flex;
     align-items: center;
     gap: 8px;
-    z-index: 1000;
+    z-index: 999; /* Lower than chatbot's z-index */
     transition: all 0.3s ease;
 }
 
 .add-candidate-btn:hover {
     background: #364ed9;
     transform: translateY(-2px);
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+    .add-candidate-btn {
+        bottom: 30px;
+        right: 80px; /* Adjust for mobile chatbot positioning */
+        padding: 10px 20px;
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .add-candidate-btn {
+        bottom: 30px;
+        right: 75px; /* Further adjustment for very small screens */
+        padding: 8px 16px;
+        font-size: 12px;
+    }
 }
 
 .kanban-column.drag-over {
@@ -750,7 +769,31 @@ textarea.form-control.border-0:focus {
     color: white;
     border-color: #dc3545;
 }
+
+.kanban-column[data-stage="Contract Signed"] .candidate-card {
+    border: 2px solid #28a745;
+}
+
+.kanban-column[data-stage="Contract Signed"] .candidate-card::after {
+    content: 'HIRED';
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #28a745;
+    color: white;
+    padding: 5px 10px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+    transform: rotate(5deg);
+    font-weight: bold;
+}
+
+.kanban-column[data-stage="Contract Signed"] .candidate-card {
+    position: relative;
+}
 </style>
+
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -2431,29 +2474,44 @@ function initializeRefuseForm() {
             const reason = document.getElementById('refuseReason').value;
             const sendEmail = document.getElementById('sendRefuseEmail').checked;
             
+            console.log('Submitting refuse form:', { candidateId, reason, sendEmail });
+            
             if (!reason.trim()) {
                 alert('Please provide a reason for refusal');
                 return;
             }
             
-            const formData = new FormData();
+            // Use URLSearchParams instead of FormData for better compatibility
+            const formData = new URLSearchParams();
             formData.append('candidate_id', candidateId);
             formData.append('refuse_reason', reason);
             formData.append('send_email', sendEmail ? '1' : '0');
             
             fetch('refuse_candidate.php', {
                 method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
+                console.log('Response data:', data);
                 if (data.success) {
                     const modal = bootstrap.Modal.getInstance(document.getElementById('refuseCandidateModal'));
                     modal.hide();
                     
                     let message = 'Candidate refused successfully';
-                    if (sendEmail) {
+                    if (data.email_sent) {
                         message += ' and notification email sent';
+                    } else if (data.email_sent === false) {
+                        message += ' (email notification failed)';
                     }
                     alert(message);
                     
@@ -2464,12 +2522,11 @@ function initializeRefuseForm() {
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error refusing candidate');
+                alert('Error refusing candidate: ' + error.message);
             });
         });
     }
 }
-
 // Update the main initialization function
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded - initializing application...');

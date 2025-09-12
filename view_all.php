@@ -41,6 +41,7 @@ require('session.php');
         opacity: 0;
     }
 </style>
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>

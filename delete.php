@@ -32,6 +32,7 @@ require('session.php');
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -259,8 +260,8 @@ require('session.php');
                           // Include your database connection
                           require('database.php');
 
-                          // Prepare the SQL query to select data from the employeelogin table
-                          $query = "SELECT ID, username, password, reg_date FROM employeelogin";
+                          // Prepare the SQL query to select only active employees (not deleted)
+                          $query = "SELECT ID, username, password, reg_date FROM employeelogin WHERE (deleted_at IS NULL OR deleted_at = '') ORDER BY ID";
 
                           // Execute the query
                           $result = mysqli_query($conn, $query);
@@ -278,7 +279,7 @@ require('session.php');
                               }
                           } else {
                               // If no data is found, display a message
-                              echo "<tr><td colspan='4'>No data found</td></tr>";
+                              echo "<tr><td colspan='4'>No active employees found</td></tr>";
                           }
 
                           // Close the connection
@@ -341,22 +342,51 @@ require('session.php');
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
   <script>
-    $(document).ready(function(){
+        function softDeleteEmployee($conn, $employee_id) {
+          // Add a deleted_at column to employeelogin table if it doesn't exist
+          $query = "UPDATE employeelogin SET deleted_at = NOW() WHERE ID = ?";
+          $stmt = mysqli_prepare($conn, $query);
+          mysqli_stmt_bind_param($stmt, "i", $employee_id);
+          
+          if (mysqli_stmt_execute($stmt)) {
+              return "Employee marked as deleted successfully.";
+          } else {
+              return "Error: " . mysqli_stmt_error($stmt);
+          }
+      }
+
+      // When displaying employees, exclude deleted ones
+      function getActiveEmployees($conn) {
+          $query = "SELECT * FROM employeelogin WHERE deleted_at IS NULL";
+          return mysqli_query($conn, $query);
+      }
+
+          $(document).ready(function(){
         $('#deleteEmployeeBtn').click(function(){
-            var employeeId = $('#employeeIdInput').val(); // Get the value from the text field
+            var employeeId = $('#employeeIdInput').val();
+            
+            if (!employeeId || employeeId.trim() === '') {
+                alert('Please enter an Employee ID');
+                return;
+            }
+            
+            if (!confirm('Are you sure you want to delete this employee? This action will mark them as deleted.')) {
+                return;
+            }
+            
             $.ajax({
                 url: 'delete_employee.php',
                 type: 'POST',
-                data: { employeeId: employeeId }, // Pass the employee ID to the PHP script
-                dataType: 'json', // Expect JSON response
+                data: { employeeId: employeeId },
+                dataType: 'json',
                 success: function(response) {
-                    // Handle success response
                     console.log(response);
-                    // Check if the response status is defined
                     if (response && response.status) {
                         if (response.status === "success") {
-                            alert("Employee deleted successfully!");
-                            window.location.href = 'delete.php';
+                            alert(response.message);
+                            $('#disablebackdrop').modal('hide');
+                            $('#employeeIdInput').val('');
+                            location.reload(); // Refresh the page to update the table
                         } else {
                             alert("Error: " + response.message);
                         }
@@ -365,13 +395,12 @@ require('session.php');
                     }
                 },
                 error: function(xhr, status, error) {
-                    // Handle error response
-                    console.error(xhr.responseText);
-                    alert("Error: " + xhr.responseText);
+                    console.error('AJAX Error:', xhr.responseText);
+                    alert("Error: " + error + "\nDetails: " + xhr.responseText);
                 }
             });
         });
-        });
+    });
     </script>
 
 </body>

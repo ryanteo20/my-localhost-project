@@ -30,7 +30,7 @@ function handlePayrollDetails($conn) {
   }
 }
 
-$success_message = handlePayrollDetails($con);
+$success_message = handlePayrollDetails($conn);
 
 ?>
 <!DOCTYPE html>
@@ -63,6 +63,7 @@ $success_message = handlePayrollDetails($con);
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -349,7 +350,7 @@ $success_message = handlePayrollDetails($con);
                     $query = "SELECT payroll_id, salary_type, bank_account_name, bank_account_no, employee_salary, bank_name FROM payroll_detail ORDER BY payroll_id DESC LIMIT 1";
 
                     // Execute the query
-                    $result = mysqli_query($con, $query);
+                    $result = mysqli_query($conn, $query);
 
                     // Check if there are any rows returned
                     if (mysqli_num_rows($result) > 0) {
@@ -373,7 +374,7 @@ $success_message = handlePayrollDetails($con);
                     ini_set('display_errors', 1);
                     
                     // Close the connection
-                    mysqli_close($con);
+                    mysqli_close($conn);
                     ?>
                 </tbody>
             </table>

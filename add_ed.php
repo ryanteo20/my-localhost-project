@@ -3,30 +3,44 @@ require('database.php');
 require('session.php');
 
 function handleEmployeeDocument($conn) {
-  if (isset($_REQUEST['inputEducation']) && isset($_FILES['inputIC']) && $_FILES['inputIC']['error'] === UPLOAD_ERR_OK) {
-      
-      $inputEducation = mysqli_real_escape_string($conn, $_REQUEST['inputEducation']);
-      $file = $_FILES['inputIC'];
-      $fileTmpName = $file['tmp_name'];
-      $fileName = $file['name'];
-      $fileType = mime_content_type($fileTmpName);
-      $fileContent = file_get_contents($fileTmpName);
+    if (isset($_REQUEST['inputEducation']) && isset($_FILES['inputIC']) && $_FILES['inputIC']['error'] === UPLOAD_ERR_OK) {
+        
+        $inputEducation = mysqli_real_escape_string($conn, $_REQUEST['inputEducation']);
+        $file = $_FILES['inputIC'];
+        $fileTmpName = $file['tmp_name'];
+        $fileName = $file['name'];
+        $fileSize = $file['size'];
+        $fileType = mime_content_type($fileTmpName);
+        
+        // Validate file size (5MB limit)
+        if ($fileSize > 5 * 1024 * 1024) {
+            return "Error: File size exceeds 5MB limit.";
+        }
+        
+        // Validate file type for IC documents
+        $allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+        
+        if (!in_array($fileType, $allowedTypes)) {
+            return "Error: Invalid file type. Please upload PDF or image files only.";
+        }
+        
+        $fileContent = file_get_contents($fileTmpName);
 
-      $query = "INSERT INTO employee_document (education_level, ic_picture, filename, mime_type) VALUES (?, ?, ?, ?)";
-      $stmt = mysqli_prepare($conn, $query);
-      mysqli_stmt_bind_param($stmt, "ssss", $inputEducation, $fileContent, $fileName, $fileType);
+        // Insert using the correct column names from your table
+        $query = "INSERT INTO employee_document (education_level, ic_picture, filename, mime_type) VALUES (?, ?, ?, ?)";
+        $stmt = mysqli_prepare($conn, $query);
+        mysqli_stmt_bind_param($stmt, "ssss", $inputEducation, $fileContent, $fileName, $fileType);
 
-      if (mysqli_stmt_execute($stmt)) {
-          return "Employee document uploaded successfully.";
-      } else {
-          return "Error: " . mysqli_stmt_error($stmt);
-      }
-  }
+        if (mysqli_stmt_execute($stmt)) {
+            return "IC document uploaded successfully.";
+        } else {
+            return "Error: " . mysqli_stmt_error($stmt);
+        }
+    }
+    return null;
 }
 
-
-$success_message = handleEmployeeDocument($con);
-
+$success_message = handleEmployeeDocument($conn);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -58,6 +72,7 @@ $success_message = handleEmployeeDocument($con);
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -283,10 +298,10 @@ $success_message = handleEmployeeDocument($con);
         <div class="card-body">
             <h5 class="card-title">5. Insert Employee Documentation</h5>
             <!-- Employee Documentation Form -->
-            <form id="employee-document" class="row g-3" method="POST" enctype="multipart/form-data" onsubmit="return handlePayrollDetails(event)">
-                <div class="col-md-8">
+           <form id="employee-document" class="row g-3" method="POST" enctype="multipart/form-data">
+                <div class="col-md-6">
                     <label for="inputEducation" class="form-label">Education Level</label>
-                    <select id="inputEducation" class="form-select" name="inputEducation">
+                    <select id="inputEducation" class="form-select" name="inputEducation" required>
                         <option value="" disabled selected hidden>Choose...</option>
                         <option value="UPSR">UPSR</option>
                         <option value="SRP/PT3/PMR">SRP/PT3/PMR</option>
@@ -298,23 +313,24 @@ $success_message = handleEmployeeDocument($con);
                         <option value="Doctorate Degree">Doctorate Degree</option>
                         <option value="Post-Graduate">Post-Graduate</option>
                         <option value="Professional Degree">Professional Degree</option>
-                        <option value="Certificate">Doctorate Certificate</option>
+                        <option value="Certificate">Certificate</option>
                         <option value="Other">Other Qualification</option>
                         <option value="No Qualification">No Qualification</option>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label for="inputIC" class="form-label">IC</label>
-                    <div class="col-sm-10">
-                        <input class="form-control" type="file" id="inputIC" name="inputIC"> <!-- Ensure name attribute is set -->
+                <div class="col-md-6">
+                    <label for="inputIC" class="form-label">IC Document</label>
+                    <div class="col-sm-12">
+                        <input class="form-control" type="file" id="inputIC" name="inputIC" accept=".pdf,.jpg,.jpeg,.png" required>
+                        <div class="form-text">Accepted formats: PDF, JPG, JPEG, PNG (Max size: 5MB)</div>
                     </div>
                 </div>
                 <div class="text-center">
-                <button type="reset" class="btn btn-secondary">Reset</button>
-                <button type="submit" class="btn btn-primary" id="employee_documentation-button">Submit</button>
-                <button type="button" class="btn btn-secondary" id="next5-button">Next</button>
+                    <button type="reset" class="btn btn-secondary">Reset</button>
+                    <button type="submit" class="btn btn-primary" id="employee_documentation-button">Submit</button>
+                    <button type="button" class="btn btn-secondary" id="next5-button">Next</button>
                 </div>
-            </form><!-- End Employee Documentation Form -->
+            </form>
         </div>
     </div>
 </div>
@@ -329,7 +345,9 @@ $success_message = handleEmployeeDocument($con);
                     <tr>
                         <th scope="col">ID</th>
                         <th scope="col">Education Level</th>
-                        <th scope="col">IC</th>
+                        <th scope="col">Filename</th>
+                        <th scope="col">File Type</th>
+                        <th scope="col">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="latest-employee-document">
@@ -337,29 +355,33 @@ $success_message = handleEmployeeDocument($con);
                     // Include your database connection
                     require('database.php');
 
-                    // Prepare the SQL query to select data from the employeelogin table
-                    $query = "SELECT document_id, education_level, ic_picture FROM employee_document ORDER BY document_id DESC LIMIT 1";
+                    // Query to get only the latest document by highest ID
+                    $query = "SELECT document_id, education_level, filename, mime_type FROM employee_document ORDER BY document_id DESC LIMIT 1";
 
                     // Execute the query
-                    $result = mysqli_query($con, $query);
+                    $result = mysqli_query($conn, $query);
 
                     // Check if there are any rows returned
                     if (mysqli_num_rows($result) > 0) {
-                        // Fetch each row of data and display it in the table
-                        while ($row = mysqli_fetch_assoc($result)) {
-                            echo "<tr>";
-                            echo "<td>{$row['document_id']}</td>";
-                            echo "<td>{$row['education_level']}</td>";
-                            echo "<td><a href='download.php?id={$row['document_id']}'>Download File</a></td>";
-                            echo "</tr>";
-                        }
+                        // Fetch the latest row and display it in the table
+                        $row = mysqli_fetch_assoc($result);
+                        echo "<tr>";
+                        echo "<td>{$row['document_id']}</td>";
+                        echo "<td>{$row['education_level']}</td>";
+                        echo "<td>{$row['filename']}</td>";
+                        echo "<td>{$row['mime_type']}</td>";
+                        echo "<td>";
+                        echo "<a href='view_ic.php?id={$row['document_id']}' class='btn btn-sm btn-primary me-1' target='_blank'>View</a>";
+                        echo "<a href='download_ic.php?id={$row['document_id']}' class='btn btn-sm btn-success'>Download</a>";
+                        echo "</td>";
+                        echo "</tr>";
                     } else {
                         // If no data is found, display a message
-                        echo "<tr><td colspan='4'>No data found</td></tr>";
+                        echo "<tr><td colspan='5'>No IC documents found</td></tr>";
                     }
 
                     // Close the connection
-                    mysqli_close($con);
+                    mysqli_close($conn);
                     ?>
                 </tbody>
             </table>
@@ -400,7 +422,7 @@ $success_message = handleEmployeeDocument($con);
   <script src="assets/js/main.js"></script>
   <script>
       document.addEventListener('DOMContentLoaded', function() {
-      const employeeForm = document.getElementById('leave-info');
+      const employeeForm = document.getElementById('employee-document');
       let formSubmitted = false;
 
       employeeForm.addEventListener('submit', function(event) {

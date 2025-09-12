@@ -34,6 +34,7 @@ ini_set('display_errors', 1);
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -233,6 +234,7 @@ ini_set('display_errors', 1);
                 $result = mysqli_stmt_execute($stmt);
                 ?>
 
+      <div class="table-responsive" style="overflow-x: auto; -webkit-overflow-scrolling: touch;">
             <!-- Table with stripped rows -->
             <table class="table datatable table-striped">
                 <thead>
@@ -286,6 +288,8 @@ ini_set('display_errors', 1);
                     ?>
                 </tbody>
             </table>
+            </div>
+      <!-- End table responsive wrapper -->
             
                   </div>
               </div><!-- End Default Tabs -->

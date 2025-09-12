@@ -8,11 +8,80 @@ if ($_SESSION['role'] != 'Employer') {
     exit();
 }
 
-// Get current and previous month data for approved leave and approved claims
+// Get current date
 $current_month = date('m');
 $current_year = date('Y');
 
-// Correctly handle the previous month
+// Initialize arrays to store 12 months of data (full year)
+$months_data = [];
+$months_labels = [];
+
+// Generate data for current month and 11 months before (full year)
+for ($i = 0; $i < 12; $i++) {
+    $month = $current_month - $i;
+    $year = $current_year;
+    
+    // Handle year transition
+    if ($month <= 0) {
+        $month += 12;
+        $year--;
+    }
+    
+    // Store month info
+    $months_data[$i] = [
+        'month' => $month,
+        'year' => $year,
+        'label' => date('M Y', mktime(0, 0, 0, $month, 1, $year))
+    ];
+    $months_labels[] = $months_data[$i]['label'];
+}
+
+// Reverse arrays to show oldest to newest
+$months_data = array_reverse($months_data);
+$months_labels = array_reverse($months_labels);
+
+// Initialize data arrays
+$approved_leave_data = [];
+$approved_claims_data = [];
+$approved_claims_amount = [];
+
+// Get data for each month
+foreach ($months_data as $month_info) {
+    // Query for approved leave count
+    $query_leave = "SELECT COUNT(*) AS approved_leave FROM leave_apply 
+                    WHERE leave_review = 'Approved' 
+                    AND MONTH(leave_datestart) = ? 
+                    AND YEAR(leave_datestart) = ?";
+    $stmt = $conn->prepare($query_leave);
+    $stmt->bind_param("ii", $month_info['month'], $month_info['year']);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $approved_leave_data[] = (int)$result['approved_leave'];
+
+    // Query for approved claims count (fixed to only show approved)
+    $query_claims_count = "SELECT COUNT(*) AS approved_claims FROM claims 
+                          WHERE status = 'Approved' 
+                          AND MONTH(transaction_date) = ? 
+                          AND YEAR(transaction_date) = ?";
+    $stmt = $conn->prepare($query_claims_count);
+    $stmt->bind_param("ii", $month_info['month'], $month_info['year']);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $approved_claims_data[] = (int)$result['approved_claims'];
+
+    // Query for approved claims amount
+    $query_claims_amount = "SELECT COALESCE(SUM(amount), 0) AS approved_amount FROM claims 
+                           WHERE status = 'Approved' 
+                           AND MONTH(transaction_date) = ? 
+                           AND YEAR(transaction_date) = ?";
+    $stmt = $conn->prepare($query_claims_amount);
+    $stmt->bind_param("ii", $month_info['month'], $month_info['year']);
+    $stmt->execute();
+    $result = $stmt->get_result()->fetch_assoc();
+    $approved_claims_amount[] = (float)$result['approved_amount'];
+}
+
+// Existing queries for cards (keep as is for backward compatibility)
 if ($current_month == 1) {
     $previous_month = 12;
     $previous_year = $current_year - 1;
@@ -21,7 +90,6 @@ if ($current_month == 1) {
     $previous_year = $current_year;
 }
 
-// Query for total approved leave in the current month
 $query_current_approved_leave = "SELECT COUNT(*) AS current_approved_leave FROM leave_apply WHERE leave_review = 'Approved' AND MONTH(leave_datestart) = ? AND YEAR(leave_datestart) = ?";
 $stmt = $conn->prepare($query_current_approved_leave);
 $stmt->bind_param("ii", $current_month, $current_year);
@@ -29,7 +97,6 @@ $stmt->execute();
 $current_approved_leave_result = $stmt->get_result()->fetch_assoc();
 $current_approved_leave = $current_approved_leave_result['current_approved_leave'];
 
-// Query for total approved leave in the previous month
 $query_previous_approved_leave = "SELECT COUNT(*) AS previous_approved_leave FROM leave_apply WHERE leave_review = 'Approved' AND MONTH(leave_datestart) = ? AND YEAR(leave_datestart) = ?";
 $stmt = $conn->prepare($query_previous_approved_leave);
 $stmt->bind_param("ii", $previous_month, $previous_year);
@@ -37,7 +104,6 @@ $stmt->execute();
 $previous_approved_leave_result = $stmt->get_result()->fetch_assoc();
 $previous_approved_leave = $previous_approved_leave_result['previous_approved_leave'];
 
-// Query for total approved claims in the current month
 $query_current_approved_claims = "SELECT COUNT(*) AS current_approved_claims FROM claims WHERE status = 'Approved' AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?";
 $stmt = $conn->prepare($query_current_approved_claims);
 $stmt->bind_param("ii", $current_month, $current_year);
@@ -45,7 +111,6 @@ $stmt->execute();
 $current_approved_claims_result = $stmt->get_result()->fetch_assoc();
 $current_approved_claims = $current_approved_claims_result['current_approved_claims'];
 
-// Query for total approved claims in the previous month
 $query_previous_approved_claims = "SELECT COUNT(*) AS previous_approved_claims FROM claims WHERE status = 'Approved' AND MONTH(transaction_date) = ? AND YEAR(transaction_date) = ?";
 $stmt = $conn->prepare($query_previous_approved_claims);
 $stmt->bind_param("ii", $previous_month, $previous_year);
@@ -84,10 +149,73 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  
+  <!-- Custom CSS for chart sizing and scrolling -->
+  <style>
+    .chart-container {
+      position: relative;
+      height: 250px;
+      width: 100%;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    
+    .chart-canvas-container {
+      position: relative;
+      height: 100%;
+      min-width: 800px; /* Minimum width to enable horizontal scrolling */
+    }
+    
+    .chart-card {
+      height: 400px;
+    }
+    
+    .chart-card .card-body {
+      padding: 1rem;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .chart-card .card-title {
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+      text-align: center;
+      font-weight: 600;
+    }
+    
+    /* Custom scrollbar styling */
+    .chart-container::-webkit-scrollbar {
+      height: 8px;
+    }
+    
+    .chart-container::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    
+    .chart-container::-webkit-scrollbar-thumb {
+      background: #4154f1;
+      border-radius: 4px;
+    }
+    
+    .chart-container::-webkit-scrollbar-thumb:hover {
+      background: #3145d9;
+    }
+    
+    /* Chart navigation hint */
+    .chart-hint {
+      font-size: 0.75rem;
+      color: #6c757d;
+      text-align: center;
+      margin-top: 0.25rem;
+    }
+  </style>
+
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
-
   <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
 
@@ -400,17 +528,67 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
     </div><!-- End Left side columns -->
   </div><!-- End Section -->
 </section>
+
+    <!-- Charts Section -->
     <section class="section dashboard">
       <div class="row">
-        <h3>Leave and Claims Comparison</h3>
-        <div class="col-xxl-6 col-md-12 col-sm-12 mb-4">
-          <div class="card">
+        <h3>Analytics Dashboard - Full Year Overview</h3>
+        <p class="text-muted mb-4">
+          <i class="bi bi-info-circle"></i> 
+          Scroll horizontally on charts to view data from the beginning of the year
+        </p>
+        
+        <!-- Approved Leave Chart -->
+        <div class="col-xxl-4 col-md-6 col-sm-12 mb-3">
+          <div class="card chart-card">
             <div class="card-body">
-              <h5 class="card-title">Leave and Claims Comparison: Current vs Previous Month</h5>
-              <canvas id="leaveClaimsChart"></canvas>
+              <h5 class="card-title">Approved Leave Applications</h5>
+              <div class="chart-container">
+                <div class="chart-canvas-container">
+                  <canvas id="approvedLeaveChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-hint">
+                <i class="bi bi-arrows-move"></i> Scroll to view full year data
+              </div>
             </div>
           </div>
         </div>
+
+        <!-- Approved Claims Chart -->
+        <div class="col-xxl-4 col-md-6 col-sm-12 mb-3">
+          <div class="card chart-card">
+            <div class="card-body">
+              <h5 class="card-title">Approved Claims</h5>
+              <div class="chart-container">
+                <div class="chart-canvas-container">
+                  <canvas id="approvedClaimsChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-hint">
+                <i class="bi bi-arrows-move"></i> Scroll to view full year data
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Approved Claims Amount Chart -->
+        <div class="col-xxl-4 col-md-12 col-sm-12 mb-3">
+          <div class="card chart-card">
+            <div class="card-body">
+              <h5 class="card-title">Approved Claims Amount (RM)</h5>
+              <div class="chart-container">
+                <div class="chart-canvas-container">
+                  <canvas id="approvedClaimsAmountChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-hint">
+                <i class="bi bi-arrows-move"></i> Scroll to view full year data
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
   </main><!-- End #main -->
@@ -436,57 +614,181 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
+
 <script>
-const leaveClaimsData = {
-  labels: ['Current Month', 'Previous Month'],
-  datasets: [
-    {
-      label: 'Approved Leave',
-      data: [
-        Math.floor(parseInt('<?php echo $current_approved_leave; ?>', 10)),
-        Math.floor(parseInt('<?php echo $previous_approved_leave; ?>', 10))
-      ],
-      backgroundColor: ['rgba(75, 192, 192, 0.2)'],
-      borderColor: ['rgba(75, 192, 192, 1)'],
-      borderWidth: 1
+// Data from PHP
+const monthsLabels = <?php echo json_encode($months_labels); ?>;
+const approvedLeaveData = <?php echo json_encode($approved_leave_data); ?>;
+const approvedClaimsData = <?php echo json_encode($approved_claims_data); ?>;
+const approvedClaimsAmountData = <?php echo json_encode($approved_claims_amount); ?>;
+
+// Common chart options - optimized for scrollable containers
+const commonOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: {
+      display: true,
+      position: 'top',
+      labels: {
+        font: {
+          size: 11
+        },
+        usePointStyle: true,
+        padding: 15
+      }
     },
-    {
-      label: 'Approved Claims',
-      data: [
-        Math.floor(parseInt('<?php echo $current_approved_claims; ?>', 10)),
-        Math.floor(parseInt('<?php echo $previous_approved_claims; ?>', 10))
-      ],
-      backgroundColor: ['rgba(255, 99, 132, 0.2)'],
-      borderColor: ['rgba(255, 99, 132, 1)'],
-      borderWidth: 1
+    tooltip: {
+      titleFont: {
+        size: 12
+      },
+      bodyFont: {
+        size: 11
+      },
+      mode: 'index',
+      intersect: false
     }
-  ]
+  },
+  scales: {
+    y: {
+      beginAtZero: true,
+      ticks: {
+        stepSize: 1,
+        font: {
+          size: 10
+        },
+        callback: function(value) {
+          return Number.isInteger(value) ? value : '';
+        }
+      },
+      grid: {
+        color: 'rgba(0,0,0,0.1)',
+        drawBorder: false
+      }
+    },
+    x: {
+      ticks: {
+        maxRotation: 45,
+        minRotation: 45,
+        font: {
+          size: 10
+        }
+      },
+      grid: {
+        display: false
+      }
+    }
+  },
+  elements: {
+    point: {
+      radius: 4,
+      hoverRadius: 6,
+      borderWidth: 2
+    },
+    line: {
+      borderWidth: 3,
+      tension: 0.4
+    }
+  },
+  interaction: {
+    intersect: false,
+    mode: 'index'
+  }
 };
 
-const ctx = document.getElementById('leaveClaimsChart').getContext('2d');
-const leaveClaimsChart = new Chart(ctx, {
-  type: 'bar', // Use 'bar' for horizontal bars
-  data: leaveClaimsData,
+// Chart 1: Approved Leave Applications (Line Chart)
+const ctx1 = document.getElementById('approvedLeaveChart').getContext('2d');
+const approvedLeaveChart = new Chart(ctx1, {
+  type: 'line',
+  data: {
+    labels: monthsLabels,
+    datasets: [{
+      label: 'Approved Leave Applications',
+      data: approvedLeaveData,
+      backgroundColor: 'rgba(75, 192, 192, 0.1)',
+      borderColor: 'rgba(75, 192, 192, 1)',
+      pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgba(75, 192, 192, 1)',
+      fill: true
+    }]
+  },
+  options: commonOptions
+});
+
+// Chart 2: Approved Claims (Line Chart - Changed from Bar)
+const ctx2 = document.getElementById('approvedClaimsChart').getContext('2d');
+const approvedClaimsChart = new Chart(ctx2, {
+  type: 'line',
+  data: {
+    labels: monthsLabels,
+    datasets: [{
+      label: 'Approved Claims',
+      data: approvedClaimsData,
+      backgroundColor: 'rgba(255, 99, 132, 0.1)',
+      borderColor: 'rgba(255, 99, 132, 1)',
+      pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgba(255, 99, 132, 1)',
+      fill: true
+    }]
+  },
+  options: commonOptions
+});
+
+// Chart 3: Approved Claims Amount (Line Chart)
+const ctx3 = document.getElementById('approvedClaimsAmountChart').getContext('2d');
+const approvedClaimsAmountChart = new Chart(ctx3, {
+  type: 'line',
+  data: {
+    labels: monthsLabels,
+    datasets: [{
+      label: 'Claims Amount (RM)',
+      data: approvedClaimsAmountData,
+      backgroundColor: 'rgba(54, 162, 235, 0.1)',
+      borderColor: 'rgba(54, 162, 235, 1)',
+      pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+      pointBorderColor: '#fff',
+      pointHoverBackgroundColor: '#fff',
+      pointHoverBorderColor: 'rgba(54, 162, 235, 1)',
+      fill: true
+    }]
+  },
   options: {
-    indexAxis: 'y',  // Switch to horizontal bars
-    responsive: true,
+    ...commonOptions,
     scales: {
-      x: {
-        barThickness: 5,  // Adjust bar thickness for horizontal bars
-        categoryPercentage: 0.8
-      },
+      ...commonOptions.scales,
       y: {
+        beginAtZero: true,
         ticks: {
-          stepSize: 1, // Ensure only whole numbers
-          callback: function(value) {
-            return Number.isInteger(value) ? value : ''; // Only show integers
+          font: {
+            size: 10
+          },
+          callback: function(value, index, values) {
+            return 'RM ' + value.toLocaleString('en-MY', {minimumFractionDigits: 0, maximumFractionDigits: 0});
           }
+        },
+        grid: {
+          color: 'rgba(0,0,0,0.1)',
+          drawBorder: false
         }
       }
     }
   }
 });
 
+// Auto-scroll to show recent data (optional)
+document.addEventListener('DOMContentLoaded', function() {
+  const chartContainers = document.querySelectorAll('.chart-container');
+  chartContainers.forEach(container => {
+    // Scroll to show the most recent 6 months by default
+    setTimeout(() => {
+      container.scrollLeft = container.scrollWidth * 0.5;
+    }, 500);
+  });
+});
 </script>
 
 </body>

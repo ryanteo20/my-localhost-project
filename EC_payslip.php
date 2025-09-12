@@ -1,49 +1,238 @@
 <?php
 require('database.php');
 require('session.php');
+
+// FPDF library
+require('fpdf/fpdf.php');
+
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Get the logged-in user's ID
-$employee_id = $_SESSION['ID'];  // Assume the user_id is stored in session when logged in
+$employee_id = $_SESSION['ID'];
 
-// Initialize empty payroll data
+// Initialize variables
 $payslip_data = null;
-$month = null;
-$year = null;
-$no_data_found = false; // Flag for no data found
+$month = isset($_POST['month']) ? (int)$_POST['month'] : date('m');
+$year = isset($_POST['year']) ? (int)$_POST['year'] : date('Y');
+$no_data_found = false;
 
-// Check if form is submitted
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $month = isset($_POST['month']) ? (int)trim($_POST['month']) : null;
-    $year = isset($_POST['year']) ? (int)trim($_POST['year']) : null;
+// Handle PDF download for specific month/year
+if (isset($_GET['download']) && $_GET['download'] == 'pdf') {
+    $download_month = (int)$_GET['month'];
+    $download_year = (int)$_GET['year'];
+    
+    // Fetch specific payroll data for download
+    $query = "SELECT pt.*, el.username AS employee_name, pi.full_name, pi.ic, 
+                     ed.employment_position, ed.employment_department
+              FROM payroll_transactions pt
+              JOIN employeelogin el ON pt.employee_id = el.ID
+              LEFT JOIN personal_information pi ON pt.employee_id = pi.personal_id
+              LEFT JOIN employment_detail ed ON pt.employee_id = ed.employment_id
+              WHERE pt.employee_id = ? 
+              AND MONTH(pt.pay_period_start) = ? 
+              AND YEAR(pt.pay_period_start) = ?";
+    
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "iii", $employee_id, $download_month, $download_year);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    if ($emp = mysqli_fetch_assoc($result)) {
+        // Calculate values including claims
+        $basic_salary = $emp['basic_salary'];
+        $allowances = $emp['allowances'] ?? 0;
+        $overtime_pay = $emp['overtime_pay'] ?? 0;
+        $total_claims = $emp['total_claims'] ?? 0;
+        
+        // Calculate gross pay including claims
+        $gross_pay = $basic_salary + $allowances + $overtime_pay + $total_claims;
+        
+        $employee_epf = $emp['epf_amount'];
+        $employee_socso = $emp['socso_amount'];
+        $employee_eis = $emp['eis_amount'];
+        $total_deductions = $employee_epf + $employee_socso + $employee_eis + $emp['tax_amount'];
+        
+        // Employer contributions
+        $employer_epf = $basic_salary * 0.13;
+        $employer_socso = $basic_salary * 0.0175;
+        $employer_eis = $basic_salary * 0.002;
+        $total_contributions = $employer_epf + $employer_socso + $employer_eis;
+        
+        $month_name = date("F", mktime(0, 0, 0, $download_month, 10));
+        
+        // Generate PDF using same format as individual payslip
+        $pdf = new FPDF();
+        $pdf->AddPage();
+        $pdf->SetMargins(20, 20, 20);
+        
+        // Company Name
+        $pdf->SetFont('Arial', 'B', 18);
+        $pdf->Cell(0, 12, 'SMEasyHR', 0, 1, 'L');
+        $pdf->Ln(5);
+        
+        // Employee info and NET PAY section
+        $pdf->SetFont('Arial', '', 11);
+        
+        // Left side - Employee details
+        $pdf->SetXY(20, 35);
+        $employee_name = $emp['full_name'] ?? $emp['employee_name'] ?? 'Unknown Employee';
+        $pdf->Cell(100, 6, $employee_name . ' (Employee No: ' . $emp['employee_id'] . ')', 0, 1, 'L');
+        $pdf->Cell(100, 6, "Period: $month_name $download_year", 0, 1, 'L');
+        $pdf->Cell(100, 6, 'Position: ' . ($emp['employment_position'] ?? 'Not specified'), 0, 1, 'L');
+        $pdf->Cell(100, 6, 'Dept: ' . ($emp['employment_department'] ?? 'Not specified'), 0, 1, 'L');
+        $pdf->Cell(100, 6, 'IC/Passport: ' . ($emp['ic'] ?? 'Not provided'), 0, 1, 'L');
+        
+        // Right side - NET PAY box
+        $pdf->SetXY(130, 35);
+        $pdf->SetFont('Arial', 'B', 14);
+        $pdf->SetDrawColor(45, 123, 251);
+        $pdf->SetFillColor(255, 255, 255);
+        $pdf->SetTextColor(45, 123, 251);
+        $pdf->Cell(60, 20, 'NET PAY', 1, 2, 'C', true);
+        $pdf->SetFont('Arial', 'B', 16);
+        $pdf->SetX(130);
+        $pdf->SetTextColor(0, 0, 0);
+        $pdf->Cell(60, 15, 'RM ' . number_format($emp['net_pay'], 2), 1, 1, 'C', true);
+        $pdf->SetDrawColor(0, 0, 0);
 
-    // Convert month number to month name for display
-    $monthName = date("F", mktime(0, 0, 0, $month, 10));
-
-    // Retrieve the payroll data for the selected month and year
-    if ($employee_id && $month && $year) {
-        // Query to fetch payroll data for the selected month and year
-        $query = "SELECT pt.*, el.username AS employee_name
-                  FROM payroll_transactions pt
-                  JOIN employeelogin el ON pt.employee_id = el.ID
-                  WHERE pt.employee_id = ? 
-                  AND MONTH(pt.pay_period_start) = ? 
-                  AND YEAR(pt.pay_period_start) = ?
-                  ORDER BY pt.payment_date DESC";
-        $stmt = mysqli_prepare($conn, $query);
-        mysqli_stmt_bind_param($stmt, "iii", $employee_id, $month, $year);
-        mysqli_stmt_execute($stmt);
-        $result = mysqli_stmt_get_result($stmt);
-
-        if ($result && mysqli_num_rows($result) > 0) {
-            $payslip_data = mysqli_fetch_all($result, MYSQLI_ASSOC);
-        } else {
-            $no_data_found = true; // Set flag to true if no data is found
+        // Reset position for main content
+        $pdf->SetY(90);
+        $pdf->SetFont('Arial', '', 10);
+        
+        // Employee Earnings/Reimbursements section
+        $pdf->SetFont('Arial', 'B', 11);
+        $pdf->Cell(95, 8, 'Employee Earnings/Reimbursements', 0, 1, 'L');
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(60, 6, '', 0, 0);
+        $pdf->Cell(35, 6, 'Current', 0, 1, 'R');
+        
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->Cell(60, 6, 'Basic', 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($basic_salary, 2), 0, 1, 'R');
+        
+        if ($allowances > 0) {
+            $pdf->Cell(60, 6, 'Allowances', 0, 0, 'L');
+            $pdf->Cell(35, 6, 'RM ' . number_format($allowances, 2), 0, 1, 'R');
         }
+        
+        if ($overtime_pay > 0) {
+            $pdf->Cell(60, 6, 'Overtime', 0, 0, 'L');
+            $pdf->Cell(35, 6, 'RM ' . number_format($overtime_pay, 2), 0, 1, 'R');
+        }
+        
+        // Add claims to the payslip
+        if ($total_claims > 0) {
+            $pdf->Cell(60, 6, 'Claims', 0, 0, 'L');
+            $pdf->Cell(35, 6, 'RM ' . number_format($total_claims, 2), 0, 1, 'R');
+        }
+        
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(60, 6, 'Gross Pay', 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($gross_pay, 2), 0, 1, 'R');
+        
+        // Employee Deductions section
+        $pdf->SetFont('Arial', 'B', 11);
+        $pdf->Cell(95, 8, 'Employee Deductions', 0, 1, 'L');
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(60, 6, '', 0, 0);
+        $pdf->Cell(35, 6, 'Current', 0, 1, 'R');
+        
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->Cell(60, 6, 'Employee EPF', 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($employee_epf, 2), 0, 1, 'R');
+        
+        $pdf->Cell(60, 6, 'Employee SOCSO', 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($employee_socso, 2), 0, 1, 'R');
+        
+        $pdf->Cell(60, 6, 'Employee EIS', 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($employee_eis, 2), 0, 1, 'R');
+        
+        if ($emp['tax_amount'] > 0) {
+            $pdf->Cell(60, 6, 'Income Tax', 0, 0, 'L');
+            $pdf->Cell(35, 6, 'RM ' . number_format($emp['tax_amount'], 2), 0, 1, 'R');
+        }
+        
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(60, 6, 'Total Deductions', 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($total_deductions, 2), 0, 1, 'R');
+        $pdf->Ln(3);
+        
+        // Company Contributions section
+        $pdf->SetFont('Arial', 'B', 11);
+        $pdf->Cell(95, 8, 'Company Contributions', 0, 1, 'L');
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(60, 6, '', 0, 0);
+        $pdf->Cell(35, 6, 'Current', 0, 1, 'R');
+        
+        $pdf->SetFont('Arial', '', 10);
+        $pdf->Cell(60, 6, "Employer EPF", 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($employer_epf, 2), 0, 1, 'R');
+        
+        $pdf->Cell(60, 6, "Employer SOCSO", 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($employer_socso, 2), 0, 1, 'R');
+        
+        $pdf->Cell(60, 6, "Employer EIS", 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($employer_eis, 2), 0, 1, 'R');
 
-        mysqli_stmt_close($stmt);
+        $pdf->SetFont('Arial', 'B', 10);
+        $pdf->Cell(60, 6, 'Total Contributions', 0, 0, 'L');
+        $pdf->Cell(35, 6, 'RM ' . number_format($total_contributions, 2), 0, 1, 'R');
+        
+        // Footer
+        $pdf->SetY(-40);
+        $pdf->SetFont('Arial', '', 9);
+        $pdf->Cell(0, 6, 'This payslip is computer generated. No signature is required.', 0, 1, 'C');
+        $pdf->Cell(0, 6, 'Printed on: ' . date('d/m/Y'), 0, 1, 'C');
+        
+        // Generate filename for download
+        $safe_employee_name = preg_replace('/[^A-Za-z0-9_\-\s]/', '', $employee_name);
+        $safe_employee_name = str_replace(' ', '_', $safe_employee_name);
+        $filename = "Payslip_{$safe_employee_name}_{$month_name}_{$download_year}.pdf";
+        
+        // Clear any output buffers and set proper headers
+        if (ob_get_length()) {
+            ob_end_clean();
+        }
+        
+        // Set correct headers for PDF download
+        header('Content-Type: application/pdf');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Transfer-Encoding: binary');
+        header('Accept-Ranges: bytes');
+        header('Cache-Control: private, no-transform, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+        
+        // Output PDF directly
+        $pdf->Output('D', $filename);
+        exit();
     }
+    mysqli_stmt_close($stmt);
+}
+
+// Fetch all payroll data for the employee for the selected year
+if ($employee_id && $year) {
+    $query = "SELECT pt.*, 
+                     MONTH(pt.pay_period_start) as payroll_month,
+                     YEAR(pt.pay_period_start) as payroll_year
+              FROM payroll_transactions pt
+              WHERE pt.employee_id = ? 
+              AND YEAR(pt.pay_period_start) = ?
+              ORDER BY pt.pay_period_start DESC";
+    
+    $stmt = mysqli_prepare($conn, $query);
+    mysqli_stmt_bind_param($stmt, "ii", $employee_id, $year);
+    mysqli_stmt_execute($stmt);
+    $result = mysqli_stmt_get_result($stmt);
+    
+    if ($result && mysqli_num_rows($result) > 0) {
+        $payslip_data = mysqli_fetch_all($result, MYSQLI_ASSOC);
+    } else {
+        $no_data_found = true;
+    }
+    
+    mysqli_stmt_close($stmt);
 }
 ?>
 
@@ -66,6 +255,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   <link href="assets/vendor/remixicon/remixicon.css" rel="stylesheet">
   <link href="assets/vendor/simple-datatables/style.css" rel="stylesheet">
   <link href="assets/css/style.css" rel="stylesheet">
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -137,7 +327,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   </header><!-- End Header -->
 
 <!-- ======= Sidebar ======= -->
-  <!-- ======= Sidebar ======= -->
   <aside id="sidebar" class="sidebar">
 
     <ul class="sidebar-nav" id="sidebar-nav">
@@ -221,6 +410,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
               <i class="bi bi-circle"></i><span>Request Claim</span>
             </a>
           </li>
+          <li>
+            <a href="EVR_claim.php">
+              <i class="bi bi-circle"></i><span>View All Claim Request</span>
+            </a>
+          </li>
         </ul>
       </li><!-- End Claim Management Nav -->
     </ul>
@@ -228,150 +422,169 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   </aside>
 
   <main id="main" class="main">
-    <div class="container mt-5">
-      <h1>Payroll Report</h1>
+    <div class="pagetitle">
+      <h1>My Payslips</h1>
+      <nav>
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="index2.php">Home</a></li>
+          <li class="breadcrumb-item">Payroll</li>
+          <li class="breadcrumb-item active">Check Payslip</li>
+        </ol>
+      </nav>
+    </div><!-- End Page Title -->
 
-      <!-- Form to select month and year -->
-      <form method="POST" class="row g-3 align-items-end">
-        <div class="col-md-3">
-          <label for="month">Month</label>
-          <select name="month" class="form-select" required>
-            <option value="">-- Select Month --</option>
-            <?php
-            for ($m = 1; $m <= 12; $m++) {
-                $selected = ($m == $month) ? 'selected' : '';
-                echo "<option value='$m' $selected>" . date('F', mktime(0, 0, 0, $m, 10)) . "</option>";
-            }
-            ?>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <label for="year">Year</label>
-          <select name="year" class="form-select" required>
-            <option value="">-- Select Year --</option>
-            <?php
-            for ($y = 2023; $y <= date('Y'); $y++) {
-                $selected = ($y == $year) ? 'selected' : '';
-                echo "<option value='$y' $selected>$y</option>";
-            }
-            ?>
-          </select>
-        </div>
-        <div class="col-md-2">
-          <button type="submit" class="btn btn-primary">View</button>
-        </div>
-      </form>
-<br><Br>
-      <!-- If data is available, display payroll report -->
-      <?php if ($payslip_data): ?>
-        <h3>Payroll Report for <?php echo $monthName . ' ' . $year; ?></h3>
+    <section class="section">
+      <div class="row">
+        <div class="col-lg-12">
 
-              <!-- Navigation buttons -->
-        <div class="table-container">
-          <table class="table table-striped">
-            <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Basic Salary</th>
-                <th>Allowance</th>
-                <th>Overtime</th>
-                <th>Claim</th>
-                <th>EPF</th>
-                <th>SOCSO</th>
-                <th>EIS</th>
-                <th>Tax</th>
-                <th>Net Pay</th>
-              </tr>
-            </thead>
-            <tbody>
-              <?php
-              $total_net_pay = 0;
-              $epf_total = 0;
-              $socso_total = 0;
-              $tax_total = 0;
-              $eis_total = 0;
-              $claims_total = 0;
-              $allowance_total = 0;
-              $overtime_total = 0;
-              $basic_salary_total = 0;
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">View My Payslips</h5>
 
-              foreach ($payslip_data as $employee) {
-                  $basic_salary_total += floatval($employee['basic_salary']);
-                  $allowance_total += floatval($employee['allowances']);
-                  $overtime_total += floatval($employee['overtime_pay']);
-                  $claims_total += floatval($employee['total_claims']);
-                  $epf_total += floatval($employee['epf_amount']);
-                  $socso_total += floatval($employee['socso_amount']);
-                  $eis_total += floatval($employee['eis_amount']);
-                  $tax_total += floatval($employee['tax_amount']);
-                  $total_net_pay += floatval($employee['net_pay']);
+              <!-- Filter Form -->
+              <form method="POST" class="row g-3 align-items-end mb-4">
+                <div class="col-md-4">
+                  <label for="year" class="form-label">Select Year</label>
+                  <select name="year" id="year" class="form-select" onchange="this.form.submit()">
+                    <?php
+                    for ($y = 2023; $y <= date('Y'); $y++) {
+                        $selected = ($y == $year) ? 'selected' : '';
+                        echo "<option value='$y' $selected>$y</option>";
+                    }
+                    ?>
+                  </select>
+                </div>
+                <div class="col-md-8">
+                  <div class="alert alert-info mb-0">
+                    <i class="bi bi-info-circle"></i> Showing payslips for <strong><?php echo $year; ?></strong>
+                  </div>
+                </div>
+              </form>
 
-                $employee_display_name = isset($employee['employee_name']) ? $employee['employee_name'] : 'Unknown Employee';
+              <!-- Payslips Table -->
+              <?php if ($payslip_data): ?>
+                <div class="table-responsive">
+                  <table class="table table-striped">
+                    <thead>
+                      <tr>
+                        <th scope="col">Month</th>
+                        <th scope="col">Basic Salary</th>
+                        <th scope="col">Allowances</th>
+                        <th scope="col">Overtime</th>
+                        <th scope="col">Claims</th>
+                        <th scope="col">Total Contributions</th>
+                        <th scope="col" class="text-end">Net Pay</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach ($payslip_data as $payroll): ?>
+                        <?php
+                        $monthName = date("F", mktime(0, 0, 0, $payroll['payroll_month'], 10));
+                        $basic_salary = $payroll['basic_salary'];
+                        $allowances = $payroll['allowances'] ?? 0;
+                        $overtime_pay = $payroll['overtime_pay'] ?? 0;
+                        $total_claims = $payroll['total_claims'] ?? 0;
+                        $gross_pay = $basic_salary + $allowances + $overtime_pay + $total_claims;
+                        $total_deductions = $payroll['epf_amount'] + $payroll['socso_amount'] + $payroll['eis_amount'] + $payroll['tax_amount'];
+                        
+                        // Status styling
+                        $statusClass = '';
+                        switch(strtolower($payroll['status'])) {
+                            case 'confirmed':
+                                $statusClass = 'badge bg-success';
+                                break;
+                            case 'pending':
+                                $statusClass = 'badge bg-warning text-dark';
+                                break;
+                            default:
+                                $statusClass = 'badge bg-secondary';
+                        }
+                        ?>
+                        <tr>
+                          <td><strong><?php echo $monthName; ?></strong></td>
+                          <td>RM <?php echo number_format($basic_salary, 2); ?></td>
+                          <td>RM <?php echo number_format($allowances, 2); ?></td>
+                          <td>RM <?php echo number_format($overtime_pay, 2); ?></td>
+                          <td>RM <?php echo number_format($total_claims, 2); ?></td>
+                          <td>RM <?php echo number_format($total_deductions, 2); ?></td>
+                          <td class="text-end"><strong class="text-primary">RM <?php echo number_format($payroll['net_pay'], 2); ?></strong></td>
+                          <td><span class="<?php echo $statusClass; ?>"><?php echo ucfirst($payroll['status']); ?></span></td>
+                          <td>
+                            <?php if (strtolower($payroll['status']) === 'confirmed'): ?>
+                              <a href="?download=pdf&month=<?php echo $payroll['payroll_month']; ?>&year=<?php echo $payroll['payroll_year']; ?>" 
+                                 class="btn btn-sm btn-outline-success" 
+                                 title="Download Payslip">
+                                <i class="bi bi-download"></i> Download
+                              </a>
+                            <?php else: ?>
+                              <span class="text-muted small">Not available</span>
+                            <?php endif; ?>
+                          </td>
+                        </tr>
+                      <?php endforeach; ?>
+                    </tbody>
+                  </table>
+                </div>
 
+                <!-- Summary Card -->
+                <div class="row mt-4">
+                  <div class="col-md-12">
+                    <div class="card bg-light">
+                      <div class="card-body">
+                        <h6 class="card-title">Year <?php echo $year; ?> Summary</h6>
+                        <div class="row">
+                          <div class="col-md-3">
+                            <div class="text-center">
+                              <div class="fs-4 fw-bold text-primary">
+                                RM <?php echo number_format(array_sum(array_column($payslip_data, 'net_pay')), 2); ?>
+                              </div>
+                              <div class="text-muted">Total Net Pay</div>
+                            </div>
+                          </div>
+                          <div class="col-md-3">
+                            <div class="text-center">
+                              <div class="fs-4 fw-bold text-success">
+                                <?php echo count($payslip_data); ?>
+                              </div>
+                              <div class="text-muted">Payslips Generated</div>
+                            </div>
+                          </div>
+                          <div class="col-md-3">
+                            <div class="text-center">
+                              <div class="fs-4 fw-bold text-warning">
+                                RM <?php echo number_format(array_sum(array_map(function($p) { 
+                                  return ($p['epf_amount'] + $p['socso_amount'] + $p['eis_amount'] + $p['tax_amount']); 
+                                }, $payslip_data)), 2); ?>
+                              </div>
+                              <div class="text-muted">Total Contributions</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
 
-                  echo "<tr>
-                          <td>{$employee_display_name}</td>
-                          <td>RM " . number_format($employee['basic_salary'], 2) . "</td>
-                          <td>RM " . number_format($employee['allowances'], 2) . "</td>
-                          <td>RM " . number_format($employee['overtime_pay'], 2) . "</td>
-                          <td>RM " . number_format($employee['total_claims'], 2) . "</td>
-                          <td>RM " . number_format($employee['epf_amount'], 2) . "</td>
-                          <td>RM " . number_format($employee['socso_amount'], 2) . "</td>
-                          <td>RM " . number_format($employee['eis_amount'], 2) . "</td>
-                          <td>RM " . number_format($employee['tax_amount'], 2) . "</td>
-                          <td>RM " . number_format($employee['net_pay'], 2) . "</td>
-                        </tr>";
-              }
-              ?>
-            </tbody>
-          </table>
-        </div>
+              <?php elseif ($no_data_found): ?>
+                <div class="alert alert-warning">
+                  <i class="bi bi-exclamation-triangle"></i> No payroll data found for year <?php echo $year; ?>.
+                </div>
+              <?php else: ?>
+                <div class="alert alert-info">
+                  <i class="bi bi-info-circle"></i> Select a year to view your payslips.
+                </div>
+              <?php endif; ?>
 
-        <div class="totals">
-          <div class="row">
-            <div class="col-md-3">
-              <h5>Total Basic Salary</h5>
-              <p>RM <?php echo number_format($basic_salary_total, 2); ?></p>
-            </div>
-            <div class="col-md-3">
-              <h5>Total Allowances</h5>
-              <p>RM <?php echo number_format($allowance_total, 2); ?></p>
-            </div>
-            <div class="col-md-3">
-              <h5>Total Overtime</h5>
-              <p>RM <?php echo number_format($overtime_total, 2); ?></p>
-            </div>
-            <div class="col-md-3">
-              <h5>Total Net Pay</h5>
-              <p>RM <?php echo number_format($total_net_pay, 2); ?></p>
             </div>
           </div>
-          <div class="row">
-            <div class="col-md-3">
-              <h5>Total payable to EPF</h5>
-              <p>RM <?php echo number_format($epf_total, 2); ?></p>
-            </div>
-            <div class="col-md-3">
-              <h5>Total payable to SOCSO</h5>
-              <p>RM <?php echo number_format($socso_total, 2); ?></p>
-            </div>
-            <div class="col-md-3">
-              <h5>Total payable to income tax</h5>
-              <p>RM <?php echo number_format($tax_total, 2); ?></p>
-            </div>
-            <div class="col-md-3">
-              <h5>Total payable to EIS</h5>
-              <p>RM <?php echo number_format($eis_total, 2); ?></p>
-            </div>
-          </div>
+
         </div>
-                <!-- Send Everyone Payslip Button -->
-        <div class="text-center mt-3">
-                <button class="btn btn-primary" onclick="sendPayslips()" onsubmit="showLoading()">Print Payslip</button>
-        </div>
-      <?php endif; ?>
-    </div>
-  </main>
+      </div>
+    </section>
+
+  </main><!-- End #main -->
 
   <footer id="footer" class="footer">
     <div class="copyright">
@@ -390,27 +603,6 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
   <script src="assets/vendor/tinymce/tinymce.min.js"></script>
   <script src="assets/vendor/php-email-form/validate.js"></script>
   <script src="assets/js/main.js"></script>
-  <script>
-<?php if ($no_data_found): ?>
-  alert('No payroll data found for this month and year.');
-<?php endif; ?>
-
-function sendPayslips() {
-    var month = <?= $month ?>;
-    var year = <?= $year ?>;
-    if (month && year) {
-        window.location.href = "send_payslip.php?month=" + month + "&year=" + year;
-    } else {
-        alert('Please select a valid month and year');
-    }
-}
-function showLoading() {
-    // Show a loading indicator (you can customize this)
-    alert('Generating payslips, please wait...');
-}
-</script>
-
-
 
 </body>
 

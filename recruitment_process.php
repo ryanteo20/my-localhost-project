@@ -437,6 +437,7 @@ function togglePositionStatus($position_id) {
     display: block;
 }
   </style>
+    <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>

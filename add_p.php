@@ -45,7 +45,7 @@ function handlePersonalInformation($conn) {
   }
 }
 
-$success_message = handlePersonalInformation($con);
+$success_message = handlePersonalInformation($conn);
 ?>
 
 <!DOCTYPE html>
@@ -78,6 +78,7 @@ $success_message = handlePersonalInformation($con);
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -438,7 +439,7 @@ $success_message = handlePersonalInformation($con);
                       $query = "SELECT personal_id, full_name, email, phone_number, ic, address, address2, zip, city, state, race, religion, marital, gender FROM personal_information ORDER BY personal_id DESC LIMIT 1";
 
                       // Execute the query
-                      $result = mysqli_query($con, $query);
+                      $result = mysqli_query($conn, $query);
 
                       // Check if there are any rows returned
                       if ($result) {
@@ -469,11 +470,11 @@ $success_message = handlePersonalInformation($con);
                           }
                       } else {
                           // If there's an error in the query execution, display the error message
-                          echo "Error: " . mysqli_error($con);
+                          echo "Error: " . mysqli_error($conn);
                       }
 
                       // Close the connection
-                      mysqli_close($con);
+                      mysqli_close($conn);
                       ?>
                   </tbody>
               </table>

@@ -5,7 +5,6 @@ require('session.php');   // Include session management script
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-
 // Get month and year from previous page (required parameters)
 $month = isset($_GET['month']) ? (int)trim($_GET['month']) : null;
 $year = isset($_GET['year']) ? (int)trim($_GET['year']) : null;
@@ -37,7 +36,7 @@ if ($month < 1 || $month > 12) {
 // Convert month number to month name for display
 $monthName = date("F", mktime(0, 0, 0, $month, 10));
 
-// Use prepared statement to prevent SQL injection
+// Use prepared statement to prevent SQL injection - CORRECTED QUERY
 $payroll_query = "
 SELECT el.ID AS employee_id, el.username as employee_name, 
        pt.basic_salary, pt.allowances, pt.overtime_pay, 
@@ -46,10 +45,8 @@ SELECT el.ID AS employee_id, el.username as employee_name,
 FROM payroll_transactions pt
 INNER JOIN employeelogin el ON pt.employee_id = el.ID
 WHERE MONTH(pt.pay_period_start) = ? AND YEAR(pt.pay_period_start) = ?
+ORDER BY el.ID ASC
 ";
-
-
-
 
 $stmt = mysqli_prepare($conn, $payroll_query);
 mysqli_stmt_bind_param($stmt, "ii", $month, $year);
@@ -111,39 +108,39 @@ if (isset($_SESSION['message'])) {
   <link href="assets/css/style.css" rel="stylesheet">
   
   <style>
-/* Green color for the More Actions dropdown button */
-[id^="more-actions-btn-"] {
-    background-color: #28a745 !important;  /* Green background */
-    color: white !important;               /* White text */
-    border: none !important;
-    padding: 5px 15px !important;
-    cursor: pointer !important;
-    font-size: 12px !important;
-    text-align: center !important;
-    border-radius: 4px !important;         /* Rounded corners for consistency */
-}
+    /* Green color for the More Actions dropdown button */
+    [id^="more-actions-btn-"] {
+        background-color: #28a745 !important;  /* Green background */
+        color: white !important;               /* White text */
+        border: none !important;
+        padding: 5px 15px !important;
+        cursor: pointer !important;
+        font-size: 12px !important;
+        text-align: center !important;
+        border-radius: 4px !important;         /* Rounded corners for consistency */
+    }
 
-/* Hover effect for the More Actions dropdown button */
-[id^="more-actions-btn-"]:hover {
-    background-color: #218838 !important;  /* Darker green on hover */
-}
+    /* Hover effect for the More Actions dropdown button */
+    [id^="more-actions-btn-"]:hover {
+        background-color: #218838 !important;  /* Darker green on hover */
+    }
 
-/* Styling for the dropdown menu */
-.dropdown-menu {
-    min-width: auto !important;            /* Prevent extra width */
-}
+    /* Styling for the dropdown menu */
+    .dropdown-menu {
+        min-width: auto !important;            /* Prevent extra width */
+    }
 
-/* Dropdown item styling */
-.dropdown-item {
-    padding: 10px !important;
-    font-size: 12px !important;
-}
+    /* Dropdown item styling */
+    .dropdown-item {
+        padding: 10px !important;
+        font-size: 12px !important;
+    }
 
-/* Hover effect for dropdown items */
-.dropdown-item:hover {
-    background-color: #218838 !important;  /* Darker green on hover */
-    color: white !important;
-}
+    /* Hover effect for dropdown items */
+    .dropdown-item:hover {
+        background-color: #218838 !important;  /* Darker green on hover */
+        color: white !important;
+    }
 
     .table-container {
       margin-top: 30px;
@@ -192,7 +189,22 @@ if (isset($_SESSION['message'])) {
         margin-left: 0 !important;
       }
     }
+    
+    /* Highlight calculated net pay */
+    .calculated-net-pay {
+      background-color: #e8f5e8;
+      font-weight: bold;
+    }
+    
+    /* Warning for incorrect net pay */
+    .incorrect-net-pay {
+      background-color: #ffe6e6;
+      color: #dc3545;
+      font-weight: bold;
+    }
+  
   </style>
+    <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -225,7 +237,7 @@ if (isset($_SESSION['message'])) {
         </li><!-- End Search Icon-->
 
         
-                <!-- Notification Icon -->
+        <!-- Notification Icon -->
         <li class="nav-item dropdown">
           <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notificationIcon">
             <i class="bi bi-bell"></i>
@@ -422,6 +434,7 @@ if (isset($_SESSION['message'])) {
         <table class="table table-striped">
           <thead>
             <tr>
+              <th>Employee ID</th>
               <th>Employee</th>
               <th>Basic Salary</th>
               <th>Allowance</th>
@@ -438,6 +451,7 @@ if (isset($_SESSION['message'])) {
           <tbody>
           <?php
                 $total_net_pay = 0;
+                $total_calculated_net_pay = 0;
                 $epf_total = 0;
                 $socso_total = 0;
                 $tax_total = 0;
@@ -449,15 +463,28 @@ if (isset($_SESSION['message'])) {
 
                 if (mysqli_num_rows($payroll_result) > 0) {
                     while ($employee = mysqli_fetch_assoc($payroll_result)) {
-                        $basic_salary_total += floatval($employee['basic_salary']);
-                        $allowance_total += floatval($employee['allowances']);
-                        $overtime_total += floatval($employee['overtime_pay']);
-                        $claims_total += floatval($employee['total_claims']);
-                        $epf_total += floatval($employee['epf_amount']);
-                        $socso_total += floatval($employee['socso_amount']);
-                        $tax_total += floatval($employee['tax_amount']);
-                        $eis_total += floatval($employee['eis_amount']);
-                        $total_net_pay += floatval($employee['net_pay']);
+                        
+                        $basic_salary_total += floatval($employee['basic_salary'] ?? 0);
+                        $allowance_total += floatval($employee['allowances'] ?? 0);
+                        $overtime_total += floatval($employee['overtime_pay'] ?? 0);
+                        $claims_total += floatval($employee['total_claims'] ?? 0);
+                        $epf_total += floatval($employee['epf_amount'] ?? 0);
+                        $socso_total += floatval($employee['socso_amount'] ?? 0);
+                        $tax_total += floatval($employee['tax_amount'] ?? 0);
+                        $eis_total += floatval($employee['eis_amount'] ?? 0);
+                        $total_net_pay += floatval($employee['net_pay'] ?? 0);
+
+                        // Calculate correct net pay (without deductions field)
+                        $calculated_net_pay = floatval($employee['basic_salary'] ?? 0) + 
+                                            floatval($employee['allowances'] ?? 0) + 
+                                            floatval($employee['overtime_pay'] ?? 0) + 
+                                            floatval($employee['total_claims'] ?? 0) - 
+                                            floatval($employee['epf_amount'] ?? 0) - 
+                                            floatval($employee['socso_amount'] ?? 0) - 
+                                            floatval($employee['tax_amount'] ?? 0) - 
+                                            floatval($employee['eis_amount'] ?? 0);
+                        
+                        $total_calculated_net_pay += $calculated_net_pay;
 
                         // Use employee_name instead of full_name based on the corrected query
                         $employee_display_name = isset($employee['employee_name']) ? $employee['employee_name'] : 
@@ -466,17 +493,31 @@ if (isset($_SESSION['message'])) {
                         // Check if the status is confirmed
                         $status = isset($employee['status']) ? $employee['status'] : 'unconfirmed';
 
+                        // Check if stored net pay matches calculated net pay
+                        $net_pay_difference = abs(floatval($employee['net_pay'] ?? 0) - $calculated_net_pay);
+                        $is_net_pay_correct = $net_pay_difference < 0.01; // Allow for small rounding differences
+
                         echo "<tr>
+                                <td>{$employee['employee_id']}</td>
                                 <td>{$employee_display_name}</td>
-                                <td>RM " . number_format($employee['basic_salary'], 2) . "</td>
-                                <td>RM " . number_format($employee['allowances'], 2) . "</td>
-                                <td>RM " . number_format($employee['overtime_pay'], 2) . "</td>
-                                <td>RM " . number_format($employee['total_claims'], 2) . "</td>
-                                <td>RM " . number_format($employee['epf_amount'], 2) . "</td>
-                                <td>RM " . number_format($employee['socso_amount'], 2) . "</td>
-                                <td>RM " . number_format($employee['tax_amount'], 2) . "</td>
-                                <td>RM " . number_format($employee['eis_amount'], 2) . "</td>
-                                <td>RM " . number_format($employee['net_pay'], 2) . "</td>";
+                                <td>RM " . number_format($employee['basic_salary'] ?? 0, 2) . "</td>
+                                <td>RM " . number_format($employee['allowances'] ?? 0, 2) . "</td>
+                                <td>RM " . number_format($employee['overtime_pay'] ?? 0, 2) . "</td>
+                                <td>RM " . number_format($employee['total_claims'] ?? 0, 2) . "</td>
+                                <td>RM " . number_format($employee['epf_amount'] ?? 0, 2) . "</td>
+                                <td>RM " . number_format($employee['socso_amount'] ?? 0, 2) . "</td>
+                                <td>RM " . number_format($employee['tax_amount'] ?? 0, 2) . "</td>
+                                <td>RM " . number_format($employee['eis_amount'] ?? 0, 2) . "</td>";
+
+                        // Display net pay with highlighting if incorrect
+                        if ($is_net_pay_correct) {
+                            echo "<td class='calculated-net-pay'>RM " . number_format($calculated_net_pay, 2) . "</td>";
+                        } else {
+                            echo "<td class='incorrect-net-pay' title='Stored: RM " . number_format($employee['net_pay'] ?? 0, 2) . " | Calculated: RM " . number_format($calculated_net_pay, 2) . "'>
+                                    RM " . number_format($calculated_net_pay, 2) . "
+                                    <br><small>(⚠️ Mismatch: Stored RM " . number_format($employee['net_pay'] ?? 0, 2) . ")</small>
+                                  </td>";
+                        }
 
                         // If status is confirmed, show "Send payslip" or dropdown, otherwise show "Confirm amount"
                         if ($status == 'confirmed') {
@@ -489,8 +530,15 @@ if (isset($_SESSION['message'])) {
                                         <ul class='dropdown-menu' aria-labelledby='dropdownMenuButton'>
                                             <li><a class='dropdown-item' href='#' onclick='sendPayslip({$employee['employee_id']})'>Send payslip</a></li>
                                             <li><a class='dropdown-item' href='#' onclick='downloadPayslip({$employee['employee_id']})'>Download payslip</a></li>
-                                            <li><a class='dropdown-item' href='#' onclick='unconfirmPayment({$employee['employee_id']}, \"{$employee_display_name}\")'>Unconfirm</a></li>
-                                        </ul>
+                                            <li><a class='dropdown-item' href='#' onclick='unconfirmPayment({$employee['employee_id']}, \"{$employee_display_name}\")'>Unconfirm</a></li>";
+                            
+                            // Add fix net pay option if there's a mismatch
+                            if (!$is_net_pay_correct) {
+                                echo "<li><hr class='dropdown-divider'></li>
+                                      <li><a class='dropdown-item text-warning' href='#' onclick='fixNetPay({$employee['employee_id']}, {$calculated_net_pay})'>🔧 Fix Net Pay</a></li>";
+                            }
+                            
+                            echo "        </ul>
                                     </div>
                                 </td>";
                         } else {
@@ -498,9 +546,10 @@ if (isset($_SESSION['message'])) {
                         }
 
                         echo "</tr>";
+                        
                     }
                 } else {
-                    echo "<tr><td colspan='10' class='text-center'>No payroll data found for " . $monthName . " " . $year . "</td></tr>";
+                    echo "<tr><td colspan='12' class='text-center'>No payroll data found for " . $monthName . " " . $year . "</td></tr>";
                 }
                 ?>
           </tbody>
@@ -510,8 +559,8 @@ if (isset($_SESSION['message'])) {
       <div class="totals">
         <div class="row">
           <div class="col-md-3">
-            <h5>Total Basic Salary</h5>
-            <p>RM <?php echo number_format($basic_salary_total, 2); ?></p>
+            <h5>Total Net Pay</h5>
+            <p class="text-success">RM <?php echo number_format($total_calculated_net_pay, 2); ?></p>
           </div>
           <div class="col-md-3">
             <h5>Total Allowances</h5>
@@ -522,8 +571,8 @@ if (isset($_SESSION['message'])) {
             <p>RM <?php echo number_format($overtime_total, 2); ?></p>
           </div>
           <div class="col-md-3">
-            <h5>Total Net Pay</h5>
-            <p>RM <?php echo number_format($total_net_pay, 2); ?></p>
+            <h5>Total Claims</h5>
+            <p>RM <?php echo number_format($claims_total, 2); ?></p>
           </div>
         </div>
         <div class="row">
@@ -544,10 +593,36 @@ if (isset($_SESSION['message'])) {
             <p>RM <?php echo number_format($eis_total, 2); ?></p>
           </div>
         </div>
+        <div class="row mt-3">
+          <?php if (abs($total_net_pay - $total_calculated_net_pay) > 0.01): ?>
+          <div class="col-md-6">
+            <h4>Total Net Pay (Stored)</h4>
+            <p class="h5 text-warning">RM <?php echo number_format($total_net_pay, 2); ?></p>
+            <small class="text-muted">Difference: RM <?php echo number_format($total_calculated_net_pay - $total_net_pay, 2); ?></small>
+          </div>
+          <?php endif; ?>
+        </div>
       </div>
+
+        <!-- Auto-Fix Net Pay Button -->
+        <?php if (abs($total_net_pay - $total_calculated_net_pay) > 0.01): ?>
+        <div class="text-center mt-3">
+            <div class="alert alert-warning">
+                <strong>⚠️ Net Pay Calculation Mismatches Detected!</strong><br>
+                Total difference: RM <?php echo number_format($total_calculated_net_pay - $total_net_pay, 2); ?>
+            </div>
+            <a href="auto_fix_all_net_pay.php?month=<?= $month ?>&year=<?= $year ?>" 
+               class="btn btn-warning btn-lg">
+                🔧 Auto-Fix All Net Pay Calculations
+            </a>
+        </div>
+        <?php endif; ?>
 
         <!-- Send Everyone Payslip Button -->
         <div class="text-center mt-3">
+                    <button class="btn btn-success" onclick="confirmEveryone()">
+                        ✅ Confirm Everyone
+                    </button>
             <?php if ($allConfirmed): ?>
                 <button class="btn btn-primary" onclick="sendAllPayslips()" onsubmit="showLoading()">Send Everyone Payslip</button>
             <?php else: ?>
@@ -581,6 +656,7 @@ function sendAllPayslips() {
         window.location.href = "send_all_payslips.php?month=<?= $month ?>&year=<?= $year ?>";
     }
 }
+
 function confirmPayment(employeeId, employeeName) {
   if (confirm('Confirm payment for ' + employeeName + '?')) {
     // Get month and year from PHP
@@ -601,13 +677,6 @@ function confirmPayment(employeeId, employeeName) {
 
     xhr.send("employee_id=" + employeeId + "&month=" + month + "&year=" + year);
   }
-}
-
-
-// Helper function to get employee ID based on the name (you may adjust this as needed)
-function getEmployeeId(employeeName) {
-  // You can fetch employee ID from your database or use it from a hidden data attribute on the button
-  return document.querySelector(`[data-employee-name='${employeeName}']`).dataset.employeeId;
 }
 
 function downloadPayslip(employeeId) {
@@ -642,16 +711,221 @@ function unconfirmPayment(employeeId, employeeName) {
     }
 }
 
-    // Show the modal if the message is set
-    window.onload = function() {
+function fixNetPay(employeeId, correctNetPay) {
+    if (confirm('Fix the net pay calculation for this employee?\\nThis will recalculate and update the stored net pay to the correct amount.')) {
+        let month = <?php echo $month; ?>;
+        let year = <?php echo $year; ?>;
+
+        // Show loading state
+        let button = event.target.closest('.dropdown').querySelector('button');
+        let originalText = button.innerHTML;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Fixing...';
+        button.disabled = true;
+
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", "fix_net_pay.php", true);
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                if(xhr.responseText.includes('success')) {
+                    alert('Net pay has been recalculated and updated successfully!\\n' + xhr.responseText);
+                    location.reload();
+                } else {
+                    alert('Error fixing net pay: ' + xhr.responseText);
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }
+            }
+        };
+
+        xhr.send("employee_id=" + employeeId + "&month=" + month + "&year=" + year);
+    }
+}
+
+// Show the modal if the message is set
+window.onload = function() {
+    if (document.getElementById("messageModal")) {
         const modal = new bootstrap.Modal(document.getElementById("messageModal"));
         modal.show();  // Show the modal
-    };
+    }
+};
 
 function showLoading() {
     document.getElementById('loading-spinner').classList.remove('d-none');
     event.target.disabled = true;
     event.target.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+}
+
+function sendAllPayslips() {
+    if (confirm("Are you sure you want to send payslips to all employees?")) {
+        // Show loading state
+        event.target.disabled = true;
+        event.target.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+        
+        window.location.href = "send_all_payslips.php?month=<?= $month ?>&year=<?= $year ?>";
+    }
+}
+
+function confirmEveryone() {
+    if (confirm("Are you sure you want to confirm payment for ALL employees for <?= date('F', mktime(0, 0, 0, $month, 10)) . ' ' . $year ?>?")) {
+        let month = <?php echo $month; ?>;
+        let year = <?php echo $year; ?>;
+
+        // Show loading state
+        event.target.disabled = true;
+        event.target.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Confirming...';
+
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", "confirm_all_payroll.php", true);
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                if(xhr.responseText.includes('success')) {
+                    alert('All payments have been confirmed successfully!');
+                    location.reload();
+                } else {
+                    alert('Error confirming payments: ' + xhr.responseText);
+                    event.target.disabled = false;
+                    event.target.innerHTML = '✅ Confirm Everyone';
+                }
+            }
+        };
+
+        xhr.send("month=" + month + "&year=" + year);
+    }
+}
+
+function downloadAllPayslips() {
+    if (confirm("Download all payslips for <?= date('F', mktime(0, 0, 0, $month, 10)) . ' ' . $year ?>?")) {
+        // Show loading state
+        event.target.disabled = true;
+        event.target.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Preparing...';
+        
+        window.open("download_all_payslips.php?month=<?= $month ?>&year=<?= $year ?>", '_blank');
+        
+        // Reset button after 3 seconds
+        setTimeout(() => {
+            event.target.disabled = false;
+            event.target.innerHTML = '📥 Download All Payslips';
+        }, 3000);
+    }
+}
+
+function confirmPayment(employeeId, employeeName) {
+  if (confirm('Confirm payment for ' + employeeName + '?')) {
+    // Get month and year from PHP
+    let month = <?php echo $month; ?>;
+    let year = <?php echo $year; ?>;
+
+    let xhr = new XMLHttpRequest();
+    xhr.open("POST", "update_payroll_status.php", true);
+    xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+
+    // Pass the employee ID, month, and year to update the status
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState == 4 && xhr.status == 200) {
+        alert('Payment confirmed for ' + employeeName);
+        location.reload(); // Reload the page to show updated status
+      }
+    };
+
+    xhr.send("employee_id=" + employeeId + "&month=" + month + "&year=" + year);
+  }
+}
+
+function sendPayslip(employeeId) {
+    if (confirm('Send payslip to this employee?')) {
+        let month = <?php echo $month; ?>;
+        let year = <?php echo $year; ?>;
+
+        // Show loading state
+        let button = event.target.closest('.dropdown').querySelector('button');
+        let originalText = button.innerHTML;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+        button.disabled = true;
+
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", "send_payslip.php", true);
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                if(xhr.responseText.includes('success')) {
+                    alert('Payslip sent successfully!\\n' + xhr.responseText);
+                    location.reload();
+                } else {
+                    alert('Error sending payslip: ' + xhr.responseText);
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }
+            }
+        };
+
+        xhr.send("employee_id=" + employeeId + "&month=" + month + "&year=" + year);
+    }
+}
+
+function downloadPayslip(employeeId) {
+    let month = <?php echo $month; ?>;
+    let year = <?php echo $year; ?>;
+    
+    // Show loading state
+    let button = event.target.closest('.dropdown').querySelector('button');
+    let originalText = button.innerHTML;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Preparing...';
+    button.disabled = true;
+
+    // Open download in new window/tab
+    let downloadUrl = `download_payslip.php?employee_id=${employeeId}&month=${month}&year=${year}`;
+    window.open(downloadUrl, '_blank');
+
+    // Reset button after 2 seconds
+    setTimeout(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }, 2000);
+}
+
+// Show the modal if the message is set
+window.onload = function() {
+    if (document.getElementById("messageModal")) {
+        const modal = new bootstrap.Modal(document.getElementById("messageModal"));
+        modal.show();
+    }
+};
+
+function sendPayslip(employeeId) {
+    if (confirm('Send payslip to this employee?')) {
+        let month = <?php echo $month; ?>;
+        let year = <?php echo $year; ?>;
+
+        // Show loading state
+        let button = event.target.closest('.dropdown').querySelector('button');
+        let originalText = button.innerHTML;
+        button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Sending...';
+        button.disabled = true;
+
+        let xhr = new XMLHttpRequest();
+        xhr.open("POST", "send_individual_payslip.php", true);  // Updated filename
+        xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState == 4 && xhr.status == 200) {
+                if(xhr.responseText.includes('success')) {
+                    alert('Payslip sent successfully!\n' + xhr.responseText);
+                    location.reload();
+                } else {
+                    alert('Error sending payslip: ' + xhr.responseText);
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }
+            }
+        };
+
+        xhr.send("employee_id=" + employeeId + "&month=" + month + "&year=" + year);
+    }
 }
  </script>
 

@@ -356,6 +356,7 @@ if ($attendance) {
       border: 2px solid #f5c6cb;
     }
   </style>
+    <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -459,7 +460,7 @@ if ($attendance) {
       </li>
 
       <li class="nav-item">
-        <a class="nav-link collapsed" href="recruiment_process.php">
+        <a class="nav-link collapsed" href="recruitment_process.php">
           <i class="bi bi-journal-text"></i><span>Recruitment Process</span>
         </a>
       </li>

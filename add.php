@@ -68,6 +68,7 @@ $success_message = handleRegistration($conn);
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
@@ -348,7 +349,7 @@ $success_message = handleRegistration($conn);
                     $query = "SELECT ID, username, password, reg_date, role FROM employeelogin ORDER BY ID DESC LIMIT 1";
 
                     // Execute the query
-                    $result = mysqli_query($con, $query);
+                    $result = mysqli_query($conn, $query);
 
                     // Check if there are any rows returned
                     if (mysqli_num_rows($result) > 0) {
@@ -368,7 +369,7 @@ $success_message = handleRegistration($conn);
                     }
 
                     // Close the connection
-                    mysqli_close($con);
+                    mysqli_close($conn);
                     ?>
                 </tbody>
             </table>
