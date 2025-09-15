@@ -210,6 +210,43 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
       text-align: center;
       margin-top: 0.25rem;
     }
+
+    <!-- Add notification styles -->
+<style>
+.notification-item-content {
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.notification-item-content:hover {
+    background-color: #f8f9fa;
+}
+
+.notifications {
+    max-height: 400px;
+    overflow-y: auto;
+    min-width: 350px;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+.animate__pulse {
+    animation: pulse 0.5s ease-in-out;
+}
+
+.badge-number {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    min-width: 18px;
+    height: 18px;
+    font-size: 10px;
+    line-height: 18px;
+}
   </style>
 
   <?php include 'includes/chatbot-includes.php'; ?>
@@ -249,7 +286,7 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
           <a class="nav-link nav-icon" href="#" data-bs-toggle="dropdown" id="notificationIcon">
             <i class="bi bi-bell"></i>
             <span class="badge bg-primary badge-number" id="notificationCount" style="display: none;">0</span>
-          </a><!-- End Notification Icon -->
+          </a>
 
           <ul class="dropdown-menu dropdown-menu-end dropdown-menu-arrow notifications" id="notificationDropdown">
             <li class="dropdown-header">
@@ -260,8 +297,8 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
             <div id="notificationList">
               <!-- Notifications will be loaded here -->
             </div>
-          </ul><!-- End Notification Dropdown Items -->
-        </li><!-- End Notification Nav -->
+          </ul>
+        </li>
 
         <li class="nav-item dropdown pe-3">
 
@@ -622,6 +659,13 @@ const approvedLeaveData = <?php echo json_encode($approved_leave_data); ?>;
 const approvedClaimsData = <?php echo json_encode($approved_claims_data); ?>;
 const approvedClaimsAmountData = <?php echo json_encode($approved_claims_amount); ?>;
 
+// Debug: Log the data to console
+console.log('Chart Data Debug:');
+console.log('Labels:', monthsLabels);
+console.log('Leave Data:', approvedLeaveData);
+console.log('Claims Data:', approvedClaimsData);
+console.log('Claims Amount:', approvedClaimsAmountData);
+
 // Common chart options - optimized for scrollable containers
 const commonOptions = {
   responsive: true,
@@ -696,99 +740,262 @@ const commonOptions = {
   }
 };
 
-// Chart 1: Approved Leave Applications (Line Chart)
-const ctx1 = document.getElementById('approvedLeaveChart').getContext('2d');
-const approvedLeaveChart = new Chart(ctx1, {
-  type: 'line',
-  data: {
-    labels: monthsLabels,
-    datasets: [{
-      label: 'Approved Leave Applications',
-      data: approvedLeaveData,
-      backgroundColor: 'rgba(75, 192, 192, 0.1)',
-      borderColor: 'rgba(75, 192, 192, 1)',
-      pointBackgroundColor: 'rgba(75, 192, 192, 1)',
-      pointBorderColor: '#fff',
-      pointHoverBackgroundColor: '#fff',
-      pointHoverBorderColor: 'rgba(75, 192, 192, 1)',
-      fill: true
-    }]
-  },
-  options: commonOptions
-});
+// Wait for DOM to be ready and Chart.js to be loaded
+document.addEventListener('DOMContentLoaded', function() {
+  // Check if Chart.js is loaded
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js is not loaded!');
+    return;
+  }
 
-// Chart 2: Approved Claims (Line Chart - Changed from Bar)
-const ctx2 = document.getElementById('approvedClaimsChart').getContext('2d');
-const approvedClaimsChart = new Chart(ctx2, {
-  type: 'line',
-  data: {
-    labels: monthsLabels,
-    datasets: [{
-      label: 'Approved Claims',
-      data: approvedClaimsData,
-      backgroundColor: 'rgba(255, 99, 132, 0.1)',
-      borderColor: 'rgba(255, 99, 132, 1)',
-      pointBackgroundColor: 'rgba(255, 99, 132, 1)',
-      pointBorderColor: '#fff',
-      pointHoverBackgroundColor: '#fff',
-      pointHoverBorderColor: 'rgba(255, 99, 132, 1)',
-      fill: true
-    }]
-  },
-  options: commonOptions
-});
+  // Validate data before creating charts
+  if (!monthsLabels || !Array.isArray(monthsLabels) || monthsLabels.length === 0) {
+    console.error('Invalid months labels data');
+    return;
+  }
 
-// Chart 3: Approved Claims Amount (Line Chart)
-const ctx3 = document.getElementById('approvedClaimsAmountChart').getContext('2d');
-const approvedClaimsAmountChart = new Chart(ctx3, {
-  type: 'line',
-  data: {
-    labels: monthsLabels,
-    datasets: [{
-      label: 'Claims Amount (RM)',
-      data: approvedClaimsAmountData,
-      backgroundColor: 'rgba(54, 162, 235, 0.1)',
-      borderColor: 'rgba(54, 162, 235, 1)',
-      pointBackgroundColor: 'rgba(54, 162, 235, 1)',
-      pointBorderColor: '#fff',
-      pointHoverBackgroundColor: '#fff',
-      pointHoverBorderColor: 'rgba(54, 162, 235, 1)',
-      fill: true
-    }]
-  },
-  options: {
-    ...commonOptions,
-    scales: {
-      ...commonOptions.scales,
-      y: {
-        beginAtZero: true,
-        ticks: {
-          font: {
-            size: 10
-          },
-          callback: function(value, index, values) {
-            return 'RM ' + value.toLocaleString('en-MY', {minimumFractionDigits: 0, maximumFractionDigits: 0});
-          }
+  // Chart 1: Approved Leave Applications
+  const ctx1 = document.getElementById('approvedLeaveChart');
+  if (ctx1) {
+    try {
+      new Chart(ctx1, {
+        type: 'line',
+        data: {
+          labels: monthsLabels,
+          datasets: [{
+            label: 'Approved Leave Applications',
+            data: approvedLeaveData || [],
+            backgroundColor: 'rgba(75, 192, 192, 0.1)',
+            borderColor: 'rgba(75, 192, 192, 1)',
+            pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgba(75, 192, 192, 1)',
+            fill: true
+          }]
         },
-        grid: {
-          color: 'rgba(0,0,0,0.1)',
-          drawBorder: false
-        }
-      }
+        options: commonOptions
+      });
+      console.log('Leave chart created successfully');
+    } catch (error) {
+      console.error('Error creating leave chart:', error);
     }
   }
+
+  // Chart 2: Approved Claims
+  const ctx2 = document.getElementById('approvedClaimsChart');
+  if (ctx2) {
+    try {
+      new Chart(ctx2, {
+        type: 'line',
+        data: {
+          labels: monthsLabels,
+          datasets: [{
+            label: 'Approved Claims',
+            data: approvedClaimsData || [],
+            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            pointBackgroundColor: 'rgba(255, 99, 132, 1)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgba(255, 99, 132, 1)',
+            fill: true
+          }]
+        },
+        options: commonOptions
+      });
+      console.log('Claims chart created successfully');
+    } catch (error) {
+      console.error('Error creating claims chart:', error);
+    }
+  }
+
+  // Chart 3: Approved Claims Amount
+  const ctx3 = document.getElementById('approvedClaimsAmountChart');
+  if (ctx3) {
+    try {
+      new Chart(ctx3, {
+        type: 'line',
+        data: {
+          labels: monthsLabels,
+          datasets: [{
+            label: 'Claims Amount (RM)',
+            data: approvedClaimsAmountData || [],
+            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            pointBackgroundColor: 'rgba(54, 162, 235, 1)',
+            pointBorderColor: '#fff',
+            pointHoverBackgroundColor: '#fff',
+            pointHoverBorderColor: 'rgba(54, 162, 235, 1)',
+            fill: true
+          }]
+        },
+        options: {
+          ...commonOptions,
+          scales: {
+            ...commonOptions.scales,
+            y: {
+              beginAtZero: true,
+              ticks: {
+                font: {
+                  size: 10
+                },
+                callback: function(value, index, values) {
+                  return 'RM ' + value.toLocaleString('en-MY', {minimumFractionDigits: 0, maximumFractionDigits: 0});
+                }
+              },
+              grid: {
+                color: 'rgba(0,0,0,0.1)',
+                drawBorder: false
+              }
+            }
+          }
+        }
+      });
+      console.log('Claims amount chart created successfully');
+    } catch (error) {
+      console.error('Error creating claims amount chart:', error);
+    }
+  }
+
+  // Auto-scroll to show recent data (optional)
+  setTimeout(() => {
+    const chartContainers = document.querySelectorAll('.chart-container');
+    chartContainers.forEach(container => {
+      container.scrollLeft = container.scrollWidth * 0.5;
+    });
+  }, 1000);
+
+  // Initialize notification manager
+  initializeNotificationManager();
 });
 
-// Auto-scroll to show recent data (optional)
-document.addEventListener('DOMContentLoaded', function() {
-  const chartContainers = document.querySelectorAll('.chart-container');
-  chartContainers.forEach(container => {
-    // Scroll to show the most recent 6 months by default
-    setTimeout(() => {
-      container.scrollLeft = container.scrollWidth * 0.5;
-    }, 500);
-  });
-});
+// Notification Manager - Fixed version (remove duplicates)
+class NotificationManager {
+    constructor() {
+        this.updateInterval = 30000; // 30 seconds
+        this.init();
+    }
+    
+    init() {
+        this.loadNotifications();
+        this.startPeriodicUpdate();
+    }
+    
+    async loadNotifications() {
+        try {
+            const response = await fetch('api/notifications.php?action=get_unread');
+            const data = await response.json();
+            
+            if (data.success) {
+                this.updateUI(data.notifications, data.count);
+            }
+        } catch (error) {
+            console.error('Error loading notifications:', error);
+        }
+    }
+    
+    updateUI(notifications, count) {
+        const countElement = document.getElementById('notificationCount');
+        const headerCountElement = document.getElementById('notificationHeaderCount');
+        const listElement = document.getElementById('notificationList');
+        
+        if (countElement && headerCountElement) {
+            if (count > 0) {
+                countElement.textContent = count > 99 ? '99+' : count;
+                countElement.style.display = 'block';
+                headerCountElement.textContent = count;
+            } else {
+                countElement.style.display = 'none';
+                headerCountElement.textContent = '0';
+            }
+        }
+        
+        if (listElement) {
+            listElement.innerHTML = notifications.length === 0 ? 
+                '<li class="text-center py-3 text-muted">No new notifications</li>' :
+                notifications.map(n => this.createNotificationHTML(n)).join('');
+        }
+    }
+    
+    createNotificationHTML(notification) {
+        const timeAgo = this.getTimeAgo(notification.created_at);
+        return `
+            <li class="notification-item">
+                <div class="d-flex p-3 border-bottom" onclick="markNotificationAsRead(${notification.id})">
+                    <div class="me-3">
+                        <i class="bi bi-bell text-primary fs-4"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">${notification.title}</h6>
+                        <p class="mb-1 text-muted small">${notification.message}</p>
+                        <small class="text-muted">${timeAgo}</small>
+                    </div>
+                </div>
+            </li>
+        `;
+    }
+    
+    getTimeAgo(dateString) {
+        const now = new Date();
+        const notificationDate = new Date(dateString);
+        const diffInSeconds = Math.floor((now - notificationDate) / 1000);
+        
+        if (diffInSeconds < 60) return 'Just now';
+        if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + ' min ago';
+        if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + ' hr ago';
+        return Math.floor(diffInSeconds / 86400) + ' day ago';
+    }
+    
+    startPeriodicUpdate() {
+        setInterval(() => this.loadNotifications(), this.updateInterval);
+    }
+}
+
+// Notification functions
+async function markNotificationAsRead(notificationId) {
+    const formData = new FormData();
+    formData.append('notification_id', notificationId);
+    
+    const response = await fetch('api/notifications.php?action=mark_read', {
+        method: 'POST',
+        body: formData
+    });
+    
+    if (response.ok) {
+        window.notificationManager.loadNotifications();
+    }
+}
+
+async function markAllAsRead() {
+    const response = await fetch('api/notifications.php?action=mark_all_read', {
+        method: 'POST'
+    });
+    
+    if (response.ok) {
+        window.notificationManager.loadNotifications();
+    }
+}
+
+// Initialize notification manager
+function initializeNotificationManager() {
+    const requiredElements = [
+        'notificationIcon',
+        'notificationCount', 
+        'notificationHeaderCount',
+        'notificationList'
+    ];
+    
+    const allElementsExist = requiredElements.every(id => document.getElementById(id));
+    
+    if (allElementsExist) {
+        window.notificationManager = new NotificationManager();
+        console.log('Notification manager initialized successfully');
+    } else {
+        console.warn('Some notification elements not found, skipping notification initialization');
+    }
+}
+
 </script>
 
 </body>

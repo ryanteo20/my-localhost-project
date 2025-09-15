@@ -24,6 +24,62 @@ if ($stmt) {
     $fullname = "Unknown"; // fallback
 }
 
+// Add form processing logic for claim submission
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['category'])) {
+    $employee = $_POST['employee'];
+    $category = $_POST['category'];
+    $transaction_date = $_POST['transaction_date'];
+    $amount = $_POST['amount'];
+    $invoice_number = $_POST['invoice_number'];
+    $notes = $_POST['notes'];
+    
+    // Handle file upload
+    $attachment_path = null;
+    if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] == 0) {
+        $upload_dir = 'uploads/claim_attachments/';
+        if (!file_exists($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
+        $file_name = time() . '_' . $_FILES['attachment']['name'];
+        $attachment_path = $upload_dir . $file_name;
+        move_uploaded_file($_FILES['attachment']['tmp_name'], $attachment_path);
+    }
+    
+    // Insert claim into database
+    $insert_query = "INSERT INTO claims (employee_id, category, transaction_date, amount, invoice_number, notes, attachment_path, status, submitted_at) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())";
+    
+    $insert_stmt = $conn->prepare($insert_query);
+    $insert_stmt->bind_param("issdsss", $employee, $category, $transaction_date, $amount, $invoice_number, $notes, $attachment_path);
+    
+    if ($insert_stmt->execute()) {
+        $claim_id = $conn->insert_id;
+        
+        // Create notification for employers
+        require_once('includes/notification_service.php');
+        $notification_service = new NotificationService($conn);
+        
+        // Get employee name
+        $emp_query = "SELECT pi.full_name FROM personal_information pi 
+                      JOIN employeelogin el ON pi.personal_id = el.ID 
+                      WHERE el.ID = ?";
+        $emp_stmt = $conn->prepare($emp_query);
+        $emp_stmt->bind_param("i", $employee);
+        $emp_stmt->execute();
+        $emp_result = $emp_stmt->get_result()->fetch_assoc();
+        $employee_name = $emp_result['full_name'] ?? $_SESSION['username'];
+        
+        // Send notification to all employers
+        $notification_service->notifyClaimSubmission($employee, $category, $amount, $claim_id);
+        
+        $_SESSION['success_message'] = 'Claim submitted successfully! Employers have been notified.';
+        header("Location: R_claim.php");
+        exit();
+    } else {
+        $_SESSION['error_message'] = 'Error submitting claim. Please try again.';
+    }
+}
+
 if (isset($_SESSION['success_message'])) {
     echo '<div id="autoDismissAlert" class="alert alert-success alert-dismissible fade show text-center" role="alert">'
         . htmlspecialchars($_SESSION['success_message']) .
@@ -73,6 +129,23 @@ require 'vendor/autoload.php';
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  
+  <!-- Add notification styles -->
+  <style>
+    .notification-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #28a745;
+      color: white;
+      padding: 15px 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 9999;
+      display: none;
+    }
+  </style>
+  
   <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
@@ -417,7 +490,7 @@ require 'vendor/autoload.php';
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <form id="newClaimForm" method="POST" action="insert_claim.php">
+                                <form id="newClaimForm" method="POST" enctype="multipart/form-data">
                                     <!-- Employee -->
                                     <div class="mb-3">
                                         <label for="employeeName" class="form-label">Employee</label>
@@ -431,7 +504,7 @@ require 'vendor/autoload.php';
                                     <!-- Category -->
                                     <div class="mb-3">
                                         <label for="category" class="form-label">Category</label>
-                                        <select class="form-select" id="category" name="category">
+                                        <select class="form-select" id="category" name="category" required>
                                         <option selected disabled>Choose a category below</option>
                                         <option value="Travel">Travel</option>
                                         <option value="Meal">Meal</option>
@@ -443,7 +516,7 @@ require 'vendor/autoload.php';
                                     <!-- Date of Transaction -->
                                     <div class="mb-3">
                                         <label for="transactionDate" class="form-label">Date of Transaction</label>
-                                        <input type="date" class="form-control" id="transactionDate" name="transaction_date">
+                                        <input type="date" class="form-control" id="transactionDate" name="transaction_date" required>
                                     </div>
 
                                     <!-- Total Claim Amount + Tax Invoice -->
@@ -452,7 +525,7 @@ require 'vendor/autoload.php';
                                         <label for="claimAmount" class="form-label">Total Claim Amount</label>
                                         <div class="input-group">
                                             <span class="input-group-text">MYR</span>
-                                            <input type="number" step="0.01" class="form-control" id="claimAmount" name="amount">
+                                            <input type="number" step="0.01" class="form-control" id="claimAmount" name="amount" required>
                                         </div>
                                         </div>
                                         <div class="col-md-6">
@@ -508,6 +581,11 @@ require 'vendor/autoload.php';
     </div>
   </main><!-- End #main -->
 
+  <!-- Notification Container -->
+  <div id="notification" class="notification-container">
+      Claim submitted successfully!
+  </div>
+
   <!-- ======= Footer ======= -->
   <footer id="footer" class="footer">
     <div class="copyright">
@@ -530,8 +608,154 @@ require 'vendor/autoload.php';
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
-    <script>
+  
+  <!-- Add notification system JavaScript -->
+  <script>
+    // Notification Manager
+    class NotificationManager {
+        constructor() {
+            this.updateInterval = 30000; // 30 seconds
+            this.init();
+        }
+        
+        init() {
+            this.loadNotifications();
+            this.startPeriodicUpdate();
+        }
+        
+        async loadNotifications() {
+            try {
+                const response = await fetch('api/notifications.php?action=get_unread');
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.updateUI(data.notifications, data.count);
+                }
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+            }
+        }
+        
+        updateUI(notifications, count) {
+            const countElement = document.getElementById('notificationCount');
+            const headerCountElement = document.getElementById('notificationHeaderCount');
+            const listElement = document.getElementById('notificationList');
+            
+            if (countElement && headerCountElement) {
+                if (count > 0) {
+                    countElement.textContent = count > 99 ? '99+' : count;
+                    countElement.style.display = 'block';
+                    headerCountElement.textContent = count;
+                } else {
+                    countElement.style.display = 'none';
+                    headerCountElement.textContent = '0';
+                }
+            }
+            
+            if (listElement) {
+                listElement.innerHTML = notifications.length === 0 ? 
+                    '<li class="text-center py-3 text-muted">No new notifications</li>' :
+                    notifications.map(n => this.createNotificationHTML(n)).join('');
+            }
+        }
+        
+        createNotificationHTML(notification) {
+            const timeAgo = this.getTimeAgo(notification.created_at);
+            return `
+                <li class="notification-item">
+                    <div class="d-flex p-3 border-bottom" onclick="markNotificationAsRead(${notification.id})">
+                        <div class="me-3">
+                            <i class="bi bi-currency-dollar text-primary fs-4"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${notification.title}</h6>
+                            <p class="mb-1 text-muted small">${notification.message}</p>
+                            <small class="text-muted">${timeAgo}</small>
+                        </div>
+                    </div>
+                </li>
+            `;
+        }
+        
+        getTimeAgo(dateString) {
+            const now = new Date();
+            const notificationDate = new Date(dateString);
+            const diffInSeconds = Math.floor((now - notificationDate) / 1000);
+            
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + ' min ago';
+            if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + ' hr ago';
+            return Math.floor(diffInSeconds / 86400) + ' day ago';
+        }
+        
+        startPeriodicUpdate() {
+            setInterval(() => this.loadNotifications(), this.updateInterval);
+        }
+    }
+
+    async function markNotificationAsRead(notificationId) {
+        const formData = new FormData();
+        formData.append('notification_id', notificationId);
+        
+        const response = await fetch('api/notifications.php?action=mark_read', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            window.notificationManager.loadNotifications();
+        }
+    }
+
+    async function markAllAsRead() {
+        const response = await fetch('api/notifications.php?action=mark_all_read', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            window.notificationManager.loadNotifications();
+        }
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize notification manager
+        window.notificationManager = new NotificationManager();
+        
+        // Function to show notification
+        function showNotification() {
+            const notification = document.getElementById('notification');
+            notification.style.display = 'block';
+            notification.style.opacity = 0;
+            let opacity = 0;
+            const fadeInterval = setInterval(function() {
+                if (opacity < 1) {
+                    opacity += 0.05;
+                    notification.style.opacity = opacity;
+                } else {
+                    clearInterval(fadeInterval);
+
+                    // Start fade out after 3 seconds
+                    setTimeout(function() {
+                        const fadeOutInterval = setInterval(function() {
+                            if (opacity > 0) {
+                                opacity -= 0.05;
+                                notification.style.opacity = opacity;
+                            } else {
+                                clearInterval(fadeOutInterval);
+                                notification.style.display = 'none';
+                            }
+                        }, 50);
+                    }, 3000);
+                }
+            }, 50);
+        }
+
+        // Check if there's a message to display
+        <?php if (isset($_SESSION['success_message'])): ?>
+            showNotification();
+            <?php unset($_SESSION['success_message']); ?>
+        <?php endif; ?>
+        
         const alert = document.getElementById('autoDismissAlert');
         if (alert) {
         setTimeout(() => {

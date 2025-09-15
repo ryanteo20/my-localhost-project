@@ -40,6 +40,28 @@ if (isset($_SESSION['error_message'])) {
     unset($_SESSION['error_message']);
 }
 
+// After successful claim submission, modify your success block:
+if ($stmt->execute()) {
+    $claim_id = $conn->insert_id; // Get the ID of the newly inserted claim
+    
+    // Send notification to employers
+    require_once('includes/notification_service.php');
+    $notification_service = new NotificationService($conn);
+    
+    // Send notification using the employee ID from session and claim details
+    $notification_service->notifyClaimSubmission($_SESSION['id'], $category, $amount, $claim_id);
+    
+    echo "<script>
+        alert('Claim submitted successfully! Notification sent to employers.');
+        window.location.href = 'R_claim.php';
+    </script>";
+} else {
+    echo "<script>
+        alert('Error submitting claim. Please try again.');
+        window.location.href = 'R_claim.php';
+    </script>";
+}
+
 require 'vendor/autoload.php';
 ?>
 

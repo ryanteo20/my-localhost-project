@@ -3,6 +3,81 @@ require('database.php');
 require('session.php');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+
+// Check database connection
+if ($conn->connect_error) {
+    die("Connection failed: " . $conn->connect_error);
+}
+
+// Handle form submission for leave application
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['leave_type'])) {
+    // Get form data
+    $leave_type = $_POST['leave_type'];
+    $start_date = $_POST['start_date'];
+    $end_date = $_POST['end_date'];
+    $leave_length = $_POST['leave_length'];
+    $reason = $_POST['reason'];
+    $user_id = $_SESSION['ID'];
+    
+    // Validate dates
+    if (strtotime($start_date) > strtotime($end_date)) {
+        $_SESSION['error_message'] = 'Start date cannot be after end date.';
+    } else {
+        // Insert leave application (without file_path for now to avoid the column error)
+        $query = "INSERT INTO leave_apply (fk_leaveapply_id, leave_type, leave_datestart, leave_dateend, leave_length, leave_reason, apply_date, leave_review) 
+                  VALUES (?, ?, ?, ?, ?, ?, NOW(), 'Pending for review')";
+        
+        $stmt = $conn->prepare($query);
+        
+        if ($stmt === false) {
+            $_SESSION['error_message'] = "Prepare failed: " . $conn->error;
+        } else {
+            $stmt->bind_param("isssds", $user_id, $leave_type, $start_date, $end_date, $leave_length, $reason);
+            
+            if ($stmt->execute()) {
+                $leave_id = $conn->insert_id;
+                
+                // Create notification for employers (if notification service exists)
+                if (file_exists('includes/notification_service.php')) {
+                    require_once('includes/notification_service.php');
+                    $notification_service = new NotificationService($conn);
+                    
+                    // Send notification to all employers
+                    $notification_service->notifyLeaveApplication($_SESSION['ID'], $leave_type, $leave_id);
+                }
+                
+                // Set success message and redirect to prevent form resubmission
+                $_SESSION['success_message'] = 'Leave application submitted successfully! Employers have been notified.';
+                $_SESSION['show_notification'] = true; // Add this flag
+                header("Location: AL.php");
+                exit();
+            } else {
+                $_SESSION['error_message'] = 'Error submitting leave application: ' . $stmt->error;
+            }
+            $stmt->close();
+        }
+    }
+}
+
+// Check for messages to display
+$success_message = '';
+$error_message = '';
+$show_success_notification = false;
+
+if (isset($_SESSION['success_message'])) {
+    $success_message = $_SESSION['success_message'];
+    unset($_SESSION['success_message']);
+}
+
+if (isset($_SESSION['error_message'])) {
+    $error_message = $_SESSION['error_message'];
+    unset($_SESSION['error_message']);
+}
+
+if (isset($_SESSION['show_notification'])) {
+    $show_success_notification = true;
+    unset($_SESSION['show_notification']);
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -36,12 +111,59 @@ ini_set('display_errors', 1);
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  
+  <!-- Add notification styles -->
+  <style>
+    .success-notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #28a745;
+      color: white;
+      padding: 15px 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 9999;
+      display: none;
+      max-width: 300px;
+    }
+    
+    .error-notification {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: #dc3545;
+      color: white;
+      padding: 15px 20px;
+      border-radius: 5px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      z-index: 9999;
+      display: none;
+      max-width: 300px;
+    }
+  </style>
+  
   <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
 <body>
 
-  <!-- ======= Header ======= -->
+<!-- Success Notification -->
+<?php if ($success_message): ?>
+<div id="successNotification" class="success-notification">
+    <i class="bi bi-check-circle me-2"></i>
+    <?php echo htmlspecialchars($success_message); ?>
+</div>
+<?php endif; ?>
+
+<!-- Error Notification -->
+<?php if ($error_message): ?>
+<div id="errorNotification" class="error-notification">
+    <i class="bi bi-exclamation-triangle me-2"></i>
+    <?php echo htmlspecialchars($error_message); ?>
+</div>
+<?php endif; ?>
+
   <!-- ======= Header ======= -->
   <header id="header" class="header fixed-top d-flex align-items-center">
 
@@ -245,6 +367,7 @@ ini_set('display_errors', 1);
 
   </aside>
 
+<!-- ... rest of your existing HTML content ... -->
 
   <main id="main" class="main">
 
@@ -276,13 +399,8 @@ ini_set('display_errors', 1);
                       <?php
                       // Check if the user session ID is set
                       if (!isset($_SESSION['ID'])) {
-                        // Redirect the user to the login page or handle the authentication process
-                        // Example: header("Location: login.php");
                         exit("User session ID is not set");
                       }
-
-                      // Include database connection
-                      require('database.php');
 
                       // Get the user session ID
                       $userSessionID = $_SESSION['ID'];
@@ -293,82 +411,43 @@ ini_set('display_errors', 1);
                                     LEFT JOIN leave_apply a ON l.leaveinfo_id = a.fk_leaveapply_id
                                     WHERE l.leaveinfo_id = ?";
 
-
                       // Use prepared statement to prevent SQL injection
                       $stmt = mysqli_prepare($conn, $query);
 
                       if (!$stmt) {
-                        // Handle the error if the statement preparation fails
-                        exit("Error: " . mysqli_error($conn));
+                        echo "<h6>Error: " . mysqli_error($conn) . "</h6>";
+                      } else {
+                        // Bind the session ID parameter
+                        mysqli_stmt_bind_param($stmt, "s", $userSessionID);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_bind_result($stmt, $annualLeave, $annualLeaveTaken, $totalApprovedLeave);
+                        mysqli_stmt_fetch($stmt);
+                        mysqli_stmt_close($stmt);
+
+                        // Calculate the remaining annual leave
+                        $remainingAnnualLeave = $annualLeave - $totalApprovedLeave;
+                        echo "<h6>$remainingAnnualLeave</h6>";
                       }
-
-                      // Bind the session ID parameter
-                      $success = mysqli_stmt_bind_param($stmt, "s", $userSessionID);
-
-                      if (!$success) {
-                        // Handle the error if binding parameters fails
-                        exit("Error binding parameters: " . mysqli_error($conn));
-                      }
-
-                      // Execute the query
-                      $success = mysqli_stmt_execute($stmt);
-
-                      if (!$success) {
-                        // Handle the error if execution fails
-                        exit("Error executing query: " . mysqli_error($conn));
-                      }
-
-                      // Bind the result variables
-                      mysqli_stmt_bind_result($stmt, $annualLeave, $annualLeaveTaken, $totalApprovedLeave);
-
-                      // Fetch the result
-                      mysqli_stmt_fetch($stmt);
-
-                      // Close the statement
-                      mysqli_stmt_close($stmt);
-
-                      // Calculate the remaining hospitalization leave by subtracting total approved leave from total hospitalization leave taken
-                      $remainingAnnualLeave = $annualLeave - $totalApprovedLeave;
-
-                      // Display the remaining hospitalization leave
-                      echo "<h6>$remainingAnnualLeave</h6>";
-
-                      // Close the database connection
-                      mysqli_close($conn);
                       ?>
                     </div>
                   </div>
-
-
                 </div>
               </div>
             </div><!-- End Sales Card -->
+            
             <div class="col-xxl-4 col-md-6">
               <div class="card info-card sales-card">
-
                 <div class="filter">
                   <a class="icon" href="#" data-bs-toggle="dropdown"></a>
                 </div>
                 <div class="card-body">
                   <h5 class="card-title">Remaining Sick Leave</h5>
-
                   <div class="d-flex align-items-center">
                     <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
                       <i class="ri-stethoscope-line"></i>
                     </div>
                     <div class="ps-3">
                       <?php
-                      // Check if the user session ID is set
-                      if (!isset($_SESSION['ID'])) {
-                        // Redirect the user to the login page or handle the authentication process
-                        // Example: header("Location: login.php");
-                        exit("User session ID is not set");
-                      }
-
-                      // Include database connection
-                      require('database.php');
-
-                      // Get the user session ID
                       $userSessionID = $_SESSION['ID'];
 
                       $query = "SELECT l.sick_leave, l.sick_leavetaken, 
@@ -377,80 +456,40 @@ ini_set('display_errors', 1);
                                     LEFT JOIN leave_apply a ON l.leaveinfo_id = a.fk_leaveapply_id
                                     WHERE l.leaveinfo_id = ?";
 
-
-                      // Use prepared statement to prevent SQL injection
                       $stmt = mysqli_prepare($conn, $query);
 
                       if (!$stmt) {
-                        // Handle the error if the statement preparation fails
-                        exit("Error: " . mysqli_error($conn));
+                        echo "<h6>Error: " . mysqli_error($conn) . "</h6>";
+                      } else {
+                        mysqli_stmt_bind_param($stmt, "s", $userSessionID);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_bind_result($stmt, $sickLeave, $sickLeaveTaken, $totalApprovedLeave);
+                        mysqli_stmt_fetch($stmt);
+                        mysqli_stmt_close($stmt);
+
+                        $remainingSickLeave = $sickLeave - $totalApprovedLeave;
+                        echo "<h6>$remainingSickLeave</h6>";
                       }
-
-                      // Bind the session ID parameter
-                      $success = mysqli_stmt_bind_param($stmt, "s", $userSessionID);
-
-                      if (!$success) {
-                        // Handle the error if binding parameters fails
-                        exit("Error binding parameters: " . mysqli_error($conn));
-                      }
-
-                      // Execute the query
-                      $success = mysqli_stmt_execute($stmt);
-
-                      if (!$success) {
-                        // Handle the error if execution fails
-                        exit("Error executing query: " . mysqli_error($conn));
-                      }
-
-                      // Bind the result variables
-                      mysqli_stmt_bind_result($stmt, $sickLeave, $sickLeaveTaken, $totalApprovedLeave);
-
-                      // Fetch the result
-                      mysqli_stmt_fetch($stmt);
-
-                      // Close the statement
-                      mysqli_stmt_close($stmt);
-
-                      // Calculate the remaining hospitalization leave by subtracting total approved leave from total hospitalization leave taken
-                      $remainingSickLeave = $sickLeave - $totalApprovedLeave;
-
-                      // Display the remaining hospitalization leave
-                      echo "<h6>$remainingSickLeave</h6>";
-
-                      // Close the database connection
-                      mysqli_close($conn);
                       ?>
                     </div>
                   </div>
                 </div>
               </div>
             </div><!-- End Sales Card -->
+            
             <div class="col-xxl-4 col-md-6">
               <div class="card info-card sales-card">
-
                 <div class="filter">
                   <a class="icon" href="#" data-bs-toggle="dropdown"></a>
                 </div>
                 <div class="card-body">
                   <h5 class="card-title">Remaining Hospitalization Leave</h5>
-
                   <div class="d-flex align-items-center">
                     <div class="card-icon rounded-circle d-flex align-items-center justify-content-center">
                       <i class="ri-hospital-line"></i>
                     </div>
                     <div class="ps-3">
                       <?php
-                      // Check if the user session ID is set
-                      if (!isset($_SESSION['ID'])) {
-                        // Redirect the user to the login page or handle the authentication process
-                        // Example: header("Location: login.php");
-                        exit("User session ID is not set");
-                      }
-
-                      // Include database connection
-                      require('database.php');
-
-                      // Get the user session ID
                       $userSessionID = $_SESSION['ID'];
 
                       $query = "SELECT l.hospitalization_leave, l.hospitalization_leavetaken, 
@@ -459,48 +498,28 @@ ini_set('display_errors', 1);
                                     LEFT JOIN leave_apply a ON l.leaveinfo_id = a.fk_leaveapply_id
                                     WHERE l.leaveinfo_id = ?";
 
-
-                      // Use prepared statement to prevent SQL injection
                       $stmt = mysqli_prepare($conn, $query);
 
                       if (!$stmt) {
-                        // Handle the error if the statement preparation fails
-                        exit("Error: " . mysqli_error($conn));
+                        echo "<h6>Error: " . mysqli_error($conn) . "</h6>";
+                      } else {
+                        mysqli_stmt_bind_param($stmt, "s", $userSessionID);
+                        mysqli_stmt_execute($stmt);
+                        mysqli_stmt_bind_result($stmt, $hospitalizationLeave, $hospitalizationLeaveTaken, $totalApprovedLeave);
+                        mysqli_stmt_fetch($stmt);
+                        mysqli_stmt_close($stmt);
+
+                        // Handle null values and calculate remaining leave
+                        $hospitalizationLeave = $hospitalizationLeave ?? 60; // Default to 60 if null
+                        $totalApprovedLeave = $totalApprovedLeave ?? 0; // Default to 0 if null
+                        
+                        $remainingHospitalizationLeave = $hospitalizationLeave - $totalApprovedLeave;
+                        
+                        // Debug information - remove this after fixing
+                        echo "<!-- Debug: hospitalization_leave = $hospitalizationLeave, approved = $totalApprovedLeave -->";
+                        
+                        echo "<h6>$remainingHospitalizationLeave</h6>";
                       }
-
-                      // Bind the session ID parameter
-                      $success = mysqli_stmt_bind_param($stmt, "s", $userSessionID);
-
-                      if (!$success) {
-                        // Handle the error if binding parameters fails
-                        exit("Error binding parameters: " . mysqli_error($conn));
-                      }
-
-                      // Execute the query
-                      $success = mysqli_stmt_execute($stmt);
-
-                      if (!$success) {
-                        // Handle the error if execution fails
-                        exit("Error executing query: " . mysqli_error($conn));
-                      }
-
-                      // Bind the result variables
-                      mysqli_stmt_bind_result($stmt, $hospitalizationLeave, $hospitalizationLeaveTaken, $totalApprovedLeave);
-
-                      // Fetch the result
-                      mysqli_stmt_fetch($stmt);
-
-                      // Close the statement
-                      mysqli_stmt_close($stmt);
-
-                      // Calculate the remaining hospitalization leave by subtracting total approved leave from total hospitalization leave taken
-                      $remainingHospitalizationLeave = $hospitalizationLeave - $totalApprovedLeave;
-
-                      // Display the remaining hospitalization leave
-                      echo "<h6>$remainingHospitalizationLeave</h6>";
-
-                      // Close the database connection
-                      mysqli_close($conn);
                       ?>
                     </div>
                   </div>
@@ -512,11 +531,10 @@ ini_set('display_errors', 1);
       </div>
     </section>
 
-
     <div class="col-lg-12">
       <div class="card">
         <div class="card-body">
-          <form id="leaveForm" action="PC_form.php" method="post" enctype="multipart/form-data">
+          <form id="leaveForm" method="post" enctype="multipart/form-data">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h5 class="card-title">View Leave Application History</h5>
               <!-- Large Modal Button -->
@@ -536,7 +554,7 @@ ini_set('display_errors', 1);
                       <label for="inputLeave" class="col-sm-3 col-form-label">Select Leave Type</label>
                       <div class="col-sm-12">
                         <select class="form-select" name="leave_type" id="inputLeave"
-                          aria-label="Default select example">
+                          aria-label="Default select example" required>
                           <option value="annual" selected>Annual</option>
                           <option value="sick">Sick</option>
                           <option value="hospitalization">Hospitalization</option>
@@ -550,7 +568,7 @@ ini_set('display_errors', 1);
                       <div class="col-sm-6">
                         <label for="inputStartDate" class="col-sm-3 col-form-label">Start Date</label>
                         <div class="col-sm-12">
-                          <input type="date" class="form-control" name="start_date" id="inputStartDate">
+                          <input type="date" class="form-control" name="start_date" id="inputStartDate" required>
                         </div>
                       </div>
 
@@ -558,7 +576,7 @@ ini_set('display_errors', 1);
                       <div class="col-sm-6">
                         <label for="inputEndDate" class="col-sm-3 col-form-label">End Date</label>
                         <div class="col-sm-12">
-                          <input type="date" class="form-control" name="end_date" id="inputEndDate">
+                          <input type="date" class="form-control" name="end_date" id="inputEndDate" required>
                         </div>
                       </div>
                     </div>
@@ -569,30 +587,22 @@ ini_set('display_errors', 1);
                       <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="leave_length" id="gridRadios1" value="1"
                           checked>
-                        <label class="form-check-label" id="gridRadios1" for="gridRadios1">Full Day</label>
+                        <label class="form-check-label" for="gridRadios1">Full Day</label>
                       </div>
                       <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="leave_length" id="gridRadios2" value="0.5">
-                        <label class="form-check-label" id="gridRadios2" for="gridRadios2">AM (9am-1pm)</label>
+                        <label class="form-check-label" for="gridRadios2">AM (9am-1pm)</label>
                       </div>
                       <div class="form-check form-check-inline">
                         <input class="form-check-input" type="radio" name="leave_length" id="gridRadios3" value="0.5">
-                        <label class="form-check-label" id="gridRadios3" for="gridRadios3">PM (2pm-6pm)</label>
+                        <label class="form-check-label" for="gridRadios3">PM (2pm-6pm)</label>
                       </div>
                     </fieldset>
                     <div class="col-sm-12">
                       <label for="inputPassword" class="col-sm-12 col-form-label">Reason</label>
                       <div class="col-sm-12">
                         <textarea class="form-control" id="inputPassword" name="reason"
-                          style="height: 100px"></textarea>
-                      </div>
-                    </div>
-                  </div>
-                  <div class="modal-body">
-                    <div class="col-sm-12">
-                      <label for="inputNumber" class="col-sm-2 col-form-label">File Upload</label>
-                      <div class="col-sm-12">
-                        <input type="file" name="file" id="formFile" class="form-control">
+                          style="height: 100px" required></textarea>
                       </div>
                     </div>
                   </div>
@@ -621,9 +631,7 @@ ini_set('display_errors', 1);
             </thead>
             <tbody>
               <?php
-              // Connect to the database
-              require('database.php');
-
+              // Get user session ID for the table
               $userSessionID = $_SESSION['ID'];
 
               // Query to join the employeelogin and leave_apply tables and filter by user session ID
@@ -635,42 +643,32 @@ ini_set('display_errors', 1);
               // Prepare the statement
               $stmt = mysqli_prepare($conn, $query);
 
-              // Bind the user session ID parameter
-              mysqli_stmt_bind_param($stmt, "s", $userSessionID);
-
-              // Execute the prepared statement
-              $result = mysqli_stmt_execute($stmt);
-
-              // Check if the query was successful
-              if ($result) {
+              if ($stmt) {
+                // Bind the user session ID parameter
+                mysqli_stmt_bind_param($stmt, "s", $userSessionID);
+                mysqli_stmt_execute($stmt);
                 $data = mysqli_stmt_get_result($stmt);
+                
                 if (mysqli_num_rows($data) > 0) {
-                  $row_count = 1;
                   while ($row = mysqli_fetch_assoc($data)) {
                     echo "<tr>";
-                    echo "<td>" . $row['username'] . "</td>";
-                    echo "<td>" . $row['leave_type'] . "</td>";
-                    echo "<td>" . $row['leave_datestart'] . "</td>";
-                    echo "<td>" . $row['leave_dateend'] . "</td>";
-                    echo "<td>" . $row['leave_length'] . "</td>";
-                    echo "<td>" . $row['leave_reason'] . "</td>";
-                    echo "<td>" . $row['apply_date'] . "</td>";
-                    echo "<td>" . $row['leave_review'] . "</td>";
+                    echo "<td>" . htmlspecialchars($row['username']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['leave_type']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['leave_datestart']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['leave_dateend']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['leave_length']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['leave_reason']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['apply_date']) . "</td>";
+                    echo "<td>" . htmlspecialchars($row['leave_review']) . "</td>";
                     echo "</tr>";
-                    $row_count++;
                   }
                 } else {
-                  echo "<tr><td colspan='6'>No records found.</td></tr>";
+                  echo "<tr><td colspan='8'>No records found.</td></tr>";
                 }
+                mysqli_stmt_close($stmt);
               } else {
-                echo "Error executing query: " . mysqli_stmt_error($stmt);
+                echo "<tr><td colspan='8'>Error loading leave history.</td></tr>";
               }
-
-              // Close the prepared statement
-              mysqli_stmt_close($stmt);
-
-              // Close the database connection
-              mysqli_close($conn);
               ?>
             </tbody>
           </table>
@@ -679,12 +677,6 @@ ini_set('display_errors', 1);
       </div>
     </div>
   </main>
-
-
-  <!-- Notification Container -->
-  <div id="notification" class="notification-container">
-    Successfully applied for leave!
-  </div>
 
   <!-- ======= Footer ======= -->
   <footer id="footer" class="footer">
@@ -708,42 +700,167 @@ ini_set('display_errors', 1);
 
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
+  
+  <!-- Add notification system JavaScript -->
   <script>
-    document.addEventListener('DOMContentLoaded', function () {
-      // Function to show notification
-      function showNotification() {
-        const notification = document.getElementById('notification');
-        notification.style.display = 'block';  // Make visible
-        notification.style.opacity = 0;
-        let opacity = 0;
-        const fadeInterval = setInterval(function () {
-          if (opacity < 1) {
-            opacity += 0.05;
-            notification.style.opacity = opacity;
-          } else {
-            clearInterval(fadeInterval);
-
-            // Start fade out after 3 seconds
-            setTimeout(function () {
-              const fadeOutInterval = setInterval(function () {
-                if (opacity > 0) {
-                  opacity -= 0.05;
-                  notification.style.opacity = opacity;
-                } else {
-                  clearInterval(fadeOutInterval);
-                  notification.style.display = 'none';  // Hide again
+    // Notification Manager
+    class NotificationManager {
+        constructor() {
+            this.updateInterval = 30000; // 30 seconds
+            this.init();
+        }
+        
+        init() {
+            this.loadNotifications();
+            this.startPeriodicUpdate();
+        }
+        
+        async loadNotifications() {
+            try {
+                const response = await fetch('api/notifications.php?action=get_unread');
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.updateUI(data.notifications, data.count);
                 }
-              }, 50);
-            }, 3000);
-          }
-        }, 50);
-      }
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+            }
+        }
+        
+        updateUI(notifications, count) {
+            const countElement = document.getElementById('notificationCount');
+            const headerCountElement = document.getElementById('notificationHeaderCount');
+            const listElement = document.getElementById('notificationList');
+            
+            if (countElement && headerCountElement) {
+                if (count > 0) {
+                    countElement.textContent = count > 99 ? '99+' : count;
+                    countElement.style.display = 'block';
+                    headerCountElement.textContent = count;
+                } else {
+                    countElement.style.display = 'none';
+                    headerCountElement.textContent = '0';
+                }
+            }
+            
+            if (listElement) {
+                listElement.innerHTML = notifications.length === 0 ? 
+                    '<li class="text-center py-3 text-muted">No new notifications</li>' :
+                    notifications.map(n => this.createNotificationHTML(n)).join('');
+            }
+        }
+        
+        createNotificationHTML(notification) {
+            const timeAgo = this.getTimeAgo(notification.created_at);
+            return `
+                <li class="notification-item">
+                    <div class="d-flex p-3 border-bottom" onclick="markNotificationAsRead(${notification.id})">
+                        <div class="me-3">
+                            <i class="bi bi-bell text-primary fs-4"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${notification.title}</h6>
+                            <p class="mb-1 text-muted small">${notification.message}</p>
+                            <small class="text-muted">${timeAgo}</small>
+                        </div>
+                    </div>
+                </li>
+            `;
+        }
+        
+        getTimeAgo(dateString) {
+            const now = new Date();
+            const notificationDate = new Date(dateString);
+            const diffInSeconds = Math.floor((now - notificationDate) / 1000);
+            
+            if (diffInSeconds < 60) return 'Just now';
+            if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + ' min ago';
+            if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + ' hr ago';
+            return Math.floor(diffInSeconds / 86400) + ' day ago';
+        }
+        
+        startPeriodicUpdate() {
+            setInterval(() => this.loadNotifications(), this.updateInterval);
+        }
+    }
 
-      // Check if there's a message to display
-      <?php if (isset($_SESSION['success_message'])): ?>
-        showNotification();  // Call function to show notification
-        <?php unset($_SESSION['success_message']); // Clear the session message ?>
+    async function markNotificationAsRead(notificationId) {
+        const formData = new FormData();
+        formData.append('notification_id', notificationId);
+        
+        const response = await fetch('api/notifications.php?action=mark_read', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (response.ok) {
+            window.notificationManager.loadNotifications();
+        }
+    }
+
+    async function markAllAsRead() {
+        const response = await fetch('api/notifications.php?action=mark_all_read', {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            window.notificationManager.loadNotifications();
+        }
+    }
+
+    // Show notifications function
+    function showNotification(elementId) {
+        const notification = document.getElementById(elementId);
+        if (notification) {
+            notification.style.display = 'block';
+            notification.style.opacity = 0;
+            
+            let opacity = 0;
+            const fadeIn = setInterval(() => {
+                if (opacity < 1) {
+                    opacity += 0.05;
+                    notification.style.opacity = opacity;
+                } else {
+                    clearInterval(fadeIn);
+                    
+                    // Auto hide after 5 seconds
+                    setTimeout(() => {
+                        const fadeOut = setInterval(() => {
+                            if (opacity > 0) {
+                                opacity -= 0.05;
+                                notification.style.opacity = opacity;
+                            } else {
+                                clearInterval(fadeOut);
+                                notification.style.display = 'none';
+                            }
+                        }, 50);
+                    }, 5000);
+                }
+            }, 50);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      // Initialize notification manager
+      window.notificationManager = new NotificationManager();
+      
+      // Show success notification if it exists
+      <?php if ($success_message): ?>
+      showNotification('successNotification');
       <?php endif; ?>
+      
+      // Show error notification if it exists
+      <?php if ($error_message): ?>
+      showNotification('errorNotification');
+      <?php endif; ?>
+      
+      // Close modal after successful form submission
+      $('#leaveForm').on('submit', function() {
+          setTimeout(function() {
+              $('#largeModal').modal('hide');
+          }, 1000);
+      });
     });
   </script>
 

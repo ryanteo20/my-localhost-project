@@ -1,3 +1,5 @@
+/* SMEasyHR AI Assistant Chatbot Styles */
+
 .chatbot-container {
   position: fixed;
   bottom: 20px;
@@ -42,6 +44,7 @@
   border: 1px solid #e0e0e0;
 }
 
+/* Header Styles */
 .chatbot-header {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -62,6 +65,17 @@
   font-size: 0.8rem;
 }
 
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  background: rgba(255,255,255,0.2);
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 8px;
+}
+
 .chatbot-close {
   background: none;
   border: none;
@@ -77,6 +91,7 @@
   background: rgba(255,255,255,0.2);
 }
 
+/* Messages Area */
 .chatbot-messages {
   flex: 1;
   padding: 20px;
@@ -112,8 +127,46 @@
   white-space: pre-wrap;
   font-size: 0.9rem;
   line-height: 1.4;
+  position: relative;
 }
 
+.message.ai::before {
+  content: "🤖";
+  position: absolute;
+  left: -25px;
+  top: 5px;
+  font-size: 16px;
+}
+
+/* Typing Indicator */
+.typing-indicator {
+  align-self: flex-start;
+  display: none;
+  padding: 12px 16px;
+  background: white;
+  border-radius: 18px 18px 18px 4px;
+  border: 1px solid #e0e0e0;
+  max-width: 85%;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.typing-dots span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #999;
+  animation: typing 1.5s infinite;
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Input Area */
 .chatbot-input {
   display: flex;
   padding: 16px 20px;
@@ -166,44 +219,153 @@
   cursor: not-allowed;
 }
 
-.typing-indicator {
-  align-self: flex-start;
-  display: none;
-  padding: 12px 16px;
-  background: white;
-  border-radius: 18px 18px 18px 4px;
-  border: 1px solid #e0e0e0;
-  max-width: 85%;
+/* System Integration Components */
+
+/* Quick Actions Styling */
+.quick-actions {
+  margin: 15px 0;
+  padding: 15px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 12px;
+  border-left: 4px solid #007bff;
 }
 
-.typing-dots {
+.quick-actions-title {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.quick-actions-buttons {
   display: flex;
-  gap: 4px;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
-.typing-dots span {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #999;
-  animation: typing 1.5s infinite;
+.quick-btn {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
-.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
-.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+.quick-btn:hover {
+  background: #0056b3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+}
 
-.ai-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+/* Navigation Buttons */
+.navigation-buttons {
+  margin: 15px 0;
+  padding: 15px;
+  background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
+  border-radius: 12px;
+  border-left: 4px solid #28a745;
+}
+
+.nav-title {
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.nav-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nav-btn {
+  background: #28a745;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.nav-btn:hover {
+  background: #1e7e34;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(40,167,69,0.3);
+}
+
+/* Inline Navigation Buttons */
+.inline-nav-btn {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 11px;
+  cursor: pointer;
+  margin: 0 5px;
+  transition: all 0.3s ease;
+  display: inline-block;
+}
+
+.inline-nav-btn:hover {
+  background: #545b62;
+  transform: translateY(-1px);
+}
+
+/* Legacy Quick Action Buttons (keeping for compatibility) */
+.quick-action-btn {
+  background: #f0f0f0;
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+/* Status Indicators */
+.status-connected {
+  color: #28a745;
+  font-weight: 600;
+}
+
+.status-limited {
+  color: #ffc107;
+  font-weight: 600;
+}
+
+.status-error {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.error-message {
+  color: #dc3545;
+  font-size: 0.8rem;
+  margin-top: 4px;
+}
+
+.status-indicator {
   font-size: 0.7rem;
-  background: rgba(255,255,255,0.2);
-  padding: 2px 6px;
-  border-radius: 8px;
-  margin-left: 8px;
+  opacity: 0.7;
+  margin-top: 4px;
 }
 
+/* Animations */
 @keyframes typing {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-4px); opacity: 1; }
@@ -214,7 +376,7 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Scrollbar styling */
+/* Scrollbar Styling */
 .chatbot-messages::-webkit-scrollbar {
   width: 6px;
 }
@@ -233,43 +395,7 @@
   background: #a8a8a8;
 }
 
-/* Quick action buttons */
-.quick-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.quick-action-btn {
-  background: #f0f0f0;
-  border: 1px solid #ddd;
-  border-radius: 16px;
-  padding: 6px 12px;
-  font-size: 0.8rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.quick-action-btn:hover {
-  background: #667eea;
-  color: white;
-  border-color: #667eea;
-}
-
-.error-message {
-  color: #dc3545;
-  font-size: 0.8rem;
-  margin-top: 4px;
-}
-
-.status-indicator {
-  font-size: 0.7rem;
-  opacity: 0.7;
-  margin-top: 4px;
-}
-
-/* Responsive adjustments */
+/* Responsive Design */
 @media (max-width: 768px) {
   .chatbot-window {
     width: 320px;
@@ -281,6 +407,17 @@
     width: 50px;
     height: 50px;
     font-size: 20px;
+  }
+  
+  .quick-actions-buttons,
+  .nav-buttons {
+    flex-direction: column;
+  }
+  
+  .quick-btn,
+  .nav-btn {
+    width: 100%;
+    text-align: center;
   }
 }
 

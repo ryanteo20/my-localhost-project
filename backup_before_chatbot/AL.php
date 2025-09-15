@@ -3,6 +3,33 @@ require('database.php');
 require('session.php');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+
+// After successful leave application insertion, modify your success block:
+if ($stmt->execute()) {
+    $leave_id = $conn->insert_id;
+    
+    // Create notification for employers
+    require_once('includes/notification_service.php');
+    $notification_service = new NotificationService($conn);
+    
+    // Get employee name
+    $emp_query = "SELECT pi.full_name FROM personal_information pi 
+                  JOIN employeelogin el ON pi.personal_id = el.ID 
+                  WHERE el.ID = ?";
+    $emp_stmt = $conn->prepare($emp_query);
+    $emp_stmt->bind_param("i", $_SESSION['ID']);
+    $emp_stmt->execute();
+    $emp_result = $emp_stmt->get_result()->fetch_assoc();
+    $employee_name = $emp_result['full_name'] ?? $_SESSION['username'];
+    
+    // Send notification to all employers
+    $notification_service->notifyLeaveApplication($_SESSION['ID'], $leave_type, $leave_id);
+    
+    echo "<script>
+        alert('Leave application submitted successfully! Employers have been notified.');
+        window.location.href = 'AL.php';
+    </script>";
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">

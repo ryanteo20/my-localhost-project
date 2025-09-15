@@ -3,6 +3,61 @@ require('database.php');
 require('session.php');
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
+
+// Add form processing logic here
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['leave_type'])) {
+    // Get form data
+    $leave_type = $_POST['leave_type'];
+    $start_date = $_POST['start_date'];
+    $end_date = $_POST['end_date'];
+    $leave_length = $_POST['leave_length'];
+    $reason = $_POST['reason'];
+    $user_id = $_SESSION['ID'];
+    
+    // Handle file upload
+    $file_path = null;
+    if (isset($_FILES['file']) && $_FILES['file']['error'] == 0) {
+        $upload_dir = 'uploads/leave_documents/';
+        if (!file_exists($upload_dir)) {
+            mkdir($upload_dir, 0777, true);
+        }
+        $file_name = time() . '_' . $_FILES['file']['name'];
+        $file_path = $upload_dir . $file_name;
+        move_uploaded_file($_FILES['file']['tmp_name'], $file_path);
+    }
+    
+    // Insert leave application
+    $query = "INSERT INTO leave_apply (fk_leaveapply_id, leave_type, leave_datestart, leave_dateend, leave_length, leave_reason, apply_date, leave_review, file_path) 
+              VALUES (?, ?, ?, ?, ?, ?, NOW(), 'Pending for review', ?)";
+    
+    $stmt = $conn->prepare($query);
+    $stmt->bind_param("isssdss", $user_id, $leave_type, $start_date, $end_date, $leave_length, $reason, $file_path);
+    
+    if ($stmt->execute()) {
+        $leave_id = $conn->insert_id;
+        
+        // Create notification for employers
+        require_once('includes/notification_service.php');
+        $notification_service = new NotificationService($conn);
+        
+        // Get employee name
+        $emp_query = "SELECT pi.full_name FROM personal_information pi 
+                      JOIN employeelogin el ON pi.personal_id = el.ID 
+                      WHERE el.ID = ?";
+        $emp_stmt = $conn->prepare($emp_query);
+        $emp_stmt->bind_param("i", $_SESSION['ID']);
+        $emp_stmt->execute();
+        $emp_result = $emp_stmt->get_result()->fetch_assoc();
+        $employee_name = $emp_result['full_name'] ?? $_SESSION['username'];
+        
+        // Send notification to all employers
+        $notification_service->notifyLeaveApplication($_SESSION['ID'], $leave_type, $leave_id);
+        
+        $_SESSION['success_message'] = 'Leave application submitted successfully! Employers have been notified.';
+        header("Location: apply_leave.php");
+        exit();
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,6 +89,61 @@ ini_set('display_errors', 1);
 
   <!-- Template Main CSS File -->
   <link href="assets/css/style.css" rel="stylesheet">
+  
+  <!-- Add notification styles -->
+  <style>
+<style>
+    .notification-container {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background: #28a745;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 9999;
+      display: none;
+      max-width: 350px;
+      min-width: 280px;
+      font-size: 14px;
+      font-weight: 500;
+      border-left: 4px solid #1e7e34;
+    }
+    
+    .notification-container i {
+      margin-right: 8px;
+      font-size: 16px;
+    }
+    
+    .notification-container.show {
+      display: block;
+      animation: slideInRight 0.3s ease-out;
+    }
+    
+    @keyframes slideInRight {
+      from {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    
+    @keyframes slideOutRight {
+      from {
+        transform: translateX(0);
+        opacity: 1;
+      }
+      to {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+    }
+  </style>
+  
   <?php include 'includes/chatbot-includes.php'; ?>
 </head>
 
@@ -453,7 +563,7 @@ ini_set('display_errors', 1);
                             echo "<h6>$remainingHospitalizationLeave</h6>";
 
                             // Close the database connection
-                            mysqli_close($conn)
+                            mysqli_close($conn);
                             ?>
                             </div>
                         </div>
@@ -469,7 +579,7 @@ ini_set('display_errors', 1);
     <div class="col-lg-14">
       <div class="card">
         <div class="card-body">
-        <form id="leaveForm" action="process_form.php" method="post" enctype="multipart/form-data">
+        <form id="leaveForm" method="post" enctype="multipart/form-data">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="card-title">View Leave Application History</h5>
             <!-- Large Modal Button -->
@@ -627,8 +737,9 @@ ini_set('display_errors', 1);
 </main>
 
 
-      <!-- Notification Container -->
+      <!-- Notification Container - Fixed -->
       <div id="notification" class="notification-container">
+          <i class="bi bi-check-circle-fill"></i>
           Successfully applied for leave!
       </div>
 
@@ -655,41 +766,47 @@ ini_set('display_errors', 1);
   <script src="assets/js/main.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Function to show notification
+        // Improved notification function
         function showNotification() {
             const notification = document.getElementById('notification');
-            notification.style.display = 'block';  // Make visible
-            notification.style.opacity = 0;
-            let opacity = 0;
-            const fadeInterval = setInterval(function() {
-                if (opacity < 1) {
-                    opacity += 0.05;
-                    notification.style.opacity = opacity;
-                } else {
-                    clearInterval(fadeInterval);
-
-                    // Start fade out after 3 seconds
-                    setTimeout(function() {
-                        const fadeOutInterval = setInterval(function() {
-                            if (opacity > 0) {
-                                opacity -= 0.05;
-                                notification.style.opacity = opacity;
-                            } else {
-                                clearInterval(fadeOutInterval);
-                                notification.style.display = 'none';  // Hide again
-                            }
-                        }, 50);
-                    }, 3000);
-                }
-            }, 50);
+            
+            // Show with slide-in animation
+            notification.classList.add('show');
+            notification.style.display = 'block';
+            
+            // Auto-hide after 4 seconds with slide-out animation
+            setTimeout(function() {
+                notification.style.animation = 'slideOutRight 0.3s ease-in';
+                
+                // Remove from DOM after animation completes
+                setTimeout(function() {
+                    notification.style.display = 'none';
+                    notification.classList.remove('show');
+                    notification.style.animation = '';
+                }, 300);
+            }, 4000);
         }
 
-    // Check if there's a message to display
-    <?php if (isset($_SESSION['success_message'])): ?>
-        showNotification();  // Call function to show notification
-        <?php unset($_SESSION['success_message']); // Clear the session message ?>
-    <?php endif; ?>
-});
+        // Check if there's a message to display
+        <?php if (isset($_SESSION['success_message'])): ?>
+            showNotification();
+            <?php unset($_SESSION['success_message']); ?>
+        <?php endif; ?>
+        
+        // Close modal after successful form submission
+        const form = document.getElementById('leaveForm');
+        if (form) {
+            form.addEventListener('submit', function() {
+                // Close modal after a brief delay
+                setTimeout(function() {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('largeModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                }, 500);
+            });
+        }
+    });
 </script>
 
 </body>

@@ -24,6 +24,44 @@ if ($stmt) {
     $fullname = "Unknown"; // fallback
 }
 
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['category'])) {
+    $employee_id = $_POST['employee'];
+    $category = $_POST['category'];
+    $transaction_date = $_POST['transaction_date'];
+    $amount = $_POST['amount'];
+    $invoice_number = $_POST['invoice_number'];
+    $notes = $_POST['notes'];
+    
+    // Insert claim into database
+    $insert_query = "INSERT INTO claims (employee_id, category, transaction_date, amount, invoice_number, notes, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 'Pending', NOW())";
+    $insert_stmt = $conn->prepare($insert_query);
+    
+    if ($insert_stmt) {
+        $insert_stmt->bind_param("issdss", $employee_id, $category, $transaction_date, $amount, $invoice_number, $notes);
+        
+        if ($insert_stmt->execute()) {
+            $claim_id = $conn->insert_id;
+            
+            // Create notification for employers
+            require_once('includes/notification_service.php');
+            $notification_service = new NotificationService($conn);
+            
+            // Send notification to all employers
+            $notification_service->notifyClaimSubmission($_SESSION['ID'], $category, $amount, $claim_id);
+            
+            $_SESSION['success_message'] = 'Claim submitted successfully! Employers have been notified.';
+            header('Location: ER_claim.php');
+            exit();
+        } else {
+            $_SESSION['error_message'] = 'Error submitting claim. Please try again.';
+        }
+        $insert_stmt->close();
+    } else {
+        $_SESSION['error_message'] = 'Database error. Please try again.';
+    }
+}
+
 if (isset($_SESSION['success_message'])) {
     echo '<div id="autoDismissAlert" class="alert alert-success alert-dismissible fade show text-center" role="alert">'
         . htmlspecialchars($_SESSION['success_message']) .
@@ -276,18 +314,12 @@ require 'vendor/autoload.php';
                             </div>
                             <div class="ps-3">
                             <?php
-                                // Include your database connection
-                                require('database.php');
-
-                                // Get the current employee's ID from the session
-                                $employee_id = $_SESSION['ID'];
-
                                 // Query the total claims requested by the current employee
                                 $query_employee_claims = "SELECT COUNT(*) AS total_claims FROM claims WHERE employee_id = ?";
 
                                 // Prepare and bind the query
                                 $stmt = $conn->prepare($query_employee_claims);
-                                $stmt->bind_param("i", $employee_id); // "i" for integer type
+                                $stmt->bind_param("i", $user_id); // "i" for integer type
 
                                 // Execute the query
                                 $stmt->execute();
@@ -329,9 +361,6 @@ require 'vendor/autoload.php';
                                 </div>
                                 <div class="ps-3">
                                 <?php
-                                    // Include your database connection
-                                    require('database.php');
-
                                     // Query pending leave applications for review
                                     $query_pending_review = "SELECT COUNT(*) AS Approve FROM claims WHERE status = 'Approved' AND employee_id = $user_id";
 
@@ -372,7 +401,7 @@ require 'vendor/autoload.php';
                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                             </div>
                             <div class="modal-body">
-                                <form id="newClaimForm" method="POST" action="insert_claim.php">
+                                <form id="newClaimForm" method="POST" action="">
                                     <!-- Employee -->
                                     <div class="mb-3">
                                         <label for="employeeName" class="form-label">Employee</label>
@@ -386,7 +415,7 @@ require 'vendor/autoload.php';
                                     <!-- Category -->
                                     <div class="mb-3">
                                         <label for="category" class="form-label">Category</label>
-                                        <select class="form-select" id="category" name="category">
+                                        <select class="form-select" id="category" name="category" required>
                                         <option selected disabled>Choose a category below</option>
                                         <option value="Travel">Travel</option>
                                         <option value="Meal">Meal</option>
@@ -398,7 +427,7 @@ require 'vendor/autoload.php';
                                     <!-- Date of Transaction -->
                                     <div class="mb-3">
                                         <label for="transactionDate" class="form-label">Date of Transaction</label>
-                                        <input type="date" class="form-control" id="transactionDate" name="transaction_date">
+                                        <input type="date" class="form-control" id="transactionDate" name="transaction_date" required>
                                     </div>
 
                                     <!-- Total Claim Amount + Tax Invoice -->
@@ -407,7 +436,7 @@ require 'vendor/autoload.php';
                                         <label for="claimAmount" class="form-label">Total Claim Amount</label>
                                         <div class="input-group">
                                             <span class="input-group-text">MYR</span>
-                                            <input type="number" step="0.01" class="form-control" id="claimAmount" name="amount">
+                                            <input type="number" step="0.01" class="form-control" id="claimAmount" name="amount" required>
                                         </div>
                                         </div>
                                         <div class="col-md-6">
