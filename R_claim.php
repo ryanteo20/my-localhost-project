@@ -556,27 +556,160 @@ require 'vendor/autoload.php';
                 </div><!-- End Row -->
               </div><!-- End Bordered Tabs -->
             </div>
-            <div class="tab-pane fade" id="bordered-profile" role="tabpanel" aria-labelledby="profile-tab">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Claim Summary Report</h5>
-                        <p>You can now download a claim summary report in xlsx (an Excel spreadsheet). Choose the start date and end date, a report will be generated immediately.</p>
-                        <form action="download_xlsx.php" method="POST" class="row g-3 align-items-center">                    <div class="col-auto">
-                            <input type="date" name="start_date" class="form-control" placeholder="Start date" required>
-                        </div>
-                        <div class="col-auto">
-                            <span> ~ </span>
-                        </div>
-                        <div class="col-auto">
-                            <input type="date" name="end_date" class="form-control" placeholder="End date" required>
-                        </div>
-                        <div class="col-auto">
-                            <button type="submit" class="btn btn-primary">Download XLSX</button>
-                        </div>
-                        </form>
+<div class="tab-pane fade" id="bordered-profile" role="tabpanel" aria-labelledby="profile-tab">
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Claim Summary Report</h5>
+            <p>Generate a comprehensive claim summary report in Excel format. Choose the date range and select specific employees or all employees.</p>
+            
+            <form action="download_xlsx.php" method="POST" class="row g-3">
+                <!-- Date Range Section -->
+                <div class="col-12">
+                    <h6 class="fw-bold text-primary mb-3">📅 Date Range</h6>
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control" required>
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control" required>
+                </div>
+                
+                <!-- Employee Selection Section -->
+                <div class="col-12 mt-4">
+                    <h6 class="fw-bold text-primary mb-3">👥 Employee Selection</h6>
+                </div>
+                
+                <div class="col-12">
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="radio" name="employee_filter" id="all_employees" value="all" checked onchange="toggleEmployeeSelection()">
+                        <label class="form-check-label fw-bold" for="all_employees">
+                            📊 All Employees
+                        </label>
+                        <small class="text-muted d-block">Generate report for all employees in the system</small>
+                    </div>
+                    
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="radio" name="employee_filter" id="specific_employees" value="specific" onchange="toggleEmployeeSelection()">
+                        <label class="form-check-label fw-bold" for="specific_employees">
+                            🎯 Specific Employees
+                        </label>
+                        <small class="text-muted d-block">Select individual employees for the report</small>
                     </div>
                 </div>
+                
+<!-- Employee Multi-Select -->
+<div class="col-12" id="employee_selection_container" style="display: none;">
+    <div class="card bg-light">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <label class="form-label fw-bold mb-0">Select Employees:</label>
+                <div>
+                    <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="selectAllEmployees()">Select All</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllEmployees()">Clear All</button>
+                </div>
             </div>
+            
+            <div class="row" id="employee_checkboxes">
+                <?php
+                // Corrected query that works with your actual database structure
+                $working_query = "SELECT DISTINCT 
+                                    el.ID, 
+                                    COALESCE(pi.full_name, el.username) as display_name,
+                                    el.role as position_role
+                                  FROM employeelogin el 
+                                  LEFT JOIN personal_information pi ON el.ID = pi.personal_id
+                                  WHERE el.status = 'active'
+                                  ORDER BY display_name";
+                
+                $employee_result = mysqli_query($conn, $working_query);
+                
+                if ($employee_result && mysqli_num_rows($employee_result) > 0) {
+                    echo '<div class="col-12 mb-2"><div class="alert alert-success">✅ Found ' . mysqli_num_rows($employee_result) . ' employees</div></div>';
+                    
+                    while ($employee = mysqli_fetch_assoc($employee_result)) {
+                        echo '<div class="col-md-6 col-lg-4 mb-2">';
+                        echo '<div class="form-check">';
+                        echo '<input class="form-check-input employee-checkbox" type="checkbox" name="selected_employees[]" value="' . $employee['ID'] . '" id="emp_' . $employee['ID'] . '">';
+                        echo '<label class="form-check-label" for="emp_' . $employee['ID'] . '">';
+                        echo '<strong>' . htmlspecialchars($employee['display_name']) . '</strong>';
+                        if (!empty($employee['position_role'])) {
+                            echo '<br><small class="text-muted">' . htmlspecialchars($employee['position_role']) . '</small>';
+                        }
+                        echo '</label>';
+                        echo '</div>';
+                        echo '</div>';
+                    }
+                } else {
+                    echo '<div class="col-12">';
+                    echo '<div class="alert alert-warning">';
+                    echo '<p>⚠️ No active employees found. Error: ' . mysqli_error($conn) . '</p>';
+                    echo '</div>';
+                    echo '</div>';
+                }
+                ?>
+            </div>
+            
+            <div id="selection_summary" class="mt-3 p-2 bg-white rounded border" style="display: none;">
+                <small class="text-success fw-bold">
+                    <i class="bi bi-check-circle"></i> 
+                    <span id="selected_count">0</span> employee(s) selected
+                </small>
+            </div>
+        </div>
+    </div>
+</div>               
+                <!-- Report Options -->
+                <div class="col-12 mt-4">
+                    <h6 class="fw-bold text-primary mb-3">⚙️ Report Options</h6>
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="report_status" class="form-label">Claim Status</label>
+                    <select name="report_status" id="report_status" class="form-select">
+                        <option value="all">All Statuses</option>
+                        <option value="Pending">Pending Only</option>
+                        <option value="Approved">Approved Only</option>
+                        <option value="Rejected">Rejected Only</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-6">
+                    <label for="report_category" class="form-label">Claim Category</label>
+                    <select name="report_category" id="report_category" class="form-select">
+                        <option value="all">All Categories</option>
+                        <option value="Travel">Travel</option>
+                        <option value="Meal">Meal</option>
+                        <option value="Office Supplies">Office Supplies</option>
+                    </select>
+                </div>
+                
+                <!-- Summary Section -->
+                <div class="col-12 mt-4">
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading"><i class="bi bi-info-circle"></i> Report Summary</h6>
+                        <p class="mb-0" id="report_summary">
+                            Please select your preferences above to generate a customized Excel report.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Generate Button -->
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="bi bi-download"></i> Generate Excel Report
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" onclick="resetForm()">
+                        <i class="bi bi-arrow-clockwise"></i> Reset
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
         </div>
     </div>
   </main><!-- End #main -->
@@ -611,164 +744,144 @@ require 'vendor/autoload.php';
   
   <!-- Add notification system JavaScript -->
   <script>
-    // Notification Manager
-    class NotificationManager {
-        constructor() {
-            this.updateInterval = 30000; // 30 seconds
-            this.init();
-        }
-        
-        init() {
-            this.loadNotifications();
-            this.startPeriodicUpdate();
-        }
-        
-        async loadNotifications() {
-            try {
-                const response = await fetch('api/notifications.php?action=get_unread');
-                const data = await response.json();
-                
-                if (data.success) {
-                    this.updateUI(data.notifications, data.count);
-                }
-            } catch (error) {
-                console.error('Error loading notifications:', error);
-            }
-        }
-        
-        updateUI(notifications, count) {
-            const countElement = document.getElementById('notificationCount');
-            const headerCountElement = document.getElementById('notificationHeaderCount');
-            const listElement = document.getElementById('notificationList');
-            
-            if (countElement && headerCountElement) {
-                if (count > 0) {
-                    countElement.textContent = count > 99 ? '99+' : count;
-                    countElement.style.display = 'block';
-                    headerCountElement.textContent = count;
-                } else {
-                    countElement.style.display = 'none';
-                    headerCountElement.textContent = '0';
-                }
-            }
-            
-            if (listElement) {
-                listElement.innerHTML = notifications.length === 0 ? 
-                    '<li class="text-center py-3 text-muted">No new notifications</li>' :
-                    notifications.map(n => this.createNotificationHTML(n)).join('');
-            }
-        }
-        
-        createNotificationHTML(notification) {
-            const timeAgo = this.getTimeAgo(notification.created_at);
-            return `
-                <li class="notification-item">
-                    <div class="d-flex p-3 border-bottom" onclick="markNotificationAsRead(${notification.id})">
-                        <div class="me-3">
-                            <i class="bi bi-currency-dollar text-primary fs-4"></i>
-                        </div>
-                        <div class="flex-grow-1">
-                            <h6 class="mb-1">${notification.title}</h6>
-                            <p class="mb-1 text-muted small">${notification.message}</p>
-                            <small class="text-muted">${timeAgo}</small>
-                        </div>
-                    </div>
-                </li>
-            `;
-        }
-        
-        getTimeAgo(dateString) {
-            const now = new Date();
-            const notificationDate = new Date(dateString);
-            const diffInSeconds = Math.floor((now - notificationDate) / 1000);
-            
-            if (diffInSeconds < 60) return 'Just now';
-            if (diffInSeconds < 3600) return Math.floor(diffInSeconds / 60) + ' min ago';
-            if (diffInSeconds < 86400) return Math.floor(diffInSeconds / 3600) + ' hr ago';
-            return Math.floor(diffInSeconds / 86400) + ' day ago';
-        }
-        
-        startPeriodicUpdate() {
-            setInterval(() => this.loadNotifications(), this.updateInterval);
-        }
-    }
-
-    async function markNotificationAsRead(notificationId) {
-        const formData = new FormData();
-        formData.append('notification_id', notificationId);
-        
-        const response = await fetch('api/notifications.php?action=mark_read', {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (response.ok) {
-            window.notificationManager.loadNotifications();
-        }
-    }
-
-    async function markAllAsRead() {
-        const response = await fetch('api/notifications.php?action=mark_all_read', {
-            method: 'POST'
-        });
-        
-        if (response.ok) {
-            window.notificationManager.loadNotifications();
-        }
+    function toggleEmployeeSelection() {
+    const allEmployeesRadio = document.getElementById('all_employees');
+    const specificEmployeesRadio = document.getElementById('specific_employees');
+    const selectionContainer = document.getElementById('employee_selection_container');
+    
+    if (specificEmployeesRadio.checked) {
+        selectionContainer.style.display = 'block';
+        // Scroll to the selection area
+        selectionContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } else {
+        selectionContainer.style.display = 'none';
+        clearAllEmployees();
     }
     
-    document.addEventListener('DOMContentLoaded', function() {
-        // Initialize notification manager
-        window.notificationManager = new NotificationManager();
-        
-        // Function to show notification
-        function showNotification() {
-            const notification = document.getElementById('notification');
-            notification.style.display = 'block';
-            notification.style.opacity = 0;
-            let opacity = 0;
-            const fadeInterval = setInterval(function() {
-                if (opacity < 1) {
-                    opacity += 0.05;
-                    notification.style.opacity = opacity;
-                } else {
-                    clearInterval(fadeInterval);
+    updateReportSummary();
+}
 
-                    // Start fade out after 3 seconds
-                    setTimeout(function() {
-                        const fadeOutInterval = setInterval(function() {
-                            if (opacity > 0) {
-                                opacity -= 0.05;
-                                notification.style.opacity = opacity;
-                            } else {
-                                clearInterval(fadeOutInterval);
-                                notification.style.display = 'none';
-                            }
-                        }, 50);
-                    }, 3000);
-                }
-            }, 50);
-        }
-
-        // Check if there's a message to display
-        <?php if (isset($_SESSION['success_message'])): ?>
-            showNotification();
-            <?php unset($_SESSION['success_message']); ?>
-        <?php endif; ?>
-        
-        const alert = document.getElementById('autoDismissAlert');
-        if (alert) {
-        setTimeout(() => {
-            // Remove `show` to start fade out
-            alert.classList.remove('show');
-            // Wait for fade transition to complete (Bootstrap default is ~150ms)
-            setTimeout(() => {
-            // Remove the element from DOM
-            alert.remove();
-            }, 500); // wait slightly longer than Bootstrap's fade transition
-        }, 10000); // 10 sec before starting fade
-        }
+function selectAllEmployees() {
+    const checkboxes = document.querySelectorAll('.employee-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = true;
     });
+    updateSelectionSummary();
+    updateReportSummary();
+}
+
+function clearAllEmployees() {
+    const checkboxes = document.querySelectorAll('.employee-checkbox');
+    checkboxes.forEach(checkbox => {
+        checkbox.checked = false;
+    });
+    updateSelectionSummary();
+    updateReportSummary();
+}
+
+function updateSelectionSummary() {
+    const checkedBoxes = document.querySelectorAll('.employee-checkbox:checked');
+    const summaryDiv = document.getElementById('selection_summary');
+    const countSpan = document.getElementById('selected_count');
+    
+    countSpan.textContent = checkedBoxes.length;
+    
+    if (checkedBoxes.length > 0) {
+        summaryDiv.style.display = 'block';
+    } else {
+        summaryDiv.style.display = 'none';
+    }
+}
+
+function updateReportSummary() {
+    const startDate = document.getElementById('start_date').value;
+    const endDate = document.getElementById('end_date').value;
+    const allEmployees = document.getElementById('all_employees').checked;
+    const reportStatus = document.getElementById('report_status').value;
+    const reportCategory = document.getElementById('report_category').value;
+    const checkedEmployees = document.querySelectorAll('.employee-checkbox:checked').length;
+    
+    let summary = "Report will include: ";
+    
+    // Date range
+    if (startDate && endDate) {
+        summary += `Claims from ${startDate} to ${endDate}`;
+    } else {
+        summary += "All claims (please select date range)";
+    }
+    
+    // Employee selection
+    if (allEmployees) {
+        summary += " • All employees";
+    } else if (checkedEmployees > 0) {
+        summary += ` • ${checkedEmployees} selected employee(s)`;
+    } else {
+        summary += " • No employees selected";
+    }
+    
+    // Status filter
+    if (reportStatus !== 'all') {
+        summary += ` • ${reportStatus} claims only`;
+    } else {
+        summary += " • All claim statuses";
+    }
+    
+    // Category filter
+    if (reportCategory !== 'all') {
+        summary += ` • ${reportCategory} category only`;
+    } else {
+        summary += " • All categories";
+    }
+    
+    document.getElementById('report_summary').textContent = summary;
+}
+
+function resetForm() {
+    // Reset all form elements
+    document.getElementById('start_date').value = '';
+    document.getElementById('end_date').value = '';
+    document.getElementById('all_employees').checked = true;
+    document.getElementById('specific_employees').checked = false;
+    document.getElementById('report_status').value = 'all';
+    document.getElementById('report_category').value = 'all';
+    
+    // Hide employee selection
+    document.getElementById('employee_selection_container').style.display = 'none';
+    
+    // Clear all employee checkboxes
+    clearAllEmployees();
+    
+    // Update summary
+    updateReportSummary();
+}
+
+// Add event listeners for real-time summary updates
+document.addEventListener('DOMContentLoaded', function() {
+    // Date change listeners
+    document.getElementById('start_date').addEventListener('change', updateReportSummary);
+    document.getElementById('end_date').addEventListener('change', updateReportSummary);
+    document.getElementById('report_status').addEventListener('change', updateReportSummary);
+    document.getElementById('report_category').addEventListener('change', updateReportSummary);
+    
+    // Employee checkbox listeners
+    document.querySelectorAll('.employee-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            updateSelectionSummary();
+            updateReportSummary();
+        });
+    });
+    
+    // Set default end date to today
+    document.getElementById('end_date').value = new Date().toISOString().split('T')[0];
+    
+    // Set default start date to 30 days ago
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    document.getElementById('start_date').value = thirtyDaysAgo.toISOString().split('T')[0];
+    
+    // Initial summary update
+    updateReportSummary();
+});
     </script>
 </body>
 
