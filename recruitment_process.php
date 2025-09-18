@@ -65,14 +65,69 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             case 'delete_position':
                 if (isset($_POST['position_id'])) {
                     $position_id = (int)$_POST['position_id'];
-                    $query = "DELETE FROM job_positions WHERE id = ?";
-                    $stmt = $conn->prepare($query);
-                    $stmt->bind_param("i", $position_id);
-                    if ($stmt->execute()) {
-                        echo json_encode(['success' => true]);
+                    
+                    // First check if position exists
+                    $check_query = "SELECT id FROM job_positions WHERE id = ?";
+                    $check_stmt = $conn->prepare($check_query);
+                    
+                    if ($check_stmt) {
+                        $check_stmt->bind_param("i", $position_id);
+                        $check_stmt->execute();
+                        $check_result = $check_stmt->get_result();
+                        
+                        if ($check_result->num_rows > 0) {
+                            // Position exists, proceed with deletion
+                            
+                            // First delete related job applications (if any)
+                            $delete_apps_query = "DELETE FROM job_applications WHERE position_id = ?";
+                            $delete_apps_stmt = $conn->prepare($delete_apps_query);
+                            
+                            if ($delete_apps_stmt) {
+                                $delete_apps_stmt->bind_param("i", $position_id);
+                                $delete_apps_stmt->execute();
+                                $delete_apps_stmt->close();
+                            }
+                            
+                            // Now delete the position
+                            $delete_query = "DELETE FROM job_positions WHERE id = ?";
+                            $delete_stmt = $conn->prepare($delete_query);
+                            
+                            if ($delete_stmt) {
+                                $delete_stmt->bind_param("i", $position_id);
+                                
+                                if ($delete_stmt->execute()) {
+                                    echo json_encode([
+                                        'success' => true, 
+                                        'message' => 'Position deleted successfully!'
+                                    ]);
+                                } else {
+                                    echo json_encode([
+                                        'success' => false, 
+                                        'message' => 'Failed to delete position: ' . $conn->error
+                                    ]);
+                                }
+                                $delete_stmt->close();
+                            } else {
+                                echo json_encode([
+                                    'success' => false, 
+                                    'message' => 'Failed to prepare delete statement: ' . $conn->error
+                                ]);
+                            }
+                        } else {
+                            echo json_encode([
+                                'success' => false, 
+                                'message' => 'Position not found'
+                            ]);
+                        }
+                        $check_stmt->close();
                     } else {
-                        echo json_encode(['success' => false, 'message' => 'Database error']);
+                        echo json_encode([
+                            'success' => false, 
+                            'message' => 'Failed to prepare check statement: ' . $conn->error
+                        ]);
                     }
+                    
+                    header('Content-Type: application/json');
                     exit;
                 }
                 break;
@@ -885,7 +940,23 @@ function viewApplications(positionId) {
 }
 
 function deletePosition(positionId) {
-    if (confirm('Are you sure you want to delete this job position? This action cannot be undone.')) {
+    // Show a more detailed confirmation
+    const confirmMessage = `Are you sure you want to delete this job position?
+
+⚠️ This will permanently remove:
+• The job position
+• All related applications
+• This action cannot be undone
+
+Click OK to confirm deletion.`;
+
+    if (confirm(confirmMessage)) {
+        // Show loading state
+        const button = event.target.closest('button');
+        const originalContent = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
+        button.disabled = true;
+
         const formData = new FormData();
         formData.append('action', 'delete_position');
         formData.append('position_id', positionId);
@@ -894,18 +965,58 @@ function deletePosition(positionId) {
             method: 'POST',
             body: formData
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
-                alert('Position deleted successfully!');
-                location.reload(); // Refresh the page to show updated list
+                // Show success message
+                alert('✅ ' + (data.message || 'Position deleted successfully!'));
+                
+                // Remove the card from display with animation
+                const jobCard = button.closest('.col-lg-4, .col-md-6');
+                if (jobCard) {
+                    jobCard.style.transition = 'all 0.3s ease';
+                    jobCard.style.opacity = '0';
+                    jobCard.style.transform = 'scale(0.9)';
+                    
+                    setTimeout(() => {
+                        jobCard.remove();
+                        
+                        // Update the positions count
+                        const countBadge = document.querySelector('.badge.bg-secondary');
+                        if (countBadge) {
+                            const currentCount = parseInt(countBadge.textContent);
+                            countBadge.textContent = Math.max(0, currentCount - 1);
+                        }
+                        
+                        // Check if no positions remain
+                        const remainingCards = document.querySelectorAll('.job-card').length;
+                        if (remainingCards === 0) {
+                            // Reload page to show "no positions" message
+                            location.reload();
+                        }
+                    }, 300);
+                }
             } else {
-                alert('Failed to delete position: ' + (data.message || 'Unknown error'));
+                // Show error message
+                alert('❌ Failed to delete position: ' + (data.message || 'Unknown error'));
+                
+                // Restore button state
+                button.innerHTML = originalContent;
+                button.disabled = false;
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while deleting the position.');
+            console.error('Delete Error:', error);
+            alert('❌ An error occurred while deleting the position: ' + error.message);
+            
+            // Restore button state
+            button.innerHTML = originalContent;
+            button.disabled = false;
         });
     }
 }

@@ -292,8 +292,6 @@ require 'vendor/autoload.php';
                 <li class="nav-item" role="presentation">
                   <button class="nav-link active" id="home-tab" data-bs-toggle="tab" data-bs-target="#bordered-home" type="button" role="tab" aria-controls="home" aria-selected="true">Claims List</button>
                 </li>
-                <li class="nav-item" role="presentation">
-                  <button class="nav-link" id="profile-tab" data-bs-toggle="tab" data-bs-target="#bordered-profile" type="button" role="tab" aria-controls="profile" aria-selected="false">Summary Report</button>
               </ul>
               <div class="tab-content pt-2" id="borderedTabContent">
                 <div class="tab-pane fade show active" id="bordered-home" role="tabpanel" aria-labelledby="home-tab">
@@ -466,27 +464,6 @@ require 'vendor/autoload.php';
                     </div>
                 </div><!-- End Row -->
               </div><!-- End Bordered Tabs -->
-            </div>
-            <div class="tab-pane fade" id="bordered-profile" role="tabpanel" aria-labelledby="profile-tab">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Claim Summary Report</h5>
-                        <p>You can now download a claim summary report in xlsx (an Excel spreadsheet). Choose the start date and end date, a report will be generated immediately.</p>
-                        <form action="download_xlsx.php" method="POST" class="row g-3 align-items-center">                    <div class="col-auto">
-                            <input type="date" name="start_date" class="form-control" placeholder="Start date" required>
-                        </div>
-                        <div class="col-auto">
-                            <span> ~ </span>
-                        </div>
-                        <div class="col-auto">
-                            <input type="date" name="end_date" class="form-control" placeholder="End date" required>
-                        </div>
-                        <div class="col-auto">
-                            <button type="submit" class="btn btn-primary">Download XLSX</button>
-                        </div>
-                        </form>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
