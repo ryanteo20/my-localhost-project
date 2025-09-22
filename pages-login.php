@@ -1,4 +1,5 @@
 <?php
+// filepath: /Applications/XAMPP/xamppfiles/htdocs/pages-login.php
 require('database.php');
 require('session.php');
 error_reporting(E_ALL);
@@ -10,34 +11,48 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    // Use prepared statement for security
-    $stmt = $conn->prepare('SELECT * FROM employeelogin WHERE username = ?');
+    // Use prepared statement for security - Include status in the query
+    $stmt = $conn->prepare('SELECT ID, username, password, role, status, first_login FROM employeelogin WHERE username = ?');
     $stmt->bind_param('s', $username);
     $stmt->execute();
     $result = $stmt->get_result();
 
     if ($result && $result->num_rows === 1) {
         $user = $result->fetch_assoc();
+        
+        // First check if password matches
         if (md5($password) === $user['password']) {
-        // Set session variables
-        $_SESSION['ID'] = $user['ID'];
-        $_SESSION['username'] = $username;
-        $_SESSION['role'] = ucfirst(strtolower(trim($user['role']))); // normalize
-        $_SESSION['first_login'] =  $user['first_login'];
-            if ($_SESSION['first_login'] == 1) {
-                // Redirect the user to create_password.php for password creation
-                header("Location: create_password.php");
-                exit(); // Stop script execution after redirection
+            
+            // Then check if account is active
+            $userStatus = $user['status'] ?? 'active'; // Default to active if status is null
+            if ($userStatus === 'inactive') {
+                $error = 'Your account has been deactivated. Please contact HR for assistance.';
+            } else {
+                // Account is active, proceed with login
+                $_SESSION['ID'] = $user['ID'];
+                $_SESSION['username'] = $username;
+                $_SESSION['role'] = ucfirst(strtolower(trim($user['role']))); // normalize
+                $_SESSION['first_login'] = $user['first_login'];
+                
+                if ($_SESSION['first_login'] == 1) {
+                    // Redirect the user to create_password.php for password creation
+                    header("Location: create_password.php");
+                    exit(); // Stop script execution after redirection
+                }
+                
+                // Redirect based on role
+                header("Location: " . ($user['role'] === 'Employee' ? "index2.php" : "index.php"));
+                exit();
             }
-            // Redirect based on role
-            header("Location: " . ($user['role'] === 'Employee' ? "index2.php" : "index.php"));
-            exit();
         } else {
-            $error = 'invalid username or password';
+            $error = 'Invalid username or password';
         }
     } else {
-        $error = 'invalid username or password';
+        $error = 'Invalid username or password';
     }
+    
+    // Close the statement
+    $stmt->close();
 }
 ?>
 
@@ -98,7 +113,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                             <div class="col-12">
                           <label for="username" class="form-label">Username</label>
                           <div class="input-group has-validation">
-                            <span class="input-group-text" id="inputGroupPrepend">@</span>
                             <input type="text" name="username" class="form-control" id="yourUsername" required>
                             <div class="invalid-feedback">Please enter your username.</div>
                           </div>
@@ -121,7 +135,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         </div>
                         <?php if ($error): ?>
                           <div class="alert alert-danger" role="alert">
-                              <?php echo ($error); ?>
+                              <?php echo htmlspecialchars($error); ?>
                           </div>
                         <?php endif; ?>
                       </form>

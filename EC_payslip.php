@@ -357,7 +357,7 @@ if ($employee_id && $year) {
         </a>
         <ul id="attendance-nav" class="nav-content collapse " data-bs-parent="#sidebar-nav">
         <li>
-            <a href="attendance_employer.php">
+            <a href="attendance_employee.php">
               <i class="bi bi-circle"></i><span>Clock in & out</span>
             </a>
           </li>

@@ -1,0 +1,62 @@
+[22-Sep-2025 18:19:26 Europe/Berlin] POST data received: Array
+(
+    [candidate_id] => 4
+    [candidate_name] => Test
+    [email] => ryateotan1@gmai.com
+    [position_id] => 5
+    [notes] => Boss recommend
+    [rating] => 2
+)
+
+[22-Sep-2025 18:19:26 Europe/Berlin] FILES data received: Array
+(
+)
+
+[22-Sep-2025 18:19:26 Europe/Berlin] Parsed values - ID: 4, Name: Test, Email: ryateotan1@gmai.com, Position: 5
+[22-Sep-2025 18:19:26 Europe/Berlin] Update Candidate Error: Failed to prepare update statement: Unknown column 'updated_at' in 'field list'
+[22-Sep-2025 18:19:26 Europe/Berlin] Stack trace: #0 {main}
+[22-Sep-2025 18:22:09 Europe/Berlin] POST data received: Array
+(
+    [candidate_id] => 4
+    [candidate_name] => Test
+    [email] => ryateotan1@gmai.com
+    [position_id] => 5
+    [notes] => Boss recommend
+    [rating] => 2
+)
+
+[22-Sep-2025 18:22:09 Europe/Berlin] FILES data received: Array
+(
+)
+
+[22-Sep-2025 18:22:09 Europe/Berlin] Parsed values - ID: 4, Name: Test, Email: ryateotan1@gmai.com, Position: 5
+[22-Sep-2025 18:23:50 Europe/Berlin] POST data received: Array
+(
+    [candidate_id] => 4
+    [candidate_name] => Test
+    [email] => ryateotan1@gmai.com
+    [position_id] => 5
+    [notes] => Boss recommend
+    [rating] => 3
+)
+
+[22-Sep-2025 18:23:50 Europe/Berlin] FILES data received: Array
+(
+)
+
+[22-Sep-2025 18:23:50 Europe/Berlin] Parsed values - ID: 4, Name: Test, Email: ryateotan1@gmai.com, Position: 5
+[22-Sep-2025 18:25:32 Europe/Berlin] POST data received: Array
+(
+    [candidate_id] => 2
+    [candidate_name] => Jennifer Tang
+    [email] => ryanteotan1@gmail.com
+    [position_id] => 2
+    [notes] => 
+    [rating] => 1
+)
+
+[22-Sep-2025 18:25:32 Europe/Berlin] FILES data received: Array
+(
+)
+
+[22-Sep-2025 18:25:32 Europe/Berlin] Parsed values - ID: 2, Name: Jennifer Tang, Email: ryanteotan1@gmail.com, Position: 2

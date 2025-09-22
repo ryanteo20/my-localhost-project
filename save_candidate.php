@@ -1,115 +1,140 @@
 <?php
+// filepath: /Applications/XAMPP/xamppfiles/htdocs/save_candidate.php
 require('database.php');
 require('session.php');
 
+// Set the content type to JSON
 header('Content-Type: application/json');
 
-// Check if user is logged in and is an employer
-if (!isset($_SESSION['role']) || $_SESSION['role'] != 'Employer') {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized access']);
-    exit();
+// Check if the request method is POST
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    echo json_encode(['success' => false, 'message' => 'Invalid request method']);
+    exit;
 }
 
 try {
-    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-        // Handle form data for file uploads
-        $candidate_name = $_POST['candidate_name'] ?? null;
-        $email = $_POST['email'] ?? null;
-        $position_id = $_POST['position_id'] ?? null;
-        $rating = $_POST['rating'] ?? 0;
-        $stage = $_POST['stage'] ?? 'New';
-        $notes = $_POST['notes'] ?? '';
+    // Get form data
+    $candidate_name = $_POST['candidate_name'] ?? null;
+    $email = $_POST['email'] ?? null;
+    $position_id = $_POST['position_id'] ?? null;
+    $rating = $_POST['rating'] ?? 0;
+    $stage = $_POST['stage'] ?? 'New';
+    $notes = $_POST['notes'] ?? '';
+
+    // Validate required fields
+    if (!$candidate_name || !$email || !$position_id) {
+        echo json_encode(['success' => false, 'message' => 'Missing required fields']);
+        exit;
+    }
+
+    // Check if email already exists
+    $check_query = "SELECT id FROM job_applications WHERE email = ?";
+    $check_stmt = mysqli_prepare($conn, $check_query);
+    mysqli_stmt_bind_param($check_stmt, "s", $email);
+    mysqli_stmt_execute($check_stmt);
+    $check_result = mysqli_stmt_get_result($check_stmt);
+    
+    if (mysqli_num_rows($check_result) > 0) {
+        echo json_encode(['success' => false, 'message' => 'A candidate with this email already exists']);
+        exit;
+    }
+
+    // Handle resume upload if provided
+    $resume_uploaded = false;
+    $resume_path = null;
+    
+    if (isset($_FILES['resume']) && $_FILES['resume']['error'] === UPLOAD_ERR_OK) {
+        $upload_dir = 'uploads/resumes/';
         
-        // Validate required fields
-        if (!$candidate_name || !$email || !$position_id) {
-            throw new Exception('Missing required fields');
+        // Create directory if it doesn't exist
+        if (!is_dir($upload_dir)) {
+            mkdir($upload_dir, 0755, true);
         }
         
-        // Handle resume upload if present
-        $resume_path = null;
-        if (isset($_FILES['resume']) && $_FILES['resume']['error'] === UPLOAD_ERR_OK) {
-            $resume_file = $_FILES['resume'];
-            
-            $allowed_types = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-            $max_size = 5 * 1024 * 1024; // 5MB
-
-            if (!in_array($resume_file['type'], $allowed_types)) {
-                throw new Exception('Invalid file type. Only PDF, DOC, and DOCX files are allowed.');
-            }
-
-            if ($resume_file['size'] > $max_size) {
-                throw new Exception('File size too large. Maximum size is 5MB.');
-            }
-
-            // Create uploads directory if it doesn't exist
-            $upload_dir = 'uploads/resumes/';
-            if (!file_exists($upload_dir)) {
-                mkdir($upload_dir, 0777, true);
-            }
-
-            // Clean candidate name for filename
-            $clean_name = preg_replace('/[^a-zA-Z0-9_-]/', '_', $candidate_name);
-            $clean_name = preg_replace('/_+/', '_', $clean_name);
-            $clean_name = trim($clean_name, '_');
-            
-            // Get file extension
-            $file_extension = pathinfo($resume_file['name'], PATHINFO_EXTENSION);
-            
-            // Generate filename with candidate name and timestamp
-            $filename = $clean_name . '_Resume_' . time() . '.' . $file_extension;
-            $resume_path = $upload_dir . $filename;
-
-            if (!move_uploaded_file($resume_file['tmp_name'], $resume_path)) {
-                throw new Exception('Failed to upload resume file');
-            }
+        $file_info = $_FILES['resume'];
+        $file_extension = strtolower(pathinfo($file_info['name'], PATHINFO_EXTENSION));
+        
+        // Validate file type
+        $allowed_extensions = ['pdf', 'doc', 'docx'];
+        if (!in_array($file_extension, $allowed_extensions)) {
+            echo json_encode(['success' => false, 'message' => 'Invalid file type. Only PDF, DOC, and DOCX files are allowed.']);
+            exit;
         }
         
-        // Insert new candidate
-        $sql = "INSERT INTO job_applications (position_id, candidate_name, email, rating, stage, notes, resume_path, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
-        $stmt = mysqli_prepare($conn, $sql);
-        
-        if (!$stmt) {
-            throw new Exception('Database prepare error: ' . mysqli_error($conn));
+        // Validate file size (5MB max)
+        if ($file_info['size'] > 5 * 1024 * 1024) {
+            echo json_encode(['success' => false, 'message' => 'File size too large. Maximum size is 5MB.']);
+            exit;
         }
         
-        mysqli_stmt_bind_param($stmt, 'ississs', $position_id, $candidate_name, $email, $rating, $stage, $notes, $resume_path);
+        // Generate unique filename
+        $filename = 'resume_' . time() . '_' . uniqid() . '.' . $file_extension;
+        $resume_path = $upload_dir . $filename;
         
-        if (!mysqli_stmt_execute($stmt)) {
-            throw new Exception('Database execute error: ' . mysqli_stmt_error($stmt));
+        // Move uploaded file
+        if (move_uploaded_file($file_info['tmp_name'], $resume_path)) {
+            $resume_uploaded = true;
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Failed to upload resume file']);
+            exit;
         }
-        
-        $candidate_id = mysqli_insert_id($conn);
-        mysqli_stmt_close($stmt);
-        
-        // Get position name for response
-        $position_query = "SELECT job_title FROM job_positions WHERE id = ?";
-        $position_stmt = mysqli_prepare($conn, $position_query);
-        mysqli_stmt_bind_param($position_stmt, 'i', $position_id);
-        mysqli_stmt_execute($position_stmt);
-        $position_result = mysqli_stmt_get_result($position_stmt);
-        $position_row = mysqli_fetch_assoc($position_result);
-        mysqli_stmt_close($position_stmt);
-        
-        echo json_encode([
-            'success' => true,
-            'message' => 'Candidate added successfully',
-            'candidate' => [
-                'id' => $candidate_id,
-                'candidate_name' => $candidate_name,
-                'email' => $email,
-                'job_title' => $position_row['job_title'] ?? 'Unknown Position',
-                'rating' => $rating,
-                'stage' => $stage,
-                'resume_uploaded' => !is_null($resume_path)
-            ]
-        ]);
-        
-    } else {
-        throw new Exception('Invalid request method');
     }
     
+    // Insert new candidate
+    $insert_query = "INSERT INTO job_applications (candidate_name, email, position_id, stage, rating, notes, resume_path, created_at) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+    
+    $insert_stmt = mysqli_prepare($conn, $insert_query);
+    mysqli_stmt_bind_param($insert_stmt, "ssissss", $candidate_name, $email, $position_id, $stage, $rating, $notes, $resume_path);
+    
+    if (mysqli_stmt_execute($insert_stmt)) {
+        $candidate_id = mysqli_insert_id($conn);
+        
+        // Update resume filename with candidate ID if resume was uploaded
+        if ($resume_uploaded && $candidate_id) {
+            $new_filename = 'resume_' . $candidate_id . '_' . time() . '.' . $file_extension;
+            $new_resume_path = $upload_dir . $new_filename;
+            
+            if (rename($resume_path, $new_resume_path)) {
+                // Update the database with the new path
+                $update_path_query = "UPDATE job_applications SET resume_path = ? WHERE id = ?";
+                $update_path_stmt = mysqli_prepare($conn, $update_path_query);
+                mysqli_stmt_bind_param($update_path_stmt, "si", $new_resume_path, $candidate_id);
+                mysqli_stmt_execute($update_path_stmt);
+                mysqli_stmt_close($update_path_stmt);
+            }
+        }
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Candidate added successfully',
+            'candidate_id' => $candidate_id,
+            'candidate' => [
+                'resume_uploaded' => $resume_uploaded
+            ]
+        ]);
+    } else {
+        // If insert failed and we uploaded a file, clean it up
+        if ($resume_uploaded && file_exists($resume_path)) {
+            unlink($resume_path);
+        }
+        
+        throw new Exception('Database insert failed: ' . mysqli_stmt_error($insert_stmt));
+    }
+    
+    mysqli_stmt_close($insert_stmt);
+    
 } catch (Exception $e) {
-    error_log('Save candidate error: ' . $e->getMessage());
-    echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    // Clean up uploaded file if there was an error
+    if (isset($resume_path) && $resume_path && file_exists($resume_path)) {
+        unlink($resume_path);
+    }
+    
+    error_log("Save Candidate Error: " . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+} finally {
+    if (isset($conn)) {
+        mysqli_close($conn);
+    }
 }
 ?>

@@ -243,78 +243,131 @@ require('session.php');
   <main id="main" class="main">
 
   <div class="card">
-            <div class="card-body">
-              <h5 class="card-title">Delete Employee</h5>
+    <div class="card-body">
+        <h5 class="card-title">Manage Employee Status</h5>
+        
+        <!-- Add status filter -->
+        <div class="mb-3">
+            <label for="statusFilter" class="form-label">Filter by Status:</label>
+            <select class="form-select" id="statusFilter" onchange="filterEmployees()">
+                <option value="active">Active Employees</option>
+                <option value="inactive">Inactive Employees</option>
+                <option value="all">All Employees</option>
+            </select>
+        </div>
 
-              <table class="table datatable">
-                      <thead>
-                          <tr>
-                              <th>ID</th>
-                              <th>Username</th>
-                              <th>Password</th>
-                              <th data-type="datetime">Registration Date</th>
-                          </tr>
-                      </thead>
-                      <tbody id="latest-employee-info">
-                        <?php
-                          // Include your database connection
-                          require('database.php');
+        <table class="table datatable" id="employeeTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Username</th>
+                    <th>Password</th>
+                    <th>Status</th>
+                    <th data-type="datetime">Registration Date</th>
+                    <th data-type="datetime">Last Modified</th>
+                </tr>
+            </thead>
+            <tbody id="latest-employee-info">
+                <?php
+                // Include your database connection
+                require('database.php');
 
-                          // Prepare the SQL query to select only active employees (not deleted)
-                          $query = "SELECT ID, username, password, reg_date FROM employeelogin WHERE (deleted_at IS NULL OR deleted_at = '') ORDER BY ID";
+                // Add status column if it doesn't exist
+                $addStatusColumn = "ALTER TABLE employeelogin ADD COLUMN IF NOT EXISTS status ENUM('active', 'inactive') DEFAULT 'active'";
+                mysqli_query($conn, $addStatusColumn);
 
-                          // Execute the query
-                          $result = mysqli_query($conn, $query);
+                // Prepare the SQL query to select employees with their status
+                $query = "SELECT ID, username, password, status, reg_date, deleted_at FROM employeelogin ORDER BY status DESC, ID";
 
-                          // Check if there are any rows returned
-                          if (mysqli_num_rows($result) > 0) {
-                              // Fetch each row of data and display it in the table
-                              while ($row = mysqli_fetch_assoc($result)) {
-                                  echo "<tr>";
-                                  echo "<td>{$row['ID']}</td>";
-                                  echo "<td>{$row['username']}</td>";
-                                  echo "<td>{$row['password']}</td>";
-                                  echo "<td>{$row['reg_date']}</td>";
-                                  echo "</tr>";
-                              }
-                          } else {
-                              // If no data is found, display a message
-                              echo "<tr><td colspan='4'>No active employees found</td></tr>";
-                          }
+                // Execute the query
+                $result = mysqli_query($conn, $query);
 
-                          // Close the connection
-                          mysqli_close($conn);
-                          ?>
-                      </tbody>
-                  </table>  
+                // Check if there are any rows returned
+                if (mysqli_num_rows($result) > 0) {
+                    // Fetch each row of data and display it in the table
+                    while ($row = mysqli_fetch_assoc($result)) {
+                        $status = $row['status'] ?: 'active'; // Default to active if null
+                        $statusClass = $status === 'active' ? 'bg-success' : 'bg-warning';
+                        $lastModified = $row['deleted_at'] ?: $row['reg_date'];
+                        
+                        echo "<tr data-status='{$status}'>";
+                        echo "<td>{$row['ID']}</td>";
+                        echo "<td>{$row['username']}</td>";
+                        echo "<td>{$row['password']}</td>";
+                        echo "<td><span class='badge {$statusClass}'>" . ucfirst($status) . "</span></td>";
+                        echo "<td>{$row['reg_date']}</td>";
+                        echo "<td>{$lastModified}</td>";
+                        echo "</tr>";
+                    }
+                } else {
+                    // If no data is found, display a message
+                    echo "<tr><td colspan='6'>No employees found</td></tr>";
+                }
 
-                  <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#disablebackdrop">
-                        Delete Employee
-                    </button>
+                // Close the connection
+                mysqli_close($conn);
+                ?>
+            </tbody>
+        </table>  
 
-                    <div class="modal fade" id="disablebackdrop" tabindex="-1" data-bs-backdrop="false">
-                        <div class="modal-dialog">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title">Delete Employee</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    <div class="mb-3">
-                                        <label for="employeeIdInput" class="form-label">Employee ID:</label>
-                                        <input type="text" class="form-control" id="employeeIdInput" placeholder="Enter Employee ID">
-                                    </div>
-                                    <p>Please make sure the employee you want to delete is correct as there is no recall function.</p>
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                    <button type="button" class="btn btn-danger" id="deleteEmployeeBtn">Delete Employee</button>
-                                </div>
-                            </div>
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#deactivateModal">
+            Deactivate Employee
+        </button>
+        
+        <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#reactivateModal">
+            Reactivate Employee
+        </button>
+
+        <!-- Deactivate Employee Modal -->
+        <div class="modal fade" id="deactivateModal" tabindex="-1" data-bs-backdrop="false">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Deactivate Employee</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="deactivateEmployeeIdInput" class="form-label">Employee ID:</label>
+                            <input type="text" class="form-control" id="deactivateEmployeeIdInput" placeholder="Enter Employee ID">
+                        </div>
+                        <p>This will mark the employee as inactive. They will not be able to log in, but their data will be preserved.</p>
+                        <div class="alert alert-warning" role="alert">
+                            <i class="bi bi-exclamation-triangle"></i> This action can be reversed by reactivating the employee later.
                         </div>
                     </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-warning" id="deactivateEmployeeBtn">Deactivate Employee</button>
+                    </div>
+                </div>
             </div>
-          </div>
+        </div>
+
+        <!-- Reactivate Employee Modal -->
+        <div class="modal fade" id="reactivateModal" tabindex="-1" data-bs-backdrop="false">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Reactivate Employee</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="reactivateEmployeeIdInput" class="form-label">Employee ID:</label>
+                            <input type="text" class="form-control" id="reactivateEmployeeIdInput" placeholder="Enter Employee ID">
+                        </div>
+                        <p>This will reactivate the employee account and restore their access to the system.</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-success" id="reactivateEmployeeBtn">Reactivate Employee</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
   </main><!-- End #main -->
 
@@ -342,65 +395,101 @@ require('session.php');
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
   <script>
-        function softDeleteEmployee($conn, $employee_id) {
-          // Add a deleted_at column to employeelogin table if it doesn't exist
-          $query = "UPDATE employeelogin SET deleted_at = NOW() WHERE ID = ?";
-          $stmt = mysqli_prepare($conn, $query);
-          mysqli_stmt_bind_param($stmt, "i", $employee_id);
-          
-          if (mysqli_stmt_execute($stmt)) {
-              return "Employee marked as deleted successfully.";
-          } else {
-              return "Error: " . mysqli_stmt_error($stmt);
-          }
-      }
+function filterEmployees() {
+    const filter = document.getElementById('statusFilter').value;
+    const rows = document.querySelectorAll('#employeeTable tbody tr');
+    
+    rows.forEach(row => {
+        const status = row.getAttribute('data-status');
+        if (filter === 'all' || filter === status) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+}
 
-      // When displaying employees, exclude deleted ones
-      function getActiveEmployees($conn) {
-          $query = "SELECT * FROM employeelogin WHERE deleted_at IS NULL";
-          return mysqli_query($conn, $query);
-      }
-
-          $(document).ready(function(){
-        $('#deleteEmployeeBtn').click(function(){
-            var employeeId = $('#employeeIdInput').val();
-            
-            if (!employeeId || employeeId.trim() === '') {
-                alert('Please enter an Employee ID');
-                return;
-            }
-            
-            if (!confirm('Are you sure you want to delete this employee? This action will mark them as deleted.')) {
-                return;
-            }
-            
-            $.ajax({
-                url: 'delete_employee.php',
-                type: 'POST',
-                data: { employeeId: employeeId },
-                dataType: 'json',
-                success: function(response) {
-                    console.log(response);
-                    if (response && response.status) {
-                        if (response.status === "success") {
-                            alert(response.message);
-                            $('#disablebackdrop').modal('hide');
-                            $('#employeeIdInput').val('');
-                            location.reload(); // Refresh the page to update the table
-                        } else {
-                            alert("Error: " + response.message);
-                        }
+$(document).ready(function(){
+    // Deactivate employee
+    $('#deactivateEmployeeBtn').click(function(){
+        var employeeId = $('#deactivateEmployeeIdInput').val();
+        
+        if (!employeeId || employeeId.trim() === '') {
+            alert('Please enter an Employee ID');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to deactivate this employee? They will not be able to log in.')) {
+            return;
+        }
+        
+        $.ajax({
+            url: 'delete_employee.php',
+            type: 'POST',
+            data: { employeeId: employeeId },
+            dataType: 'json',
+            success: function(response) {
+                console.log(response);
+                if (response && response.status) {
+                    if (response.status === "success") {
+                        alert(response.message);
+                        $('#deactivateModal').modal('hide');
+                        $('#deactivateEmployeeIdInput').val('');
+                        location.reload(); // Refresh the page to update the table
                     } else {
-                        alert("Error: Invalid response format");
+                        alert("Error: " + response.message);
                     }
-                },
-                error: function(xhr, status, error) {
-                    console.error('AJAX Error:', xhr.responseText);
-                    alert("Error: " + error + "\nDetails: " + xhr.responseText);
+                } else {
+                    alert("Error: Invalid response format");
                 }
-            });
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', xhr.responseText);
+                alert("Error: " + error + "\nDetails: " + xhr.responseText);
+            }
         });
     });
+
+    // Reactivate employee
+    $('#reactivateEmployeeBtn').click(function(){
+        var employeeId = $('#reactivateEmployeeIdInput').val();
+        
+        if (!employeeId || employeeId.trim() === '') {
+            alert('Please enter an Employee ID');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to reactivate this employee?')) {
+            return;
+        }
+        
+        $.ajax({
+            url: 'reactivate_employee.php',
+            type: 'POST',
+            data: { employeeId: employeeId },
+            dataType: 'json',
+            success: function(response) {
+                console.log(response);
+                if (response && response.status) {
+                    if (response.status === "success") {
+                        alert(response.message);
+                        $('#reactivateModal').modal('hide');
+                        $('#reactivateEmployeeIdInput').val('');
+                        location.reload(); // Refresh the page to update the table
+                    } else {
+                        alert("Error: " + response.message);
+                    }
+                } else {
+                    alert("Error: Invalid response format");
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('AJAX Error:', xhr.responseText);
+                alert("Error: " + error + "\nDetails: " + xhr.responseText);
+            }
+        });
+    });
+});
     </script>
 
 </body>

@@ -1,5 +1,5 @@
 <?php
-// filepath: /Applications/XAMPP/xamppfiles/htdocs/delete_employee.php
+// filepath: /Applications/XAMPP/xamppfiles/htdocs/reactivate_employee.php
 require('database.php');
 require('session.php');
 
@@ -27,7 +27,7 @@ if (!is_numeric($employeeId)) {
 }
 
 try {
-    // First, check if the employee exists and is currently active
+    // First, check if the employee exists and is currently inactive
     $checkQuery = "SELECT ID, username, status FROM employeelogin WHERE ID = ?";
     $checkStmt = mysqli_prepare($conn, $checkQuery);
     
@@ -46,14 +46,14 @@ try {
     
     $employee = mysqli_fetch_assoc($result);
     
-    // Check if employee is already inactive
-    if ($employee['status'] === 'inactive') {
-        echo json_encode(['status' => 'error', 'message' => 'Employee is already inactive']);
+    // Check if employee is already active
+    if ($employee['status'] === 'active') {
+        echo json_encode(['status' => 'error', 'message' => 'Employee is already active']);
         exit;
     }
     
-    // Update employee status to inactive
-    $updateQuery = "UPDATE employeelogin SET status = 'inactive', deleted_at = NOW() WHERE ID = ?";
+    // Update employee status to active
+    $updateQuery = "UPDATE employeelogin SET status = 'active', deleted_at = NULL WHERE ID = ?";
     $updateStmt = mysqli_prepare($conn, $updateQuery);
     
     if (!$updateStmt) {
@@ -67,7 +67,7 @@ try {
         if (mysqli_stmt_affected_rows($updateStmt) > 0) {
             echo json_encode([
                 'status' => 'success', 
-                'message' => "Employee '{$employee['username']}' (ID: {$employeeId}) has been successfully marked as inactive."
+                'message' => "Employee '{$employee['username']}' (ID: {$employeeId}) has been successfully reactivated."
             ]);
         } else {
             echo json_encode(['status' => 'error', 'message' => 'No changes were made to the employee record']);
@@ -80,7 +80,7 @@ try {
     mysqli_stmt_close($checkStmt);
     
 } catch (Exception $e) {
-    error_log("Delete Employee Error: " . $e->getMessage());
+    error_log("Reactivate Employee Error: " . $e->getMessage());
     echo json_encode(['status' => 'error', 'message' => 'Database error occurred: ' . $e->getMessage()]);
 } finally {
     if (isset($conn)) {

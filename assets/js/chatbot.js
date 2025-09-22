@@ -18,37 +18,49 @@ const SYSTEM_KNOWLEDGE = {
   userRole: '',
   systemData: {},
   
-  // System features and capabilities
+  // System features and capabilities with role-based paths
   features: {
     'employee-management': {
-      path: '/employee-management',
+      employee_path: '/view_employee.php',
+      employer_path: '/view_all.php',
       description: 'Manage employee records, profiles, and information',
-      capabilities: ['add employees', 'edit profiles', 'view employee details', 'employee reports']
+      employee_capabilities: ['view my profile', 'edit personal details', 'update contact info', 'view employment details'],
+      employer_capabilities: ['add employees', 'edit profiles', 'view employee details', 'employee reports', 'manage departments']
     },
     'leave-management': {
-      path: '/leave-management', 
+      employee_path: '/apply_leave.php', 
+      employer_path: '/AL.php',
       description: 'Handle leave applications, approvals, and balance tracking',
-      capabilities: ['apply leave', 'approve leave', 'check balance', 'leave history', 'cancel requests']
+      employee_capabilities: ['apply leave', 'check balance', 'view leave history', 'cancel pending requests'],
+      employer_capabilities: ['approve leave', 'reject leave', 'view team leave', 'leave reports', 'manage leave policies']
     },
     'payroll': {
-      path: '/payroll',
+      employee_path: '/EC_payslip.php',
+      employer_path: '/P_payroll.php',
       description: 'Salary processing, payslips, and payment management',
-      capabilities: ['view payslips', 'salary reports', 'tax calculations', 'payment processing']
+      employee_capabilities: ['view payslips', 'download tax forms', 'check salary history', 'update bank details'],
+      employer_capabilities: ['process payroll', 'salary reports', 'tax calculations', 'manage allowances', 'bulk payments']
     },
     'attendance': {
-      path: '/attendance',
+      employee_path: '/attendance_employee.php',
+      employer_path: '/attendance_employer.php',
       description: 'Time tracking, clock in/out, and attendance reports',
-      capabilities: ['mark attendance', 'view records', 'overtime tracking', 'schedule management']
+      employee_capabilities: ['clock in/out', 'view my records', 'request corrections', 'overtime tracking'],
+      employer_capabilities: ['view team attendance', 'approve corrections', 'attendance reports', 'schedule management']
     },
     'claim-management': {
-      path: '/claim-management',
+      employee_path: '/ER_claim.php',
+      employer_path: '/R_claim.php',
       description: 'Expense claims, reimbursements, and approval workflow',
-      capabilities: ['submit claims', 'upload receipts', 'track status', 'approve claims']
+      employee_capabilities: ['submit claims', 'upload receipts', 'track status', 'view claim history'],
+      employer_capabilities: ['approve claims', 'reject claims', 'claim reports', 'set claim limits', 'audit trails']
     },
     'recruitment': {
-      path: '/recruitment',
+      // No employee_path - recruitment is employer-only
+      employer_path: '/recruitment_process.php',
       description: 'Hiring process, job postings, and candidate management',
-      capabilities: ['post jobs', 'manage candidates', 'interview scheduling', 'hiring workflow']
+      employee_capabilities: [], // Empty for employees
+      employer_capabilities: ['post jobs', 'manage candidates', 'interview scheduling', 'hiring workflow', 'recruitment analytics']
     }
   },
   
@@ -76,14 +88,239 @@ const SYSTEM_KNOWLEDGE = {
   }
 };
 
+/**
+ * Detect user role from page context or session
+ */
+function detectUserRole() {
+  // Method 1: Check URL patterns
+  const currentPath = window.location.pathname.toLowerCase();
+  if (currentPath.includes('employer') || currentPath.includes('admin') || currentPath.includes('manager')) {
+    return 'employer';
+  }
+  
+  // Method 2: Check for role indicators in the page
+  const roleElements = document.querySelectorAll('[data-role], .user-role, .role-badge');
+  for (const element of roleElements) {
+    const roleText = element.textContent.toLowerCase();
+    if (roleText.includes('admin') || roleText.includes('manager') || roleText.includes('hr')) {
+      return 'employer';
+    }
+  }
+  
+  // Method 3: Check navigation menu structure
+  const navLinks = document.querySelectorAll('nav a, .sidebar a');
+  const hasEmployerFeatures = Array.from(navLinks).some(link => 
+    link.href.includes('employee-management') || 
+    link.href.includes('payroll-management') ||
+    link.textContent.toLowerCase().includes('manage')
+  );
+  
+  if (hasEmployerFeatures) {
+    return 'employer';
+  }
+  
+  // Default to employee if unclear
+  return 'employee';
+}
+
+/**
+ * Get the correct path and capabilities based on user role
+ */
+function getFeatureForRole(featureKey) {
+  const feature = SYSTEM_KNOWLEDGE.features[featureKey];
+  if (!feature) return null;
+  
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  
+  // Special handling for recruitment - employees don't have access
+  if (featureKey === 'recruitment' && userRole === 'employee') {
+    return null; // Return null to indicate no access
+  }
+  
+  return {
+    path: userRole === 'employer' ? feature.employer_path : feature.employee_path,
+    description: feature.description,
+    capabilities: userRole === 'employer' ? feature.employer_capabilities : feature.employee_capabilities,
+    userRole: userRole,
+    hasAccess: userRole === 'employer' || featureKey !== 'recruitment'
+  };
+}
+
+/**
+ * Handle recruitment-related queries for employees
+ */
+function handleRecruitmentQuery(message, userRole) {
+  if (userRole === 'employee' && 
+      (message.toLowerCase().includes('recruitment') || 
+       message.toLowerCase().includes('hiring') || 
+       message.toLowerCase().includes('job post'))) {
+    
+    return `🚫 **Recruitment Access Notice**
+
+**For Employee Users:**
+Recruitment and hiring features are restricted to management and HR personnel only.
+
+**What You Can Do Instead:**
+• **Employee Referrals:** Recommend qualified candidates to HR
+• **Internal Opportunities:** Check with HR about internal job postings
+• **Career Development:** Discuss growth opportunities with your manager
+• **Skills Enhancement:** Access training resources through the system
+
+**📞 Need Help?**
+Contact your HR department or manager for:
+• Referring potential candidates
+• Questions about internal opportunities
+• Career development discussions
+• Training and development programs
+
+**🎯 Available Employee Features:**
+• Leave Management - Apply and track leave
+• Payroll - View payslips and salary information
+• Attendance - Clock in/out and view records
+• Expense Claims - Submit and track reimbursements
+• Profile Management - Update personal information`;
+  }
+  
+  return null;
+}
+
 // Chatbot state
 let isTyping = false;
 let conversationHistory = [];
 let apiKeyTested = false;
 let apiKeyValid = false;
+let chatbotInitialized = false;
 
 // Debug mode
 const DEBUG_MODE = true;
+
+/**
+ * ROBUST: Create or get typing indicator element
+ */
+function getOrCreateTypingIndicator() {
+  let indicator = document.getElementById('typingIndicator');
+  
+  if (!indicator) {
+    console.log('⚡ Creating typing indicator');
+    const messagesContainer = document.getElementById('chatbotMessages');
+    
+    if (!messagesContainer) {
+      console.error('❌ Cannot create typing indicator - messages container not found');
+      return null;
+    }
+    
+    indicator = document.createElement('div');
+    indicator.id = 'typingIndicator';
+    indicator.className = 'message ai typing-indicator';
+    indicator.style.display = 'none';
+    indicator.innerHTML = `
+      <div class="typing-dots" style="display: flex; gap: 4px; align-items: center;">
+        <div class="dot" style="width: 8px; height: 8px; background: #007bff; border-radius: 50%; animation: typing 1.4s infinite ease-in-out;"></div>
+        <div class="dot" style="width: 8px; height: 8px; background: #007bff; border-radius: 50%; animation: typing 1.4s infinite ease-in-out 0.2s;"></div>
+        <div class="dot" style="width: 8px; height: 8px; background: #007bff; border-radius: 50%; animation: typing 1.4s infinite ease-in-out 0.4s;"></div>
+        <span style="margin-left: 10px; color: #666; font-style: italic;">AI is thinking...</span>
+      </div>
+    `;
+    
+    // Add CSS animation if not already present
+    if (!document.getElementById('typing-animation-style')) {
+      const style = document.createElement('style');
+      style.id = 'typing-animation-style';
+      style.textContent = `
+        @keyframes typing {
+          0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+          30% { transform: translateY(-10px); opacity: 1; }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    messagesContainer.appendChild(indicator);
+  }
+  
+  return indicator;
+}
+
+/**
+ * ENHANCED: Ensure all required DOM elements exist with robust checking
+ */
+function ensureChatbotDOM() {
+  const chatbotWindow = document.getElementById('chatbotWindow');
+  if (!chatbotWindow) {
+    console.error('❌ Chatbot window not found in DOM');
+    return false;
+  }
+
+  const messagesContainer = document.getElementById('chatbotMessages');
+  if (!messagesContainer) {
+    console.error('❌ Messages container not found');
+    return false;
+  }
+
+  const chatbotInput = document.getElementById('chatbotInput');
+  if (!chatbotInput) {
+    console.error('❌ Input element not found');
+    return false;
+  }
+
+  // Ensure typing indicator exists
+  const indicator = getOrCreateTypingIndicator();
+  if (!indicator) {
+    console.warn('⚠️ Could not create typing indicator');
+    // Don't return false - chatbot can still work without typing indicator
+  }
+
+  return true;
+}
+
+/**
+ * SAFE: Show typing indicator with null checks
+ */
+function showTypingIndicator() {
+  try {
+    const indicator = getOrCreateTypingIndicator();
+    if (indicator) {
+      indicator.style.display = 'block';
+      console.log('✅ Typing indicator shown');
+    } else {
+      console.warn('⚠️ Cannot show typing indicator - element not available');
+    }
+    
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+      sendBtn.disabled = true;
+    }
+    
+    const messagesContainer = document.getElementById('chatbotMessages');
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  } catch (error) {
+    console.warn('⚠️ Error showing typing indicator:', error.message);
+    // Continue without typing indicator
+  }
+}
+
+/**
+ * SAFE: Hide typing indicator with null checks
+ */
+function hideTypingIndicator() {
+  try {
+    const indicator = document.getElementById('typingIndicator');
+    if (indicator) {
+      indicator.style.display = 'none';
+      console.log('✅ Typing indicator hidden');
+    }
+    
+    const sendBtn = document.getElementById('sendBtn');
+    if (sendBtn) {
+      sendBtn.disabled = false;
+    }
+  } catch (error) {
+    console.warn('⚠️ Error hiding typing indicator:', error.message);
+    // Continue without typing indicator
+  }
+}
 
 /**
  * Initialize comprehensive system integration
@@ -91,6 +328,9 @@ const DEBUG_MODE = true;
 function initializeSystemIntegration() {
   // Detect current page
   SYSTEM_KNOWLEDGE.currentPage = window.location.pathname;
+  
+  // Detect user role
+  SYSTEM_KNOWLEDGE.userRole = detectUserRole();
   
   // Extract user information
   const userElements = document.querySelectorAll('.user-name, .username, [data-user-name], .navbar-nav .dropdown-toggle');
@@ -106,6 +346,7 @@ function initializeSystemIntegration() {
   
   if (DEBUG_MODE) {
     console.log('🏢 Enhanced System Integration:', SYSTEM_KNOWLEDGE);
+    console.log('👤 Detected User Role:', SYSTEM_KNOWLEDGE.userRole);
   }
 }
 
@@ -202,23 +443,187 @@ async function testAPIKey() {
 }
 
 /**
+ * Enhanced debugging and error handling
+ */
+function debugChatbot() {
+  console.log('🔍 Chatbot Debug Information:');
+  console.log('- Initialized:', chatbotInitialized);
+  console.log('- API Key Valid:', apiKeyValid);
+  console.log('- Is Typing:', isTyping);
+  console.log('- Conversation History:', conversationHistory.length, 'messages');
+  console.log('- System Knowledge:', SYSTEM_KNOWLEDGE);
+  
+  // Test DOM elements
+  const elements = {
+    chatbotWindow: document.getElementById('chatbotWindow'),
+    chatbotInput: document.getElementById('chatbotInput'),
+    chatbotMessages: document.getElementById('chatbotMessages'),
+    sendBtn: document.getElementById('sendBtn'),
+    typingIndicator: document.getElementById('typingIndicator')
+  };
+  
+  console.log('- DOM Elements:', elements);
+  
+  Object.entries(elements).forEach(([name, element]) => {
+    if (!element) {
+      console.error(`❌ Missing element: ${name}`);
+    } else {
+      console.log(`✅ Found element: ${name}`);
+    }
+  });
+}
+
+/**
+ * Add this function to test the chatbot
+ */
+function testChatbot() {
+  console.log('🧪 Testing chatbot functionality...');
+  debugChatbot();
+  
+  // Test sending a simple message
+  const input = document.getElementById('chatbotInput');
+  if (input) {
+    input.value = 'Hello, this is a test message';
+    sendMessage();
+  } else {
+    console.error('❌ Cannot test - input element not found');
+  }
+}
+
+/**
+ * ENHANCED: Send message with comprehensive error handling
+ */
+async function sendMessage() {
+  console.log('🚀 SendMessage called');
+  
+  try {
+    // Ensure DOM elements exist
+    if (!ensureChatbotDOM()) {
+      console.error('❌ Required DOM elements missing, cannot send message');
+      return;
+    }
+    
+    const input = document.getElementById('chatbotInput');
+    const message = input.value.trim();
+    console.log('📝 Message:', message);
+    
+    if (!message) {
+      console.log('⚠️ Empty message, returning');
+      return;
+    }
+    
+    if (isTyping) {
+      console.log('⚠️ Already typing, returning');
+      return;
+    }
+    
+    // Add user message
+    console.log('➕ Adding user message');
+    addMessage(message, 'user');
+    input.value = '';
+    input.style.height = 'auto';
+    
+    // Show typing indicator (with error handling)
+    console.log('⌨️ Showing typing indicator');
+    showTypingIndicator();
+    isTyping = true;
+    
+    console.log('🤖 Processing universal query:', message);
+    
+    let response = '';
+    
+    // Intelligent routing: Check if it's system-related first
+    const isSystemQuery = detectSystemQuery(message);
+    console.log('🔍 Is system query:', isSystemQuery);
+    
+    if (isSystemQuery) {
+      console.log('🏢 Getting system response');
+      response = getSystemResponse(message);
+      console.log('📋 System response:', response ? 'Generated' : 'None');
+    }
+    
+    // If no system response or it's a general query, use AI
+    if (!response && apiKeyValid) {
+      console.log('🧠 Using AI for universal response');
+      response = await getUniversalAIResponse(message, isSystemQuery);
+      console.log('🤖 AI response:', response ? 'Generated' : 'Failed');
+    }
+    
+    // Enhanced fallback for any remaining cases
+    if (!response) {
+      console.log('🛡️ Using fallback response');
+      response = getUniversalFallback(message);
+    }
+    
+    console.log('✅ Final response ready:', response.substring(0, 50) + '...');
+    
+    // Update conversation history
+    conversationHistory.push({ user: message, ai: response, type: isSystemQuery ? 'system' : 'general' });
+    if (conversationHistory.length > 8) {
+      conversationHistory = conversationHistory.slice(-8);
+    }
+    
+    hideTypingIndicator();
+    addMessage(response, 'ai');
+    
+    // Add contextual actions if needed
+    if (response.includes('navigate') || isSystemQuery) {
+      addContextualActions(message, isSystemQuery);
+    }
+    
+    console.log('✅ Message processing complete');
+    
+  } catch (error) {
+    console.error('❌ Universal AI Error:', error);
+    hideTypingIndicator();
+    addMessage('I apologize for the technical difficulty. Please try rephrasing your question or ask something else!', 'ai');
+  } finally {
+    isTyping = false;
+    console.log('🏁 SendMessage finished, isTyping reset');
+  }
+}
+
+/**
  * Initialize universal AI chatbot
  */
 function initializeChatbot() {
+  if (chatbotInitialized) {
+    console.log('🔄 Chatbot already initialized, skipping...');
+    return;
+  }
+  
+  console.log('🌟 Initializing Universal SMEasyHR AI Assistant...');
+  
+  if (!ensureChatbotDOM()) {
+    console.error('❌ Cannot initialize chatbot - required DOM elements missing');
+    return;
+  }
+  
+  chatbotInitialized = true;
+  
+  // Clear any existing messages
+  const messagesContainer = document.getElementById('chatbotMessages');
+  if (messagesContainer) {
+    const existingMessages = messagesContainer.querySelectorAll('.message:not(.typing-indicator)');
+    existingMessages.forEach(msg => msg.remove());
+  }
+  
+  // Reset conversation history
   conversationHistory = [];
   
   // Initialize system integration
   initializeSystemIntegration();
   
-  // Test AI connection
+  // Test AI connection and show welcome message
   testAPIKey().then(isConnected => {
-    setTimeout(() => {
-      if (document.getElementById('chatbotMessages')) {
-        const welcomeMessage = generateUniversalWelcome(isConnected);
-        addMessage(welcomeMessage, 'ai');
-        addQuickActions();
-      }
-    }, 500);
+    const container = document.getElementById('chatbotMessages');
+    const nonTypingMessages = container.querySelectorAll('.message:not(.typing-indicator)');
+    
+    if (container && nonTypingMessages.length === 0) {
+      const welcomeMessage = generateUniversalWelcome(isConnected);
+      addMessage(welcomeMessage, 'ai');
+      addQuickActions();
+    }
   });
 }
 
@@ -228,6 +633,8 @@ function initializeChatbot() {
 function generateUniversalWelcome(aiConnected) {
   const userName = SYSTEM_KNOWLEDGE.userName ? ` ${SYSTEM_KNOWLEDGE.userName}` : '';
   const currentSection = SYSTEM_KNOWLEDGE.systemData.currentSection || 'SMEasyHR System';
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  const roleDisplay = userRole === 'employer' ? 'Manager/HR' : 'Employee';
   
   let systemStatus = '';
   if (SYSTEM_KNOWLEDGE.systemData.totalEmployees !== 'N/A') {
@@ -241,15 +648,16 @@ function generateUniversalWelcome(aiConnected) {
   return `Hello${userName}! 👋 Welcome to your Universal SMEasyHR Assistant.
 
 ${aiStatus}
-📍 **Current Location:** ${currentSection}${systemStatus}
+📍 **Current Location:** ${currentSection}
+👤 **Access Level:** ${roleDisplay}${systemStatus}
 
 🌟 **I can help you with absolutely anything:**
 
 **🏢 SMEasyHR System:**
-• Navigate and use all HR features
-• Apply for leave, check payslips, submit claims
+• Navigate and use all HR features appropriate to your role
+• ${userRole === 'employer' ? 'Manage teams, approve requests, generate reports' : 'Apply for leave, check payslips, submit claims'}
 • Understand policies and procedures
-• Get step-by-step guidance
+• Get step-by-step guidance for your access level
 
 **🧠 General Knowledge:**
 • Answer questions on any topic
@@ -277,15 +685,24 @@ function addQuickActions() {
   `;
   
   const messagesContainer = document.getElementById('chatbotMessages');
-  messagesContainer.appendChild(actionsContainer);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  if (messagesContainer) {
+    messagesContainer.appendChild(actionsContainer);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
 }
 
 /**
  * Generate universal quick actions
  */
 function generateUniversalQuickActions() {
-  const systemActions = [
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  
+  const systemActions = userRole === 'employer' ? [
+    'How do I approve leave requests?',
+    'Generate payroll reports',
+    'View team attendance',
+    'Manage employee claims'
+  ] : [
     'How do I apply for leave?',
     'Show me my payslip',
     'Submit expense claim',
@@ -299,7 +716,7 @@ function generateUniversalQuickActions() {
     'Calculate 15% of 2500'
   ];
   
-  let buttons = '<div style="font-size: 11px; color: #666; margin-bottom: 5px;">🏢 System Help:</div>';
+  let buttons = `<div style="font-size: 11px; color: #666; margin-bottom: 5px;">🏢 ${userRole === 'employer' ? 'Management' : 'Employee'} Help:</div>`;
   systemActions.forEach(action => {
     buttons += `<button onclick="sendQuickMessage('${action}')" class="quick-btn">${action}</button>`;
   });
@@ -310,71 +727,6 @@ function generateUniversalQuickActions() {
   });
   
   return buttons;
-}
-
-/**
- * Universal message processing with intelligent routing
- */
-async function sendMessage() {
-  const input = document.getElementById('chatbotInput');
-  const message = input.value.trim();
-  
-  if (!message || isTyping) return;
-  
-  // Add user message
-  addMessage(message, 'user');
-  input.value = '';
-  input.style.height = 'auto';
-  
-  // Show typing indicator
-  showTypingIndicator();
-  isTyping = true;
-  
-  console.log('🤖 Processing universal query:', message);
-  
-  try {
-    let response = '';
-    
-    // Intelligent routing: Check if it's system-related first
-    const isSystemQuery = detectSystemQuery(message);
-    
-    if (isSystemQuery) {
-      console.log('🏢 Detected system query');
-      response = getSystemResponse(message);
-    }
-    
-    // If no system response or it's a general query, use AI
-    if (!response && apiKeyValid) {
-      console.log('🧠 Using AI for universal response');
-      response = await getUniversalAIResponse(message, isSystemQuery);
-    }
-    
-    // Enhanced fallback for any remaining cases
-    if (!response) {
-      response = getUniversalFallback(message);
-    }
-    
-    // Update conversation history
-    conversationHistory.push({ user: message, ai: response, type: isSystemQuery ? 'system' : 'general' });
-    if (conversationHistory.length > 8) {
-      conversationHistory = conversationHistory.slice(-8);
-    }
-    
-    hideTypingIndicator();
-    addMessage(response, 'ai');
-    
-    // Add contextual actions if needed
-    if (response.includes('navigate') || isSystemQuery) {
-      addContextualActions(message, isSystemQuery);
-    }
-    
-  } catch (error) {
-    console.error('Universal AI Error:', error);
-    hideTypingIndicator();
-    addMessage('I apologize for the technical difficulty. Please try rephrasing your question or ask something else!', 'ai');
-  } finally {
-    isTyping = false;
-  }
 }
 
 /**
@@ -396,7 +748,13 @@ function detectSystemQuery(message) {
  */
 function getSystemResponse(message) {
   const messageLower = message.toLowerCase().trim();
-  const currentSection = SYSTEM_KNOWLEDGE.systemData.currentSection;
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  
+  // Check for recruitment queries from employees
+  const recruitmentResponse = handleRecruitmentQuery(message, userRole);
+  if (recruitmentResponse) {
+    return recruitmentResponse;
+  }
   
   // Leave-related queries
   if (messageLower.includes('leave') && (messageLower.includes('apply') || messageLower.includes('how'))) {
@@ -440,50 +798,58 @@ function getSystemResponse(message) {
  * Generate comprehensive leave application guide
  */
 function generateLeaveGuide() {
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  const roleFeature = getFeatureForRole('leave-management');
+  
   return `📝 **Complete Leave Application Guide**
 
 **📋 Step-by-Step Process:**
 1. Navigate to **"Leave Management"** section
-2. Click **"Apply Leave"** button
-3. Select leave type:
-   • **Annual Leave:** ${SYSTEM_KNOWLEDGE.policies.leave.annual}
+2. Click **"${userRole === 'employer' ? 'Manage Leave Requests' : 'Apply Leave'}"** button
+3. ${userRole === 'employer' ? 'Review and approve/reject applications' : 'Select leave type:'}
+   ${userRole === 'employee' ? `• **Annual Leave:** ${SYSTEM_KNOWLEDGE.policies.leave.annual}
    • **Sick Leave:** ${SYSTEM_KNOWLEDGE.policies.leave.sick}
    • **Maternity Leave:** ${SYSTEM_KNOWLEDGE.policies.leave.maternity}
-   • **Emergency Leave:** ${SYSTEM_KNOWLEDGE.policies.leave.emergency}
-4. Choose start and end dates
-5. Enter detailed reason
-6. Submit for approval
+   • **Emergency Leave:** ${SYSTEM_KNOWLEDGE.policies.leave.emergency}` : ''}
+${userRole === 'employee' ? '4. Choose start and end dates\n5. Enter detailed reason\n6. Submit for approval' : '4. Check team availability\n5. Approve or provide feedback\n6. Update leave balance'}
 
 **⚠️ Important Requirements:**
-• Apply ${SYSTEM_KNOWLEDGE.policies.leave.advance_notice} for planned leave
+${userRole === 'employee' ? `• Apply ${SYSTEM_KNOWLEDGE.policies.leave.advance_notice} for planned leave
 • Medical certificate required for sick leave
-• Emergency leave needs immediate manager approval
+• Emergency leave needs immediate manager approval` : `• Review applications promptly
+• Consider team coverage and workload
+• Maintain fair leave distribution`}
 
 **💡 Pro Tips:**
-• Check your leave balance before applying
+${userRole === 'employee' ? `• Check your leave balance before applying
 • Plan around team schedules and deadlines
-• Keep copies of your applications
+• Keep copies of your applications` : `• Set up automated notifications
+• Maintain leave calendar visibility
+• Document approval reasons`}
 
-${SYSTEM_KNOWLEDGE.systemData.currentSection !== 'Leave Management' ? '\n🎯 **[Navigate to Leave Management](leave-management)**' : '✅ You\'re already in Leave Management!'}`;
+🎯 **[Navigate to ${roleFeature ? roleFeature.description : 'Leave Management'}](${roleFeature ? roleFeature.path : '/leave-management'})**`;
 }
 
 /**
  * Generate payslip access guide
  */
 function generatePayslipGuide() {
-  return `💰 **Payslip Access & Information Guide**
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  const roleFeature = getFeatureForRole('payroll');
+  
+  return `💰 **${userRole === 'employer' ? 'Payroll Management' : 'Payslip Access'} Guide**
 
-**📊 How to View Your Payslip:**
+**📊 How to ${userRole === 'employer' ? 'Manage Payroll' : 'View Your Payslip'}:**
 1. Go to **"Payroll"** section
-2. Click **"View Payslip"**
-3. Select desired month/period
-4. Download PDF or view online
+2. Click **"${userRole === 'employer' ? 'Process Payroll' : 'View Payslip'}"**
+3. ${userRole === 'employer' ? 'Select pay period and employees' : 'Select desired month/period'}
+4. ${userRole === 'employer' ? 'Review and approve payments' : 'Download PDF or view online'}
 
-**📈 What's Included:**
-• **Basic Salary:** Your monthly base pay
+**📈 ${userRole === 'employer' ? 'Payroll Components' : "What's Included"}:**
+• **Basic Salary:** ${userRole === 'employer' ? 'Employee base pay rates' : 'Your monthly base pay'}
 • **Allowances:** Transport, meal, housing allowances
 • **Deductions:** Income tax, EPF contributions, insurance
-• **Net Salary:** Final take-home amount
+• **Net Salary:** ${userRole === 'employer' ? 'Final employee payments' : 'Final take-home amount'}
 • **YTD Totals:** Year-to-date earnings and deductions
 
 **📅 Important Dates:**
@@ -496,24 +862,27 @@ function generatePayslipGuide() {
 • HR for allowance questions
 • IT for technical access issues
 
-${SYSTEM_KNOWLEDGE.systemData.currentSection !== 'Payroll' ? '\n🎯 **[Navigate to Payroll](payroll)**' : '✅ You\'re in Payroll section!'}`;
+🎯 **[Navigate to ${roleFeature ? roleFeature.description : 'Payroll'}](${roleFeature ? roleFeature.path : '/payroll'})**`;
 }
 
 /**
  * Generate expense claim guide
  */
 function generateClaimGuide() {
-  return `🧾 **Complete Expense Claim Guide**
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  const roleFeature = getFeatureForRole('claim-management');
+  
+  return `🧾 **Complete ${userRole === 'employer' ? 'Claim Management' : 'Expense Claim'} Guide**
 
-**📝 Submission Process:**
+**📝 ${userRole === 'employer' ? 'Approval Process' : 'Submission Process'}:**
 1. Navigate to **"Claim Management"**
-2. Click **"Submit New Claim"**
-3. Select category: ${SYSTEM_KNOWLEDGE.policies.claims.categories.join(', ')}
-4. Enter amount and detailed description
-5. Upload original receipt (mandatory)
-6. Submit for approval workflow
+2. Click **"${userRole === 'employer' ? 'Review Claims' : 'Submit New Claim'}"**
+3. ${userRole === 'employer' ? 'Review submitted claims and receipts' : `Select category: ${SYSTEM_KNOWLEDGE.policies.claims.categories.join(', ')}`}
+4. ${userRole === 'employer' ? 'Approve, reject, or request clarification' : 'Enter amount and detailed description'}
+5. ${userRole === 'employer' ? 'Process approved claims for payment' : 'Upload original receipt (mandatory)'}
+6. ${userRole === 'employer' ? 'Generate claim reports' : 'Submit for approval workflow'}
 
-**📋 Claim Categories & Limits:**
+**📋 Claim Categories & ${userRole === 'employer' ? 'Management' : 'Limits'}:**
 • **Transport:** Taxi, parking, public transport
 • **Meals:** Business meals, client entertainment
 • **Medical:** Work-related medical expenses
@@ -521,32 +890,43 @@ function generateClaimGuide() {
 • **Other Business:** Conference fees, training costs
 
 **⚠️ Critical Requirements:**
-• Submit within ${SYSTEM_KNOWLEDGE.policies.claims.submission_deadline}
+${userRole === 'employee' ? `• Submit within ${SYSTEM_KNOWLEDGE.policies.claims.submission_deadline}
 • ${SYSTEM_KNOWLEDGE.policies.claims.receipt_required}
 • Amount must match receipt exactly
-• Business purpose must be clearly stated
+• Business purpose must be clearly stated` : `• Review claims within 5 business days
+• Verify receipt authenticity and relevance
+• Ensure compliance with company policies
+• Maintain audit trail for all decisions`}
 
 **🔄 Approval Process:**
 ${SYSTEM_KNOWLEDGE.policies.claims.approval_workflow}
 
-**💡 Tips for Faster Processing:**
-• Take clear, readable photos of receipts
+**💡 Tips for ${userRole === 'employer' ? 'Efficient Management' : 'Faster Processing'}:**
+${userRole === 'employee' ? `• Take clear, readable photos of receipts
 • Provide detailed descriptions
-• Submit regularly rather than bulk claims
+• Submit regularly rather than bulk claims` : `• Set up automated notification system
+• Use approval templates for common scenarios
+• Maintain clear rejection reasons`}
 
-${SYSTEM_KNOWLEDGE.systemData.currentSection !== 'Claim Management' ? '\n🎯 **[Navigate to Claim Management](claim-management)**' : '✅ You\'re in Claim Management!'}`;
+🎯 **[Navigate to ${roleFeature ? roleFeature.description : 'Claim Management'}](${roleFeature ? roleFeature.path : '/claim-management'})**`;
 }
 
 /**
  * Generate attendance guide
  */
 function generateAttendanceGuide() {
-  return `⏰ **Comprehensive Attendance Guide**
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  const roleFeature = getFeatureForRole('attendance');
+  
+  return `⏰ **Comprehensive ${userRole === 'employer' ? 'Team Attendance Management' : 'Attendance'} Guide**
 
-**📅 Daily Process:**
-• **Clock In:** Mark arrival (before 9:15 AM)
+**📅 ${userRole === 'employer' ? 'Management Process' : 'Daily Process'}:**
+${userRole === 'employee' ? `• **Clock In:** Mark arrival (before 9:15 AM)
 • **Breaks:** ${SYSTEM_KNOWLEDGE.policies.attendance.lunch_break}
-• **Clock Out:** Mark departure (after 6:00 PM)
+• **Clock Out:** Mark departure (after 6:00 PM)` : `• **Monitor Team:** Real-time attendance dashboard
+• **Review Reports:** Daily, weekly, monthly summaries
+• **Handle Corrections:** Approve time adjustments
+• **Manage Schedules:** Set work patterns and shifts`}
 
 **🕘 Working Schedule:**
 • **Regular Hours:** ${SYSTEM_KNOWLEDGE.policies.attendance.working_hours}
@@ -555,9 +935,10 @@ function generateAttendanceGuide() {
 
 **📊 Features Available:**
 • **Real-time Tracking:** GPS location verification
-• **Monthly Reports:** Detailed attendance summaries
+• **${userRole === 'employer' ? 'Team Reports' : 'Monthly Reports'}:** Detailed attendance summaries
 • **Overtime Calculation:** Automatic computation
 • **Leave Integration:** Seamless with leave management
+${userRole === 'employer' ? '• **Analytics Dashboard:** Attendance trends and insights' : ''}
 
 **🚨 Important Notes:**
 • Late arrivals beyond grace period are marked
@@ -566,11 +947,13 @@ function generateAttendanceGuide() {
 • Public holidays are automatically excluded
 
 **💡 Best Practices:**
-• Mark attendance consistently
+${userRole === 'employee' ? `• Mark attendance consistently
 • Report technical issues immediately
-• Keep backup records for important days
+• Keep backup records for important days` : `• Monitor attendance trends regularly
+• Address recurring tardiness promptly
+• Use attendance data for performance reviews`}
 
-${SYSTEM_KNOWLEDGE.systemData.currentSection !== 'Attendance' ? '\n🎯 **[Navigate to Attendance](attendance)**' : '✅ You\'re in Attendance section!'}`;
+🎯 **[Navigate to ${roleFeature ? roleFeature.description : 'Attendance'}](${roleFeature ? roleFeature.path : '/attendance'})**`;
 }
 
 /**
@@ -600,25 +983,42 @@ function generatePolicyInfo(query) {
  * Generate system overview
  */
 function generateSystemOverview() {
-  return `📊 **SMEasyHR System Overview**
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  const roleDisplay = userRole === 'employer' ? 'Manager/HR Dashboard' : 'Employee Dashboard';
+  
+  // Filter features based on role
+  const availableFeatures = Object.entries(SYSTEM_KNOWLEDGE.features).filter(([key, feature]) => {
+    if (key === 'recruitment' && userRole === 'employee') {
+      return false;
+    }
+    return true;
+  });
+  
+  return `📊 **SMEasyHR System Overview** - ${roleDisplay}
 
 **📈 Current Statistics:**
 • **Total Employees:** ${SYSTEM_KNOWLEDGE.systemData.totalEmployees}
 • **Pending Leaves:** ${SYSTEM_KNOWLEDGE.systemData.pendingLeaves} applications
 • **Pending Claims:** ${SYSTEM_KNOWLEDGE.systemData.pendingClaims} submissions
 
-**🏢 System Modules:**
-${Object.entries(SYSTEM_KNOWLEDGE.features).map(([key, feature]) => 
-  `• **${feature.description}**\n  ${feature.capabilities.join(', ')}`
-).join('\n')}
+**🏢 System Modules Available to You:**
+${availableFeatures.map(([key, feature]) => {
+  const roleFeature = getFeatureForRole(key);
+  if (!roleFeature) return '';
+  
+  return `• **${roleFeature.description}**\n  ${roleFeature.capabilities.join(', ')}`;
+}).filter(item => item).join('\n\n')}
 
 **🎯 Your Current Location:** ${SYSTEM_KNOWLEDGE.systemData.currentSection}
+**👤 Access Level:** ${roleDisplay}
 
 **💡 What You Can Do:**
 • Navigate between modules seamlessly
-• Access real-time data and reports
-• Manage all HR tasks efficiently
+• Access role-appropriate features and reports
+• Manage tasks efficiently within your permission level
 • Get instant help and guidance
+
+${userRole === 'employee' ? '\n📝 **Access Note:** Some administrative features like recruitment are restricted to management personnel.' : ''}
 
 Need help with any specific module or task?`;
 }
@@ -627,12 +1027,26 @@ Need help with any specific module or task?`;
  * Generate navigation guide
  */
 function generateNavigationGuide() {
-  return `🧭 **System Navigation Guide**
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  const roleDisplay = userRole === 'employer' ? 'Manager/HR' : 'Employee';
+  
+  // Filter features based on user role
+  const availableFeatures = Object.entries(SYSTEM_KNOWLEDGE.features).filter(([key, feature]) => {
+    if (key === 'recruitment' && userRole === 'employee') {
+      return false; // Exclude recruitment for employees
+    }
+    return true;
+  });
+  
+  return `🧭 **System Navigation Guide** (${roleDisplay} View)
 
-**🏠 Main Sections:**
-${Object.entries(SYSTEM_KNOWLEDGE.features).map(([key, feature]) => 
-  `• **${feature.description}** - ${feature.capabilities.slice(0, 2).join(', ')}`
-).join('\n')}
+**🏠 Main Sections Available to You:**
+${availableFeatures.map(([key, feature]) => {
+  const roleFeature = getFeatureForRole(key);
+  if (!roleFeature) return ''; // Skip if no access
+  
+  return `• **${roleFeature.description}**\n  Path: ${roleFeature.path}\n  ${roleFeature.capabilities.slice(0, 3).join(', ')}`;
+}).filter(item => item).join('\n\n')}
 
 **⚡ Quick Navigation Tips:**
 • Use sidebar menu for main sections
@@ -641,6 +1055,9 @@ ${Object.entries(SYSTEM_KNOWLEDGE.features).map(([key, feature]) =>
 • Search functionality available in most sections
 
 **🎯 Current Location:** ${SYSTEM_KNOWLEDGE.systemData.currentSection}
+**👤 Access Level:** ${roleDisplay}
+
+${userRole === 'employee' ? '\n📝 **Note:** Recruitment features are available to managers and HR personnel only.' : ''}
 
 Which section would you like to visit? I can guide you there!`;
 }
@@ -688,7 +1105,6 @@ async function getUniversalAIResponse(message, isSystemQuery) {
           const aiText = data.candidates[0].content.parts[0].text.trim();
           
           if (aiText && aiText.length > 10) {
-            // Add system context if it's a system query
             if (isSystemQuery && !aiText.includes('SMEasyHR')) {
               return `${aiText}\n\n💡 *This information is enhanced with SMEasyHR system knowledge. Need specific system help? Just ask!*`;
             }
@@ -714,12 +1130,13 @@ function buildUniversalPrompt(message, isSystemQuery) {
   if (isSystemQuery) {
     prompt = `You are an expert SMEasyHR system assistant with deep knowledge of HR processes. Current context:
 - User is in: ${SYSTEM_KNOWLEDGE.systemData.currentSection}
+- User role: ${SYSTEM_KNOWLEDGE.userRole || 'employee'}
 - System stats: ${SYSTEM_KNOWLEDGE.systemData.totalEmployees} employees, ${SYSTEM_KNOWLEDGE.systemData.pendingLeaves} pending leaves, ${SYSTEM_KNOWLEDGE.systemData.pendingClaims} pending claims
 - Available modules: Employee Management, Leave Management, Payroll, Attendance, Claim Management, Recruitment
 
 User question: ${message}
 
-Provide helpful, specific guidance about the SMEasyHR system. Include step-by-step instructions when relevant.`;
+Provide helpful, specific guidance about the SMEasyHR system appropriate for the user's role. Include step-by-step instructions when relevant.`;
   } else {
     prompt = `You are a knowledgeable AI assistant that can help with any topic. Be conversational, helpful, and provide accurate information.
 
@@ -824,7 +1241,6 @@ function addContextualActions(message, isSystemQuery) {
   if (isSystemQuery) {
     addNavigationButtons();
   } else {
-    // Add general exploration suggestions
     const exploreContainer = document.createElement('div');
     exploreContainer.className = 'quick-actions';
     exploreContainer.innerHTML = `
@@ -838,8 +1254,10 @@ function addContextualActions(message, isSystemQuery) {
     `;
     
     const messagesContainer = document.getElementById('chatbotMessages');
-    messagesContainer.appendChild(exploreContainer);
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    if (messagesContainer) {
+      messagesContainer.appendChild(exploreContainer);
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
   }
 }
 
@@ -847,41 +1265,72 @@ function addContextualActions(message, isSystemQuery) {
  * Enhanced navigation buttons
  */
 function addNavigationButtons() {
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  
+  // Create navigation buttons based on role
+  let navigationButtons = '';
+  
+  // Common buttons for all users
+  navigationButtons += `<button onclick="navigateToSection('leave-management')" class="nav-btn">📅 ${userRole === 'employer' ? 'Manage' : 'Apply'} Leave</button>`;
+  navigationButtons += `<button onclick="navigateToSection('payroll')" class="nav-btn">💰 ${userRole === 'employer' ? 'Payroll' : 'Payslip'}</button>`;
+  navigationButtons += `<button onclick="navigateToSection('attendance')" class="nav-btn">⏰ ${userRole === 'employer' ? 'Team' : 'My'} Attendance</button>`;
+  navigationButtons += `<button onclick="navigateToSection('claim-management')" class="nav-btn">🧾 ${userRole === 'employer' ? 'Approve' : 'Submit'} Claims</button>`;
+  navigationButtons += `<button onclick="navigateToSection('employee-management')" class="nav-btn">👥 ${userRole === 'employer' ? 'Employees' : 'Profile'}</button>`;
+  
+  // Add recruitment button only for employers
+  if (userRole === 'employer') {
+    navigationButtons += `<button onclick="navigateToSection('recruitment')" class="nav-btn">🎯 Recruitment</button>`;
+  }
+  
   const navContainer = document.createElement('div');
   navContainer.className = 'navigation-buttons';
   navContainer.innerHTML = `
-    <div class="nav-title">🚀 Quick System Navigation:</div>
+    <div class="nav-title">🚀 Quick System Navigation (${userRole === 'employer' ? 'Manager' : 'Employee'} View):</div>
     <div class="nav-buttons">
-      <button onclick="navigateToSection('leave-management')" class="nav-btn">📅 Leave</button>
-      <button onclick="navigateToSection('payroll')" class="nav-btn">💰 Payroll</button>
-      <button onclick="navigateToSection('attendance')" class="nav-btn">⏰ Attendance</button>
-      <button onclick="navigateToSection('claim-management')" class="nav-btn">🧾 Claims</button>
-      <button onclick="navigateToSection('employee-management')" class="nav-btn">👥 Employees</button>
-      <button onclick="navigateToSection('recruitment')" class="nav-btn">🎯 Recruitment</button>
+      ${navigationButtons}
     </div>
   `;
   
   const messagesContainer = document.getElementById('chatbotMessages');
-  messagesContainer.appendChild(navContainer);
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  if (messagesContainer) {
+    messagesContainer.appendChild(navContainer);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
 }
 
 /**
  * Navigate to system section
  */
 function navigateToSection(section) {
-  const feature = SYSTEM_KNOWLEDGE.features[section];
-  if (feature) {
-    addMessage(`🚀 Navigating to ${feature.description}...`, 'ai');
-    setTimeout(() => {
-      window.location.href = feature.path;
-    }, 1000);
+  const roleFeature = getFeatureForRole(section);
+  
+  if (!roleFeature) {
+    const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+    
+    if (section === 'recruitment' && userRole === 'employee') {
+      addMessage('🚫 **Access Restricted**: Recruitment features are only available to managers and HR personnel. You can access your employee features like leave applications, payslips, attendance, and expense claims.', 'ai');
+      return;
+    }
+    
+    addMessage('❌ **Section Not Found**: The requested section is not available or accessible with your current permissions.', 'ai');
+    return;
   }
+  
+  const userRole = SYSTEM_KNOWLEDGE.userRole || detectUserRole();
+  addMessage(`🚀 Navigating to ${roleFeature.description} (${userRole === 'employer' ? 'Management' : 'Employee'} view)...`, 'ai');
+  setTimeout(() => {
+    window.location.href = roleFeature.path;
+  }, 1000);
 }
 
-// Enhanced UI Functions with universal formatting
+// Enhanced UI Functions
 function addMessage(text, sender) {
   const messagesContainer = document.getElementById('chatbotMessages');
+  if (!messagesContainer) {
+    console.error('❌ Messages container not found');
+    return;
+  }
+  
   const messageDiv = document.createElement('div');
   messageDiv.className = `message ${sender}`;
   
@@ -907,50 +1356,74 @@ function formatUniversalMessage(text) {
     .replace(/\[Navigate to (.*?)\]\((.*?)\)/g, '<button onclick="navigateToSection(\'$2\')" class="inline-nav-btn">🎯 Go to $1</button>');
 }
 
-// Keep all existing UI functions
+// Safe UI functions
 function toggleChatbot() {
-  const window = document.getElementById('chatbotWindow');
-  if (window.style.display === 'none' || window.style.display === '') {
-    window.style.display = 'flex';
-    document.getElementById('chatbotInput').focus();
-    if (conversationHistory.length === 0) {
-      initializeChatbot();
+  try {
+    const chatbotWindow = document.getElementById('chatbotWindow');
+    if (!chatbotWindow) {
+      console.error('❌ Chatbot window not found');
+      return;
     }
-  } else {
-    window.style.display = 'none';
+    
+    if (chatbotWindow.style.display === 'none' || chatbotWindow.style.display === '') {
+      chatbotWindow.style.display = 'flex';
+      
+      const input = document.getElementById('chatbotInput');
+      if (input) {
+        input.focus();
+      }
+      
+      if (!chatbotInitialized) {
+        initializeChatbot();
+      }
+    } else {
+      chatbotWindow.style.display = 'none';
+    }
+  } catch (error) {
+    console.error('❌ Error toggling chatbot:', error);
   }
 }
 
+/**
+ * SAFE: Handle key press events with error handling
+ */
 function handleKeyPress(event) {
-  if (event.key === 'Enter' && !event.shiftKey) {
-    event.preventDefault();
-    sendMessage();
+  try {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      sendMessage();
+    }
+  } catch (error) {
+    console.error('❌ Error in handleKeyPress:', error);
   }
 }
 
 function autoResize(textarea) {
-  textarea.style.height = 'auto';
-  textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
+  try {
+    textarea.style.height = 'auto';
+    textarea.style.height = Math.min(textarea.scrollHeight, 100) + 'px';
+  } catch (error) {
+    console.error('❌ Error resizing textarea:', error);
+  }
 }
 
 function sendQuickMessage(message) {
-  document.getElementById('chatbotInput').value = message;
-  sendMessage();
+  try {
+    const input = document.getElementById('chatbotInput');
+    if (input) {
+      input.value = message;
+      sendMessage();
+    }
+  } catch (error) {
+    console.error('❌ Error sending quick message:', error);
+  }
 }
 
-function showTypingIndicator() {
-  document.getElementById('typingIndicator').style.display = 'block';
-  document.getElementById('sendBtn').disabled = true;
-  const messagesContainer = document.getElementById('chatbotMessages');
-  messagesContainer.scrollTop = messagesContainer.scrollHeight;
-}
+// Add test functions to window for debugging
+window.testChatbot = testChatbot;
+window.debugChatbot = debugChatbot;
 
-function hideTypingIndicator() {
-  document.getElementById('typingIndicator').style.display = 'none';
-  document.getElementById('sendBtn').disabled = false;
-}
-
+// Ready state
 document.addEventListener('DOMContentLoaded', function() {
-  console.log('🌟 Universal SMEasyHR AI Assistant initializing...');
-  initializeChatbot();
+  console.log('🌟 Universal SMEasyHR AI Assistant ready to initialize when needed...');
 });
