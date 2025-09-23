@@ -2,6 +2,10 @@
 require('database.php');
 require('session.php');
 
+// Add error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 // Make sure user ID is set
 if (!isset($_SESSION['ID'])) {
     die("User not logged in.");
@@ -26,60 +30,93 @@ if ($stmt) {
 
 // Add form processing logic for claim submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['category'])) {
-    $employee = $_POST['employee'];
-    $category = $_POST['category'];
-    $transaction_date = $_POST['transaction_date'];
-    $amount = $_POST['amount'];
-    $invoice_number = $_POST['invoice_number'];
-    $notes = $_POST['notes'];
-    
-    // Handle file upload
-    $attachment_path = null;
-    if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] == 0) {
-        $upload_dir = 'uploads/claim_attachments/';
-        if (!file_exists($upload_dir)) {
-            mkdir($upload_dir, 0777, true);
+    try {
+        $employee = $_POST['employee'];
+        $category = $_POST['category'];
+        $transaction_date = $_POST['transaction_date'];
+        $amount = $_POST['amount'];
+        $invoice_number = $_POST['invoice_number'];
+        $notes = $_POST['notes'];
+        
+        // Validate required fields
+        if (empty($category) || empty($transaction_date) || empty($amount)) {
+            throw new Exception("Please fill in all required fields.");
         }
-        $file_name = time() . '_' . $_FILES['attachment']['name'];
-        $attachment_path = $upload_dir . $file_name;
-        move_uploaded_file($_FILES['attachment']['tmp_name'], $attachment_path);
+        
+        // Handle file upload
+        $attachment_path = null;
+        if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] == 0) {
+            $upload_dir = 'uploads/claim_attachments/';
+            if (!file_exists($upload_dir)) {
+                mkdir($upload_dir, 0777, true);
+            }
+            
+            // Validate file size (1MB limit)
+            if ($_FILES['attachment']['size'] > 1048576) {
+                throw new Exception("File size exceeds 1MB limit.");
+            }
+            
+            $file_name = time() . '_' . basename($_FILES['attachment']['name']);
+            $attachment_path = $upload_dir . $file_name;
+            
+            if (!move_uploaded_file($_FILES['attachment']['tmp_name'], $attachment_path)) {
+                throw new Exception("Failed to upload file.");
+            }
+        }
+        
+        // Insert claim into database
+        $insert_query = "INSERT INTO claims (employee_id, category, transaction_date, amount, invoice_number, notes, attachment_path, status, submitted_at) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())";
+        
+        $insert_stmt = $conn->prepare($insert_query);
+        if (!$insert_stmt) {
+            throw new Exception("Database prepare error: " . $conn->error);
+        }
+        
+        $insert_stmt->bind_param("issdsss", $employee, $category, $transaction_date, $amount, $invoice_number, $notes, $attachment_path);
+        
+        if ($insert_stmt->execute()) {
+            $claim_id = $conn->insert_id;
+            
+            // Create notification for employers (optional - skip if file doesn't exist)
+            if (file_exists('includes/notification_service.php')) {
+                require_once('includes/notification_service.php');
+                $notification_service = new NotificationService($conn);
+                
+                // Get employee name
+                $emp_query = "SELECT pi.full_name FROM personal_information pi 
+                              JOIN employeelogin el ON pi.personal_id = el.ID 
+                              WHERE el.ID = ?";
+                $emp_stmt = $conn->prepare($emp_query);
+                if ($emp_stmt) {
+                    $emp_stmt->bind_param("i", $employee);
+                    $emp_stmt->execute();
+                    $emp_result = $emp_stmt->get_result()->fetch_assoc();
+                    $employee_name = $emp_result['full_name'] ?? $_SESSION['username'];
+                    
+                    // Send notification to all employers
+                    $notification_service->notifyClaimSubmission($employee, $category, $amount, $claim_id);
+                }
+            }
+            
+            $_SESSION['success_message'] = 'Claim submitted successfully! Employers have been notified.';
+        } else {
+            throw new Exception("Database execution error: " . $insert_stmt->error);
+        }
+        
+        $insert_stmt->close();
+        
+    } catch (Exception $e) {
+        $_SESSION['error_message'] = 'Error: ' . $e->getMessage();
+        error_log("Claim submission error: " . $e->getMessage());
     }
     
-    // Insert claim into database
-    $insert_query = "INSERT INTO claims (employee_id, category, transaction_date, amount, invoice_number, notes, attachment_path, status, submitted_at) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())";
-    
-    $insert_stmt = $conn->prepare($insert_query);
-    $insert_stmt->bind_param("issdsss", $employee, $category, $transaction_date, $amount, $invoice_number, $notes, $attachment_path);
-    
-    if ($insert_stmt->execute()) {
-        $claim_id = $conn->insert_id;
-        
-        // Create notification for employers
-        require_once('includes/notification_service.php');
-        $notification_service = new NotificationService($conn);
-        
-        // Get employee name
-        $emp_query = "SELECT pi.full_name FROM personal_information pi 
-                      JOIN employeelogin el ON pi.personal_id = el.ID 
-                      WHERE el.ID = ?";
-        $emp_stmt = $conn->prepare($emp_query);
-        $emp_stmt->bind_param("i", $employee);
-        $emp_stmt->execute();
-        $emp_result = $emp_stmt->get_result()->fetch_assoc();
-        $employee_name = $emp_result['full_name'] ?? $_SESSION['username'];
-        
-        // Send notification to all employers
-        $notification_service->notifyClaimSubmission($employee, $category, $amount, $claim_id);
-        
-        $_SESSION['success_message'] = 'Claim submitted successfully! Employers have been notified.';
-        header("Location: R_claim.php");
-        exit();
-    } else {
-        $_SESSION['error_message'] = 'Error submitting claim. Please try again.';
-    }
+    // Redirect to prevent form resubmission
+    header("Location: " . $_SERVER['PHP_SELF']);
+    exit();
 }
 
+// Display success/error messages
 if (isset($_SESSION['success_message'])) {
     echo '<div id="autoDismissAlert" class="alert alert-success alert-dismissible fade show text-center" role="alert">'
         . htmlspecialchars($_SESSION['success_message']) .

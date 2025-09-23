@@ -10,7 +10,26 @@ $filter = $_GET['filter'] ?? 'all';
 $isCurrentMonth = $filter === 'current';
 
 // Use this for date filtering
-$dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') AND cr.transaction_date < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)" : "";?>
+$dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURDATE(), '%Y-%m-01') AND cr.transaction_date < DATE_ADD(DATE_FORMAT(CURDATE(), '%Y-%m-01'), INTERVAL 1 MONTH)" : "";
+
+// Check what attachment column exists in your claims table
+$check_columns_query = "DESCRIBE claims";
+$columns_result = mysqli_query($conn, $check_columns_query);
+$attachment_column = null;
+
+if ($columns_result) {
+    while ($column = mysqli_fetch_assoc($columns_result)) {
+        if (in_array($column['Field'], ['attachment', 'attachment_path', 'attachment_file'])) {
+            $attachment_column = $column['Field'];
+            break;
+        }
+    }
+}
+
+// Use the correct attachment column or null if none exists
+$attachment_select = $attachment_column ? "cr.$attachment_column" : "NULL as attachment";
+
+?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -275,7 +294,7 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                 <?php
                     require('database.php');
 
-                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.transaction_date, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status
+                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.transaction_date, cr.amount, cr.notes, $attachment_select as attachment, cr.created_at, cr.status
                     FROM employeelogin el
                     INNER JOIN claims cr ON el.ID = cr.employee_id
                     WHERE cr.status = 'Pending'$dateFilterSQL";
@@ -300,8 +319,13 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                                 echo "<td>RM " . htmlspecialchars(number_format($row['amount'], 2)) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['notes']) . "</td>";
                                 $fullPath = htmlspecialchars($row['attachment']);
-                                if ($fullPath != null) {
-                                    echo "<td><a href='" . $fullPath . "' download>Download</a></td>";
+                                if ($fullPath != null && $fullPath != '') {
+                                    // Check if it's a full path or just filename
+                                    if (strpos($fullPath, 'uploads/') === 0) {
+                                        echo "<td><a href='" . $fullPath . "' download>Download</a></td>";
+                                    } else {
+                                        echo "<td><a href='uploads/claim_attachments/" . $fullPath . "' download>Download</a></td>";
+                                    }
                                 } else {
                                     echo "<td>No document uploaded.</td>";
                                 }
@@ -365,7 +389,7 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                 <?php
                     require('database.php');
 
-                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.transaction_date, cr.notes, cr.attachment, cr.created_at, cr.status, cr.approved_at
+                    $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.transaction_date, cr.notes, $attachment_select as attachment, cr.created_at, cr.status, cr.approved_at
                     FROM employeelogin el
                     INNER JOIN claims cr ON el.ID = cr.employee_id
                     WHERE cr.status = 'Approved'$dateFilterSQL";
@@ -388,8 +412,13 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                                 echo "<td>RM " . htmlspecialchars(number_format($row['amount'], 2)) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['notes']) . "</td>";
                                 $fullPath = htmlspecialchars($row['attachment']);
-                                if ($fullPath != null) {
-                                    echo "<td><a href='" . $fullPath . "' download>Download</a></td>";
+                                if ($fullPath != null && $fullPath != '') {
+                                    // Check if it's a full path or just filename
+                                    if (strpos($fullPath, 'uploads/') === 0) {
+                                        echo "<td><a href='" . $fullPath . "' download>Download</a></td>";
+                                    } else {
+                                        echo "<td><a href='uploads/claim_attachments/" . $fullPath . "' download>Download</a></td>";
+                                    }
                                 } else {
                                     echo "<td>No document uploaded.</td>";
                                 }
@@ -400,7 +429,7 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                                 echo "</tr>";
                                 }
                             } else {
-                                echo "<tr><td colspan='9'>No Approved Claim.</td></tr>";
+                                echo "<tr><td colspan='10'>No Approved Claim.</td></tr>";
                             }
                         } else {
                             echo "Error executing query: " . mysqli_stmt_error($stmt);
@@ -435,7 +464,7 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                             <?php
                             require('database.php');
 
-                                $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.notes, cr.attachment, cr.created_at, cr.status, cr.rejection_reason
+                                $query = "SELECT el.username, cr.claim_id, cr.category, cr.amount, cr.notes, $attachment_select as attachment, cr.created_at, cr.status, cr.rejection_reason
                                 FROM employeelogin el
                                 INNER JOIN claims cr ON el.ID = cr.employee_id
                                 WHERE cr.status = 'Rejected'$dateFilterSQL";
@@ -458,8 +487,13 @@ $dateFilterSQL = $isCurrentMonth ? " AND cr.transaction_date >= DATE_FORMAT(CURD
                                             echo "<td>RM " . htmlspecialchars(number_format($row['amount'], 2)) . "</td>";
                                             echo "<td>" . htmlspecialchars($row['notes']) . "</td>";
                                             $fullPath = htmlspecialchars($row['attachment']);
-                                            if ($fullPath != null) {
-                                                echo "<td><a href='" . $fullPath . "' download>Download</a></td>";
+                                            if ($fullPath != null && $fullPath != '') {
+                                                // Check if it's a full path or just filename
+                                                if (strpos($fullPath, 'uploads/') === 0) {
+                                                    echo "<td><a href='" . $fullPath . "' download>Download</a></td>";
+                                                } else {
+                                                    echo "<td><a href='uploads/claim_attachments/" . $fullPath . "' download>Download</a></td>";
+                                                }
                                             } else {
                                                 echo "<td>No document uploaded.</td>";
                                             }

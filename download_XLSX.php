@@ -1,366 +1,247 @@
 <?php
 require('database.php');
 require('session.php');
-require 'vendor/autoload.php';
 
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Style\Alignment;
-use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
-
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $start_date = $_POST['start_date'];
-    $end_date = $_POST['end_date'];
-    $employee_filter = $_POST['employee_filter'] ?? 'all';
-    $report_status = $_POST['report_status'] ?? 'all';
-    $report_category = $_POST['report_category'] ?? 'all';
-    
-    // Build the query with correct column names from your claims table
-    $query = "SELECT 
-                c.claim_id,
-                c.employee_id,
-                c.category,
-                c.transaction_date,
-                c.amount,
-                c.invoice_number,
-                c.notes,
-                c.attachment,
-                c.status,
-                c.created_at,
-                c.rejection_reason,
-                c.approved_at,
-                COALESCE(pi.full_name, el.username) as employee_name,
-                el.role as position
-              FROM claims c 
-              LEFT JOIN employeelogin el ON c.employee_id = el.ID
-              LEFT JOIN personal_information pi ON c.employee_id = pi.personal_id
-              WHERE c.transaction_date BETWEEN ? AND ?";
-    
-    $params = [$start_date, $end_date];
-    $types = "ss";
-    
-    // Add employee filter
-    if ($employee_filter === 'specific' && isset($_POST['selected_employees']) && !empty($_POST['selected_employees'])) {
-        $selected_employees = $_POST['selected_employees'];
-        
-        if (is_array($selected_employees) && count($selected_employees) > 0) {
-            $placeholders = str_repeat('?,', count($selected_employees) - 1) . '?';
-            $query .= " AND c.employee_id IN ($placeholders)";
-            
-            foreach ($selected_employees as $emp_id) {
-                $params[] = (int)$emp_id;
-                $types .= "i";
-            }
-        } else {
-            $_SESSION['error_message'] = 'No employees selected for the report.';
-            header('Location: R_claim.php');
-            exit();
-        }
-    }
-    
-    // Add status filter
-    if ($report_status !== 'all') {
-        $query .= " AND c.status = ?";
-        $params[] = $report_status;
-        $types .= "s";
-    }
-    
-    // Add category filter
-    if ($report_category !== 'all') {
-        $query .= " AND c.category = ?";
-        $params[] = $report_category;
-        $types .= "s";
-    }
-    
-    $query .= " ORDER BY c.transaction_date DESC, employee_name ASC";
-    
-    // Prepare and execute query
-    $stmt = $conn->prepare($query);
-    
-    if (!$stmt) {
-        $_SESSION['error_message'] = 'Database prepare error: ' . $conn->error;
-        header('Location: R_claim.php');
-        exit();
-    }
-    
-    if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
-    }
-    
-    if (!$stmt->execute()) {
-        $_SESSION['error_message'] = 'Database execution error: ' . $stmt->error;
-        header('Location: R_claim.php');
-        exit();
-    }
-    
-    $result = $stmt->get_result();
-    
-    // Check if we have any results
-    if ($result->num_rows === 0) {
-        $_SESSION['error_message'] = 'No claims found matching your criteria.';
-        header('Location: R_claim.php');
-        exit();
-    }
-    
-    try {
-        // Create new Spreadsheet
-        $spreadsheet = new Spreadsheet();
-        $sheet = $spreadsheet->getActiveSheet();
-        
-        // Set document properties
-        $spreadsheet->getProperties()
-            ->setCreator("SMEasyHR")
-            ->setTitle("Claim Summary Report")
-            ->setSubject("Claims Report")
-            ->setDescription("Detailed claims report generated from SMEasyHR system");
-        
-        // Report Header
-        $sheet->setCellValue('A1', 'SMEasyHR - Claim Summary Report');
-        $sheet->mergeCells('A1:L1');
-        $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(16);
-        $sheet->getStyle('A1')->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        $sheet->getStyle('A1')->getFill()
-            ->setFillType(Fill::FILL_SOLID)
-            ->getStartColor()->setRGB('4472C4');
-        $sheet->getStyle('A1')->getFont()->getColor()->setRGB('FFFFFF');
-        
-        // Report Info
-        $sheet->setCellValue('A3', 'Report Generated: ' . date('Y-m-d H:i:s'));
-        $sheet->setCellValue('A4', 'Date Range: ' . $start_date . ' to ' . $end_date);
-        
-        // Employee selection info
-        if ($employee_filter === 'all') {
-            $sheet->setCellValue('A5', 'Employees: All Employees');
-        } else {
-            $selected_count = isset($_POST['selected_employees']) ? count($_POST['selected_employees']) : 0;
-            $sheet->setCellValue('A5', 'Employees: ' . $selected_count . ' Selected Employee(s)');
-        }
-        
-        // Status and category info
-        $sheet->setCellValue('A6', 'Status Filter: ' . ($report_status === 'all' ? 'All Statuses' : $report_status));
-        $sheet->setCellValue('A7', 'Category Filter: ' . ($report_category === 'all' ? 'All Categories' : $report_category));
-        
-        // Headers
-        $headers = [
-            'A9' => 'Claim ID',
-            'B9' => 'Employee Name',
-            'C9' => 'Role',
-            'D9' => 'Category',
-            'E9' => 'Transaction Date',
-            'F9' => 'Amount (MYR)',
-            'G9' => 'Invoice Number',
-            'H9' => 'Status',
-            'I9' => 'Created Date',
-            'J9' => 'Approved Date',
-            'K9' => 'Has Attachment',
-            'L9' => 'Notes'
-        ];
-        
-        foreach ($headers as $cell => $value) {
-            $sheet->setCellValue($cell, $value);
-        }
-        
-        // Style headers
-        $headerRange = 'A9:L9';
-        $sheet->getStyle($headerRange)->getFont()->setBold(true);
-        $sheet->getStyle($headerRange)->getFill()
-            ->setFillType(Fill::FILL_SOLID)
-            ->getStartColor()->setRGB('4472C4');
-        $sheet->getStyle($headerRange)->getFont()->getColor()->setRGB('FFFFFF');
-        $sheet->getStyle($headerRange)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-        
-        // Data rows
-        $row = 10;
-        $totalAmount = 0;
-        $statusCounts = ['Pending' => 0, 'Approved' => 0, 'Rejected' => 0];
-        $categoryCounts = [];
-        $employeeCounts = [];
-        
-        while ($claim = $result->fetch_assoc()) {
-            $sheet->setCellValue('A' . $row, $claim['claim_id']);
-            $sheet->setCellValue('B' . $row, $claim['employee_name'] ?? 'Unknown Employee');
-            $sheet->setCellValue('C' . $row, $claim['position'] ?? 'N/A');
-            $sheet->setCellValue('D' . $row, $claim['category']);
-            $sheet->setCellValue('E' . $row, date('Y-m-d', strtotime($claim['transaction_date'])));
-            $sheet->setCellValue('F' . $row, number_format($claim['amount'], 2));
-            $sheet->setCellValue('G' . $row, $claim['invoice_number'] ?? 'N/A');
-            $sheet->setCellValue('H' . $row, $claim['status']);
-            $sheet->setCellValue('I' . $row, $claim['created_at'] ? date('Y-m-d H:i', strtotime($claim['created_at'])) : 'N/A');
-            $sheet->setCellValue('J' . $row, $claim['approved_at'] ? date('Y-m-d H:i', strtotime($claim['approved_at'])) : 'N/A');
-            $sheet->setCellValue('K' . $row, !empty($claim['attachment']) ? 'Yes' : 'No');
-            $sheet->setCellValue('L' . $row, $claim['notes'] ?? '');
-            
-            // Color code status
-            $statusColor = '';
-            switch ($claim['status']) {
-                case 'Approved':
-                    $statusColor = '70AD47'; // Green
-                    break;
-                case 'Rejected':
-                    $statusColor = 'C5504B'; // Red
-                    break;
-                case 'Pending':
-                    $statusColor = 'FFC000'; // Orange
-                    break;
-            }
-            
-            if ($statusColor) {
-                $sheet->getStyle('H' . $row)->getFill()
-                    ->setFillType(Fill::FILL_SOLID)
-                    ->getStartColor()->setRGB($statusColor);
-                $sheet->getStyle('H' . $row)->getFont()->getColor()->setRGB('FFFFFF');
-                $sheet->getStyle('H' . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
-            }
-            
-            // Update counters
-            $totalAmount += $claim['amount'];
-            
-            if (!isset($statusCounts[$claim['status']])) {
-                $statusCounts[$claim['status']] = 0;
-            }
-            $statusCounts[$claim['status']]++;
-            
-            // Count by category
-            if (!isset($categoryCounts[$claim['category']])) {
-                $categoryCounts[$claim['category']] = 0;
-            }
-            $categoryCounts[$claim['category']]++;
-            
-            // Count by employee
-            $empName = $claim['employee_name'] ?? 'Unknown Employee';
-            if (!isset($employeeCounts[$empName])) {
-                $employeeCounts[$empName] = ['count' => 0, 'total' => 0];
-            }
-            $employeeCounts[$empName]['count']++;
-            $employeeCounts[$empName]['total'] += $claim['amount'];
-            
-            $row++;
-        }
-        
-        // Summary section
-        if ($row > 10) {
-            $summaryRow = $row + 2;
-            $sheet->setCellValue('A' . $summaryRow, 'REPORT SUMMARY');
-            $sheet->mergeCells('A' . $summaryRow . ':D' . $summaryRow);
-            $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true)->setSize(14);
-            $sheet->getStyle('A' . $summaryRow)->getFill()
-                ->setFillType(Fill::FILL_SOLID)
-                ->getStartColor()->setRGB('E7E6E6');
-            
-            $summaryRow += 2;
-            
-            // Basic stats
-            $sheet->setCellValue('A' . $summaryRow, 'Total Claims:');
-            $sheet->setCellValue('B' . $summaryRow, ($row - 10));
-            $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true);
-            
-            $summaryRow++;
-            $sheet->setCellValue('A' . $summaryRow, 'Total Amount:');
-            $sheet->setCellValue('B' . $summaryRow, 'MYR ' . number_format($totalAmount, 2));
-            $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true);
-            
-            $summaryRow++;
-            $sheet->setCellValue('A' . $summaryRow, 'Average Claim:');
-            $sheet->setCellValue('B' . $summaryRow, 'MYR ' . number_format($totalAmount / ($row - 10), 2));
-            $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true);
-            
-            $summaryRow += 2;
-            
-            // Status breakdown
-            $sheet->setCellValue('A' . $summaryRow, 'STATUS BREAKDOWN:');
-            $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true);
-            $summaryRow++;
-            
-            foreach ($statusCounts as $status => $count) {
-                $percentage = round(($count / ($row - 10)) * 100, 1);
-                $sheet->setCellValue('A' . $summaryRow, $status . ':');
-                $sheet->setCellValue('B' . $summaryRow, $count);
-                $sheet->setCellValue('C' . $summaryRow, "({$percentage}%)");
-                $summaryRow++;
-            }
-            
-            $summaryRow++;
-            
-            // Category breakdown
-            $sheet->setCellValue('A' . $summaryRow, 'CATEGORY BREAKDOWN:');
-            $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true);
-            $summaryRow++;
-            
-            foreach ($categoryCounts as $category => $count) {
-                $percentage = round(($count / ($row - 10)) * 100, 1);
-                $sheet->setCellValue('A' . $summaryRow, $category . ':');
-                $sheet->setCellValue('B' . $summaryRow, $count);
-                $sheet->setCellValue('C' . $summaryRow, "({$percentage}%)");
-                $summaryRow++;
-            }
-            
-            // If specific employees selected, show employee breakdown
-            if ($employee_filter === 'specific' && count($employeeCounts) <= 15) {
-                $summaryRow++;
-                $sheet->setCellValue('A' . $summaryRow, 'EMPLOYEE BREAKDOWN:');
-                $sheet->getStyle('A' . $summaryRow)->getFont()->setBold(true);
-                $summaryRow++;
-                
-                foreach ($employeeCounts as $employee => $data) {
-                    $sheet->setCellValue('A' . $summaryRow, $employee . ':');
-                    $sheet->setCellValue('B' . $summaryRow, $data['count'] . ' claims');
-                    $sheet->setCellValue('C' . $summaryRow, 'MYR ' . number_format($data['total'], 2));
-                    $summaryRow++;
-                }
-            }
-        }
-        
-        // Auto-size columns
-        foreach (range('A', 'L') as $column) {
-            $sheet->getColumnDimension($column)->setAutoSize(true);
-        }
-        
-        // Add borders to data
-        if ($row > 10) {
-            $dataRange = 'A9:L' . ($row - 1);
-            $sheet->getStyle($dataRange)->getBorders()->getAllBorders()
-                ->setBorderStyle(Border::BORDER_THIN);
-        }
-        
-        // Generate filename with timestamp and filters
-        $filename = 'Claims_Report_' . $start_date . '_to_' . $end_date;
-        if ($employee_filter === 'specific') {
-            $filename .= '_SelectedEmployees';
-        }
-        if ($report_status !== 'all') {
-            $filename .= '_' . $report_status;
-        }
-        if ($report_category !== 'all') {
-            $filename .= '_' . str_replace(' ', '_', $report_category);
-        }
-        $filename .= '_' . date('YmdHis') . '.xlsx';
-        
-        // Download file
-        $writer = new Xlsx($spreadsheet);
-        
-        header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="' . $filename . '"');
-        header('Cache-Control: max-age=0');
-        header('Cache-Control: max-age=1');
-        header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
-        header('Last-Modified: ' . gmdate('D, d M Y H:i:s') . ' GMT');
-        header('Cache-Control: cache, must-revalidate');
-        header('Pragma: public');
-        
-        $writer->save('php://output');
-        exit();
-        
-    } catch (Exception $e) {
-        error_log("Excel generation error: " . $e->getMessage());
-        $_SESSION['error_message'] = 'Error generating Excel file: ' . $e->getMessage();
-        header('Location: R_claim.php');
-        exit();
-    }
-    
-} else {
-    $_SESSION['error_message'] = 'Invalid request method.';
-    header('Location: R_claim.php');
+// Check if user is logged in
+if (!isset($_SESSION['ID'])) {
+    header('Location: login.php');
     exit();
 }
+
+// Get form parameters
+$start_date = $_POST['start_date'] ?? '';
+$end_date = $_POST['end_date'] ?? '';
+$employee_filter = $_POST['employee_filter'] ?? 'all';
+$selected_employees = $_POST['selected_employees'] ?? [];
+$report_status = $_POST['report_status'] ?? 'all';
+$report_category = $_POST['report_category'] ?? 'all';
+
+// Validate required parameters
+if (empty($start_date) || empty($end_date)) {
+    die('Start date and end date are required');
+}
+
+// Check what attachment column exists in your claims table
+$check_columns_query = "DESCRIBE claims";
+$columns_result = mysqli_query($conn, $check_columns_query);
+$attachment_column = null;
+
+if ($columns_result) {
+    while ($column = mysqli_fetch_assoc($columns_result)) {
+        if (in_array($column['Field'], ['attachment', 'attachment_path', 'attachment_file'])) {
+            $attachment_column = $column['Field'];
+            break;
+        }
+    }
+}
+
+// Use the correct attachment column or null if none exists
+$attachment_select = $attachment_column ? "c.$attachment_column" : "NULL as attachment";
+
+// Build the base query
+$query = "SELECT 
+    c.claim_id,
+    el.username as employee_name,
+    COALESCE(pi.full_name, el.username) as full_name,
+    c.category,
+    c.transaction_date,
+    c.amount,
+    c.invoice_number,
+    c.notes,
+    $attachment_select as attachment,
+    c.status,
+    c.created_at,
+    c.rejection_reason,
+    c.approved_at
+FROM claims c
+INNER JOIN employeelogin el ON c.employee_id = el.ID
+LEFT JOIN personal_information pi ON el.ID = pi.personal_id
+WHERE c.transaction_date BETWEEN ? AND ?";
+
+// Prepare parameters array
+$params = [$start_date, $end_date];
+$param_types = "ss";
+
+// Add employee filter
+if ($employee_filter === 'specific' && !empty($selected_employees)) {
+    $placeholders = str_repeat('?,', count($selected_employees) - 1) . '?';
+    $query .= " AND c.employee_id IN ($placeholders)";
+    $params = array_merge($params, $selected_employees);
+    $param_types .= str_repeat('i', count($selected_employees));
+}
+
+// Add status filter
+if ($report_status !== 'all') {
+    $query .= " AND c.status = ?";
+    $params[] = $report_status;
+    $param_types .= "s";
+}
+
+// Add category filter
+if ($report_category !== 'all') {
+    $query .= " AND c.category = ?";
+    $params[] = $report_category;
+    $param_types .= "s";
+}
+
+$query .= " ORDER BY c.created_at DESC";
+
+// Prepare and execute the query
+$stmt = $conn->prepare($query);
+if (!$stmt) {
+    die("Database prepare error: " . $conn->error . "\nQuery: " . $query);
+}
+
+// Bind parameters dynamically
+if (!empty($params)) {
+    $stmt->bind_param($param_types, ...$params);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Calculate summary statistics
+$total_claims = 0;
+$total_amount = 0;
+$approved_amount = 0;
+$pending_count = 0;
+$approved_count = 0;
+$rejected_count = 0;
+
+$claims_data = [];
+while ($row = $result->fetch_assoc()) {
+    $claims_data[] = $row;
+    $total_claims++;
+    $total_amount += $row['amount'];
+    
+    switch (strtolower($row['status'])) {
+        case 'pending':
+            $pending_count++;
+            break;
+        case 'approved':
+            $approved_count++;
+            $approved_amount += $row['amount'];
+            break;
+        case 'rejected':
+            $rejected_count++;
+            break;
+    }
+}
+
+// Generate filename
+$employee_text = ($employee_filter === 'all') ? 'All_Employees' : count($selected_employees) . '_Selected_Employees';
+$filename = "Claims_Report_{$employee_text}_{$start_date}_to_{$end_date}.xls";
+
+// Set headers for Excel download
+header('Content-Type: application/vnd.ms-excel');
+header('Content-Disposition: attachment; filename="' . $filename . '"');
+header('Cache-Control: must-revalidate, post-check=0, pre-check=0');
+header('Expires: 0');
+
+// Start Excel output
+echo '<html><head><meta charset="UTF-8"></head><body>';
+echo '<table border="1">';
+
+// Report Header
+echo '<tr><td colspan="13" style="font-size: 16px; font-weight: bold; text-align: center;">CLAIMS SUMMARY REPORT</td></tr>';
+echo '<tr><td colspan="13"></td></tr>';
+
+// Report Parameters
+echo '<tr><td><strong>Report Parameters:</strong></td><td colspan="12"></td></tr>';
+echo '<tr><td>Date Range:</td><td colspan="12">' . htmlspecialchars($start_date) . ' to ' . htmlspecialchars($end_date) . '</td></tr>';
+echo '<tr><td>Employee Filter:</td><td colspan="12">' . htmlspecialchars($employee_filter === 'all' ? 'All Employees' : count($selected_employees) . ' Selected Employees') . '</td></tr>';
+echo '<tr><td>Status Filter:</td><td colspan="12">' . htmlspecialchars($report_status === 'all' ? 'All Statuses' : $report_status) . '</td></tr>';
+echo '<tr><td>Category Filter:</td><td colspan="12">' . htmlspecialchars($report_category === 'all' ? 'All Categories' : $report_category) . '</td></tr>';
+echo '<tr><td>Generated on:</td><td colspan="12">' . date('Y-m-d H:i:s') . '</td></tr>';
+echo '<tr><td colspan="13"></td></tr>';
+
+// Summary Statistics
+echo '<tr><td colspan="13" style="font-weight: bold; background-color: #f0f0f0;">SUMMARY STATISTICS</td></tr>';
+echo '<tr><td>Total Claims:</td><td>' . $total_claims . '</td><td colspan="11"></td></tr>';
+echo '<tr><td>Pending Claims:</td><td>' . $pending_count . '</td><td colspan="11"></td></tr>';
+echo '<tr><td>Approved Claims:</td><td>' . $approved_count . '</td><td colspan="11"></td></tr>';
+echo '<tr><td>Rejected Claims:</td><td>' . $rejected_count . '</td><td colspan="11"></td></tr>';
+echo '<tr><td>Total Claimed Amount:</td><td>RM ' . number_format($total_amount, 2) . '</td><td colspan="11"></td></tr>';
+echo '<tr><td>Total Approved Amount:</td><td>RM ' . number_format($approved_amount, 2) . '</td><td colspan="11"></td></tr>';
+echo '<tr><td colspan="13"></td></tr>';
+
+// Column Headers
+echo '<tr style="background-color: #d9d9d9; font-weight: bold;">';
+echo '<td>Claim ID</td>';
+echo '<td>Employee Username</td>';
+echo '<td>Employee Full Name</td>';
+echo '<td>Category</td>';
+echo '<td>Transaction Date</td>';
+echo '<td>Amount (RM)</td>';
+echo '<td>Invoice Number</td>';
+echo '<td>Notes</td>';
+echo '<td>Attachment</td>';
+echo '<td>Status</td>';
+echo '<td>Created At</td>';
+echo '<td>Rejection Reason</td>';
+echo '<td>Approved At</td>';
+echo '</tr>';
+
+// Data Rows
+if (!empty($claims_data)) {
+    foreach ($claims_data as $row) {
+        echo '<tr>';
+        echo '<td>' . htmlspecialchars($row['claim_id']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['employee_name']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['full_name']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['category']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['transaction_date']) . '</td>';
+        echo '<td>' . number_format($row['amount'], 2) . '</td>';
+        echo '<td>' . htmlspecialchars($row['invoice_number'] ?? '') . '</td>';
+        echo '<td>' . htmlspecialchars($row['notes'] ?? '') . '</td>';
+        echo '<td>' . htmlspecialchars($row['attachment'] ? 'Yes' : 'No') . '</td>';
+        echo '<td>' . htmlspecialchars($row['status']) . '</td>';
+        echo '<td>' . htmlspecialchars($row['created_at'] ?? '') . '</td>';
+        echo '<td>' . htmlspecialchars($row['rejection_reason'] ?? '') . '</td>';
+        echo '<td>' . htmlspecialchars($row['approved_at'] ?? '') . '</td>';
+        echo '</tr>';
+    }
+} else {
+    echo '<tr><td colspan="13" style="text-align: center; font-style: italic;">No claims found for the selected criteria</td></tr>';
+}
+
+// Summary by Category (if data exists)
+if (!empty($claims_data)) {
+    echo '<tr><td colspan="13"></td></tr>';
+    echo '<tr><td colspan="13" style="font-weight: bold; background-color: #f0f0f0;">SUMMARY BY CATEGORY</td></tr>';
+    
+    $category_summary = [];
+    foreach ($claims_data as $row) {
+        $category = $row['category'];
+        if (!isset($category_summary[$category])) {
+            $category_summary[$category] = ['count' => 0, 'amount' => 0, 'approved_amount' => 0];
+        }
+        $category_summary[$category]['count']++;
+        $category_summary[$category]['amount'] += $row['amount'];
+        if (strtolower($row['status']) === 'approved') {
+            $category_summary[$category]['approved_amount'] += $row['amount'];
+        }
+    }
+    
+    echo '<tr style="background-color: #e0e0e0; font-weight: bold;">';
+    echo '<td>Category</td><td>Total Claims</td><td>Total Amount (RM)</td><td>Approved Amount (RM)</td><td colspan="9"></td>';
+    echo '</tr>';
+    
+    foreach ($category_summary as $category => $summary) {
+        echo '<tr>';
+        echo '<td>' . htmlspecialchars($category) . '</td>';
+        echo '<td>' . $summary['count'] . '</td>';
+        echo '<td>' . number_format($summary['amount'], 2) . '</td>';
+        echo '<td>' . number_format($summary['approved_amount'], 2) . '</td>';
+        echo '<td colspan="9"></td>';
+        echo '</tr>';
+    }
+}
+
+echo '</table>';
+echo '</body></html>';
+
+$stmt->close();
+$conn->close();
+exit();
 ?>

@@ -9,10 +9,16 @@ if (!isset($_SESSION['ID'])) {
 }
 
 // Get parameters from URL
-$employee_id = $_GET['employee_id'] ?? null;
+$employee_id = $_GET['employee_id'] ?? $_SESSION['ID']; // Use session ID if no employee_id provided
 $selected_month = $_GET['month'] ?? date('m');
 $selected_year = $_GET['year'] ?? date('Y');
-$export_format = $_GET['format'] ?? 'csv'; // csv or pdf
+$export_format = $_GET['format'] ?? 'csv'; // csv or excel
+
+// Security check: If user is not an admin/employer, they can only export their own data
+$current_user_role = $_SESSION['role'] ?? '';
+if ($current_user_role !== 'Employer' && $employee_id != $_SESSION['ID']) {
+    die('Access denied: You can only export your own attendance data');
+}
 
 // Validate parameters
 if (!$employee_id) {

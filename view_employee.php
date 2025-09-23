@@ -451,20 +451,18 @@ ini_set('display_errors', 1);
                       </tbody>
                   </table>          
                 </div>
-                <div class="tab-pane fade" id="bordered-payroll" role="tabpanel" aria-labelledby="payroll-tab">
+                                <div class="tab-pane fade" id="bordered-document" role="tabpanel" aria-labelledby="document-tab">
                   <table class="table">
                     <thead>
                         <tr>
                             <th scope="col">ID</th>
-                            <th scope="col">Salary Type</th>
-                            <th scope="col">Bank Account Name</th>
-                            <th scope="col">Bank Account No</th>
-                            <th scope="col">Employee Salary</th>
-                            <th scope="col">Bank Name</th>
+                            <th scope="col">Education Level</th>
+                            <th scope="col">IC Picture</th>
+                            <th scope="col">Actions</th>
                         </tr>
                     </thead>
-                      <tbody id="latest-payroll-detail">
-                      <?php
+                    <tbody id="latest-employee-document">
+                    <?php
                         // Include your database connection
                         require('database.php');
 
@@ -475,8 +473,8 @@ ini_set('display_errors', 1);
                             
                             // Prepare the SQL query to select data from the employeelogin table based on the session ID
                             $query = "SELECT *
-                            FROM payroll_detail AS pi
-                            JOIN employeelogin AS el ON pi.payroll_id = el.ID
+                            FROM employee_document AS pi
+                            JOIN employeelogin AS el ON pi.document_id = el.ID
                             WHERE el.ID = ?";
                             // Prepare a statement
                             $stmt = mysqli_prepare($conn, $query);
@@ -495,12 +493,44 @@ ini_set('display_errors', 1);
                                 // Process the result set
                                 while ($row = mysqli_fetch_assoc($result)) {
                                     echo "<tr>";
-                                    echo "<td>{$row['payroll_id']}</td>";
-                                    echo "<td>{$row['salary_type']}</td>";
-                                    echo "<td>{$row['bank_account_name']}</td>";
-                                    echo "<td>{$row['bank_account_no']}</td>";
-                                    echo "<td>{$row['employee_salary']}</td>";
-                                    echo "<td>{$row['bank_name']}</td>";
+                                    echo "<td>{$row['document_id']}</td>";
+                                    echo "<td>{$row['education_level']}</td>";
+                                    
+                                    // Handle IC picture display and download
+                                    $icPicture = $row['ic_picture'];
+                                    if (!empty($icPicture) && file_exists($icPicture)) {
+                                        // Get file extension to determine if it's an image
+                                        $fileExtension = strtolower(pathinfo($icPicture, PATHINFO_EXTENSION));
+                                        $imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp'];
+                                        
+                                        if (in_array($fileExtension, $imageExtensions)) {
+                                            // Display thumbnail for images
+                                            echo "<td>";
+                                            echo "<img src='" . htmlspecialchars($icPicture) . "' alt='IC Picture' style='max-width: 100px; max-height: 100px; cursor: pointer;' onclick='viewImage(\"" . htmlspecialchars($icPicture) . "\")' class='img-thumbnail'>";
+                                            echo "</td>";
+                                        } else {
+                                            // For non-image files
+                                            echo "<td>";
+                                            echo "<i class='bi bi-file-earmark'></i> " . basename($icPicture);
+                                            echo "</td>";
+                                        }
+                                        
+                                        // Action buttons
+                                        echo "<td>";
+                                        if (in_array($fileExtension, $imageExtensions)) {
+                                            echo "<button type='button' class='btn btn-primary btn-sm me-2' onclick='viewImage(\"" . htmlspecialchars($icPicture) . "\")'>"; 
+                                            echo "<i class='bi bi-eye'></i> View";
+                                            echo "</button>";
+                                        }
+                                        echo "<a href='" . htmlspecialchars($icPicture) . "' download class='btn btn-success btn-sm'>";
+                                        echo "<i class='bi bi-download'></i> Download";
+                                        echo "</a>";
+                                        echo "</td>";
+                                    } else {
+                                        echo "<td>No document uploaded</td>";
+                                        echo "<td>-</td>";
+                                    }
+                                    
                                     echo "</tr>";
                                 }
                             } else {
@@ -517,9 +547,9 @@ ini_set('display_errors', 1);
                         // Close the connection
                         mysqli_close($conn);
                         ?>
-                      </tbody>
-                  </table>
-                </div>
+                    </tbody>
+                </table>              
+              </div>
                 <div class="tab-pane fade" id="bordered-document" role="tabpanel" aria-labelledby="document-tab">
                   <table class="table">
                     <thead>
@@ -681,6 +711,49 @@ ini_set('display_errors', 1);
   <!-- Template Main JS File -->
   <script src="assets/js/main.js"></script>
   <script src="assets/js/view_all.js"></script>
+
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="imageModalLabel">IC Picture</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <img id="modalImage" src="" alt="IC Picture" class="img-fluid" style="max-width: 100%; height: auto;">
+        </div>
+        <div class="modal-footer">
+          <a id="downloadLink" href="" download class="btn btn-success">
+            <i class="bi bi-download"></i> Download
+          </a>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function viewImage(imagePath) {
+      // Set the image source in the modal
+      document.getElementById('modalImage').src = imagePath;
+      document.getElementById('downloadLink').href = imagePath;
+      
+      // Show the modal
+      var imageModal = new bootstrap.Modal(document.getElementById('imageModal'));
+      imageModal.show();
+    }
+    
+    // Add error handling for broken images
+    document.addEventListener('DOMContentLoaded', function() {
+      const images = document.querySelectorAll('img[src]');
+      images.forEach(img => {
+        img.onerror = function() {
+          this.style.display = 'none';
+          this.parentNode.innerHTML += '<span class="text-muted"><i class="bi bi-image"></i> Image not found</span>';
+        };
+      });
+    });
+  </script>
 
 
 </body>

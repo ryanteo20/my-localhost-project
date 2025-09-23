@@ -205,10 +205,28 @@ ini_set('display_errors', 1);
   <div class="card">
             <div class="card-body">
               <h5 class="card-title">View All Claim Request</h5>
+
               <?php
                 $user_id = $_SESSION['ID']; // Get the logged-in user's ID
 
-                // Modify query to fetch data for the current user, combining all statuses
+                // Check what attachment column exists in your claims table
+                $check_columns_query = "DESCRIBE claims";
+                $columns_result = mysqli_query($conn, $check_columns_query);
+                $attachment_column = null;
+
+                if ($columns_result) {
+                    while ($column = mysqli_fetch_assoc($columns_result)) {
+                        if (in_array($column['Field'], ['attachment', 'attachment_path', 'attachment_file'])) {
+                            $attachment_column = $column['Field'];
+                            break;
+                        }
+                    }
+                }
+
+                // Use the correct attachment column or null if none exists
+                $attachment_select = $attachment_column ? "la.$attachment_column" : "NULL as attachment";
+
+                // Fixed query without unnecessary GROUP BY
                 $query = "
                     SELECT 
                         el.username,
@@ -218,7 +236,7 @@ ini_set('display_errors', 1);
                         la.amount,
                         la.invoice_number,
                         la.notes,
-                        la.attachment,
+                        $attachment_select as attachment,
                         la.status,
                         la.created_at,
                         la.rejection_reason,
@@ -226,10 +244,15 @@ ini_set('display_errors', 1);
                     FROM employeelogin el
                     INNER JOIN claims la ON el.ID = la.employee_id
                     WHERE el.ID = ?
-                    GROUP BY el.username, la.claim_id, la.category, la.transaction_date, la.amount, la.invoice_number, la.notes, la.attachment, la.status, la.created_at, la.rejection_reason, la.approved_at
+                    ORDER BY la.created_at DESC
                 ";
 
                 $stmt = mysqli_prepare($conn, $query);
+                
+                if (!$stmt) {
+                    die("Query prepare failed: " . mysqli_error($conn) . "<br>Query: " . $query);
+                }
+
                 mysqli_stmt_bind_param($stmt, "i", $user_id);  // Bind the user ID to the query
                 $result = mysqli_stmt_execute($stmt);
                 ?>
@@ -249,7 +272,7 @@ ini_set('display_errors', 1);
                         <th scope="col">Status</th>
                         <th scope="col">Created at</th>
                         <th scope="col">Rejection reason</th>
-                        <th scope="col">Approve at</th>
+                        <th scope="col">Approved at</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -262,19 +285,51 @@ ini_set('display_errors', 1);
                                 echo "<td>" . htmlspecialchars($row['username']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['category']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['transaction_date']) . "</td>";
-                                echo "<td>" . htmlspecialchars($row['amount']) . "</td>";
+                                echo "<td>RM " . htmlspecialchars(number_format($row['amount'], 2)) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['invoice_number']) . "</td>";
                                 echo "<td>" . htmlspecialchars($row['notes']) . "</td>";
+                                
+                                // Handle attachment display
                                 $fullPath = htmlspecialchars($row['attachment']);
-                                if ($fullPath != null) {
-                                    echo "<td><a href='" . $fullPath . "' download='" . pathinfo($fullPath, PATHINFO_FILENAME) . ".pdf'>Download Document</a></td>";
+                                if ($fullPath && !empty($fullPath)) {
+                                    // Check if it's a full path or just filename
+                                    if (strpos($fullPath, 'uploads/') === 0) {
+                                        $download_path = $fullPath;
+                                    } else {
+                                        $download_path = 'uploads/claim_attachments/' . $fullPath;
+                                    }
+                                    
+                                    // Check if file exists
+                                    if (file_exists($download_path)) {
+                                        echo "<td><a href='" . $download_path . "' download class='btn btn-sm btn-outline-primary'><i class='bi bi-download'></i> Download</a></td>";
+                                    } else {
+                                        echo "<td><span class='text-muted'>File not found</span></td>";
+                                    }
                                 } else {
-                                    echo "<td>No document is uploaded.</td>"; // Leave the cell empty if leave_document is null
+                                    echo "<td><span class='text-muted'>No document uploaded</span></td>";
                                 }
-                                echo "<td>" . htmlspecialchars($row['status']) . "</td>";
-                                echo "<td>" . ($row['created_at']) . "</td>";
-                                echo "<td>" . ($row['rejection_reason']) . "</td>";
-                                echo "<td>" . ($row['approved_at']) . "</td>";
+                                
+                                // Status with color coding
+                                $status = htmlspecialchars($row['status']);
+                                $status_class = '';
+                                switch (strtolower($status)) {
+                                    case 'pending':
+                                        $status_class = 'badge bg-warning';
+                                        break;
+                                    case 'approved':
+                                        $status_class = 'badge bg-success';
+                                        break;
+                                    case 'rejected':
+                                        $status_class = 'badge bg-danger';
+                                        break;
+                                    default:
+                                        $status_class = 'badge bg-secondary';
+                                }
+                                echo "<td><span class='" . $status_class . "'>" . $status . "</span></td>";
+                                
+                                echo "<td>" . htmlspecialchars($row['created_at'] ?? '') . "</td>";
+                                echo "<td>" . htmlspecialchars($row['rejection_reason'] ?? '') . "</td>";
+                                echo "<td>" . htmlspecialchars($row['approved_at'] ?? '') . "</td>";
                                 echo "</tr>";
                             }
                         } else {
@@ -321,62 +376,6 @@ ini_set('display_errors', 1);
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script>
-let currentLeaveId = null;  // Global variable to keep track of the current leave ID
-
-function showReviewModal(leaveId) {
-    currentLeaveId = leaveId;
-    $('#rejectionReason').hide();  // Make sure to hide the rejection reason textarea initially
-    $('#submitRejection').hide();  // Hide the submit rejection button initially
-    $('#reviewModal').modal('show');  // Show the modal
-}
-
-function approveReview() {
-    if (currentLeaveId) {
-        updateLeaveStatus(currentLeaveId, 'Approve', '');
-    }
-}
-
-function showRejectionReason() {
-    $('#rejectionReason').show();
-    $('#submitRejection').show();
-}
-
-function rejectReview() {
-    var reason = $('#rejectionReason').val();
-    if (!reason) {
-        alert('Please provide a reason for rejection.');
-        return;
-    }
-    updateLeaveStatus(currentLeaveId, 'Reject', reason);
-}
-
-function updateLeaveStatus(leaveId, status, reason) {
-    $.ajax({
-        url: 'update_leave_status.php',
-        type: 'POST',
-        data: {
-            leaveId: leaveId,
-            status: status,
-            reason: reason
-        },
-        success: function(response) {
-            if (response.trim() === "Success") {
-                alert(`Leave request ${status.toLowerCase()} successfully!`);
-                $('#reviewModal').modal('hide');  // Close the modal
-                location.reload();  // Refresh the page to show updated status
-            } else {
-                alert(`Failed to ${status.toLowerCase()} leave. Server response: ` + response);
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error(`An error occurred: ${xhr.responseText}`);
-            alert(`An error occurred while processing the leave. Please try again.`);
-        }
-    });
-}
-</script>
-
 
 </body>
 
