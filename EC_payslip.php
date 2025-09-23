@@ -263,7 +263,7 @@ if ($employee_id && $year) {
   <header id="header" class="header fixed-top d-flex align-items-center">
 
     <div class="d-flex align-items-center justify-content-between">
-      <a href="index.php" class="logo d-flex align-items-center">
+      <a href="index2.php" class="logo d-flex align-items-center">
         <img src="assets/img/logo.png" alt="">
         <span class="d-none d-lg-block">SMEasyHR - Employee</span>
       </a>
@@ -297,15 +297,6 @@ if ($employee_id && $year) {
             <li class="dropdown-header">
             <h6><?php echo $_SESSION['username']; ?></h6>
               <span><?php echo $_SESSION['role']; ?></span>
-            </li>
-            <li>
-              <hr class="dropdown-divider">
-            </li>
-            <li>
-              <a class="dropdown-item d-flex align-items-center" href="pages-faq.html">
-                <i class="bi bi-question-circle"></i>
-                <span>Need Help?</span>
-              </a>
             </li>
             <li>
               <hr class="dropdown-divider">

@@ -315,15 +315,6 @@ $previous_approved_claims = $previous_approved_claims_result['previous_approved_
             <li>
               <hr class="dropdown-divider">
             </li>
-            <li>
-              <a class="dropdown-item d-flex align-items-center" href="pages-faq.html">
-                <i class="bi bi-question-circle"></i>
-                <span>Need Help?</span>
-              </a>
-            </li>
-            <li>
-              <hr class="dropdown-divider">
-            </li>
 
             <li>
               <a class="dropdown-item d-flex align-items-center" href="logout.php">
